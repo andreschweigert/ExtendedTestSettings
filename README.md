@@ -28,8 +28,7 @@ Blendet eine kontext-sensitive Tastatur mit Sonderzeichen ein, die während der 
   - TinyMCE
   - CKEditor 4/5
   - `contentEditable`-Felder
-- Tastenkürzel: `Alt + S`
-
+    
 ---
 
 ### 3. ExamGuard – Eingabeeinschränkungen
@@ -50,7 +49,6 @@ Sichert den Prüfungsmodus durch Einschränkung von Interaktionen.
 1. Das Repository in folgendes Verzeichnis klonen:
 
    Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/
-
 
 
 2. Plugin im ILIAS-Pluginmanager installieren und aktivieren.
