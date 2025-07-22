@@ -1,0 +1,249 @@
+/**
+ * examcalc.css - ExamCalc Styles für ExtendedTestSettings
+ * Saubere CSS-Trennung für bessere Wartbarkeit
+ */
+
+/* ============================================
+   CALCULATOR BUTTON (Floating)
+   ============================================ */
+#calculator-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #005293;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    font-size: 28px;
+    cursor: pointer;
+    z-index: 10000;
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s ease;
+    font-family: system-ui, -apple-system, sans-serif;
+}
+
+#calculator-btn:hover {
+    transform: scale(1.05);
+    background: #003e6b;
+    box-shadow: 0 10px 16px rgba(0, 0, 0, 0.3);
+}
+
+#calculator-btn:active {
+    transform: scale(0.95);
+}
+
+/* ============================================
+   CALCULATOR WINDOW
+   ============================================ */
+#calculator {
+    position: fixed;
+    bottom: 100px;
+    right: 20px;
+    backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid #005293;
+    border-radius: 16px;
+    padding: 16px;
+    z-index: 10000;
+    display: none;
+    width: 290px;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    user-select: none;
+}
+
+/* Dragging state */
+#calculator.dragging {
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    transform: rotate(1deg);
+}
+
+/* ============================================
+   DISPLAY INPUT
+   ============================================ */
+#calculator input {
+    width: 100%;
+    padding: 12px;
+    font-size: 20px;
+    font-weight: 500;
+    border: none;
+    border-radius: 8px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 12px;
+    text-align: right;
+    background: #f8f8f8;
+    color: #333;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    box-sizing: border-box;
+}
+
+#calculator input:focus {
+    outline: none;
+    box-shadow: inset 0 2px 4px rgba(0, 82, 147, 0.2);
+}
+
+/* ============================================
+   BUTTON GRID LAYOUT
+   ============================================ */
+#calculator .buttons {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+}
+
+/* ============================================
+   CALCULATOR BUTTONS
+   ============================================ */
+#calculator .buttons button {
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 500;
+    background-color: #ffffff;
+    border: 1px solid rgba(0, 82, 147, 0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+    font-family: inherit;
+    color: #333;
+    min-height: 44px; /* Touch-friendly */
+}
+
+#calculator .buttons button:hover {
+    background-color: #e8f0fa;
+    border-color: rgba(0, 82, 147, 0.3);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+#calculator .buttons button:active {
+    background-color: #d0e3f7;
+    transform: translateY(0);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   SPECIAL BUTTON TYPES
+   ============================================ */
+
+/* Operator buttons */
+#calculator .buttons button:nth-child(4n+4),
+#calculator .buttons button:nth-child(4n+5) {
+    background-color: #005293;
+    color: white;
+    font-weight: 600;
+}
+
+#calculator .buttons button:nth-child(4n+4):hover,
+#calculator .buttons button:nth-child(4n+5):hover {
+    background-color: #003e6b;
+}
+
+/* Clear button (AC) */
+#calculator .buttons button[textContent="AC"] {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* Equals button */
+#calculator .buttons button:contains("=") {
+    background-color: #28a745;
+    color: white;
+    font-weight: 600;
+}
+
+/* Scientific function buttons */
+#calculator .buttons button.sci {
+    background-color: #6f42c1;
+    color: white;
+    font-size: 14px;
+    display: none; /* Hidden by default */
+}
+
+#calculator .buttons button.sci:hover {
+    background-color: #5a32a3;
+}
+
+/* SCI toggle button */
+#calculator .buttons button:contains("SCI") {
+    background-color: #17a2b8;
+    color: white;
+    font-size: 14px;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+/* Smaller screens */
+@media (max-width: 768px) {
+    #calculator {
+        width: 250px;
+        right: 10px;
+        bottom: 80px;
+    }
+    
+    #calculator-btn {
+        right: 10px;
+        width: 50px;
+        height: 50px;
+        font-size: 24px;
+    }
+    
+    #calculator .buttons button {
+        padding: 10px;
+        font-size: 14px;
+        min-height: 40px;
+    }
+    
+    #calculator input {
+        font-size: 18px;
+        padding: 10px;
+    }
+}
+
+/* Very small screens */
+@media (max-width: 480px) {
+    #calculator {
+        width: calc(100vw - 20px);
+        right: 10px;
+        left: 10px;
+        bottom: 10px;
+    }
+    
+    #calculator-btn {
+        bottom: 10px;
+        right: 10px;
+    }
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+/* Focus indicators */
+#calculator .buttons button:focus {
+    outline: 2px solid #005293;
+    outline-offset: 2px;
+}
+
+#calculator-btn:focus {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    #calculator {
+        background: white;
+        border-color: black;
+        border-width: 3px;
+    }
+    
+    #calculator .buttons button {
+        border-color: black;
+        border-width: 2px;
+    }
+}

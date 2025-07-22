@@ -1,0 +1,707 @@
+<?php
+/**
+ * @ilCtrl_isCalledBy ilExtendedTestSettingsAdvancedGUI: ilUIPluginRouterGUI
+ */
+class ilExtendedTestSettingsAdvancedGUI
+{
+    // ============================================
+    // 🔧 DEBUG-SCHALTER 
+    // ============================================
+    // false = PRODUCTION (keine Logs, keine Debug-Infos)
+    // true  = DEBUG (alle Logs und Debug-Ausgaben)
+    // ============================================
+    private const DEBUG_ENABLED = false;
+
+    protected ilCtrl $ctrl;
+    protected ilGlobalTemplateInterface $tpl;
+    protected ilLanguage $lng;
+
+    public function __construct()
+    {
+        global $DIC;
+        $this->ctrl = $DIC->ctrl();
+        $this->tpl = $DIC->ui()->mainTemplate();
+        $this->lng = $DIC->language();
+    }
+
+    public function executeCommand(): void
+    {
+        $cmd = $this->ctrl->getCmd("show");
+        $this->performCommand($cmd);
+    }
+
+    public function performCommand(string $cmd): void
+    {
+        switch ($cmd) {
+            case "show":
+                $this->show();
+                break;
+            case "saveSettings":
+                $this->saveSettings();
+                break;
+            default:
+                $this->show();
+                break;
+        }
+
+        $this->tpl->printToStdout();
+    }
+
+    protected function show(): void
+    {
+        $ref_id = (int) ($_GET["ref_id"] ?? 0);
+        if ($ref_id <= 0) {
+            $this->tpl->setContent('<div class="alert alert-danger">❌ Kein gültiger Test ausgewählt.</div>');
+            return;
+        }
+
+        // Prüfe ob es ein Test-Objekt ist
+        $obj_id = ilObject::_lookupObjectId($ref_id);
+        if (ilObject::_lookupType($obj_id) !== 'tst') {
+            $this->tpl->setContent('<div class="alert alert-danger">❌ Das ausgewählte Objekt ist kein Test.</div>');
+            return;
+        }
+
+        // Debug-Informationen (optional ein/ausblenden)
+        $show_debug = isset($_GET['debug']) && $_GET['debug'] === '1';
+        $debug_info = $show_debug ? $this->generateDebugInfo($ref_id, $obj_id) : '';
+
+        // Navigation einrichten
+        $this->setupNavigation($ref_id);
+
+        // Formular generieren
+        $html = $debug_info . $this->generateCompleteForm($ref_id);
+
+        $this->tpl->setTitle("Erweiterte Test-Einstellungen");
+        $this->tpl->setDescription("Konfiguration für alle verfügbaren Prüfungs-Features");
+        $this->tpl->setContent($html);
+    }
+
+    /**
+     * Generiert Debug-Informationen
+     */
+    private function generateDebugInfo(int $ref_id, int $obj_id): string
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        $debug_lines = [];
+        $debug_lines[] = "🔍 <strong>Debug-Informationen:</strong>";
+        $debug_lines[] = "ref_id: $ref_id";
+        $debug_lines[] = "obj_id (test_id): $obj_id";
+        $debug_lines[] = "Aktueller User: " . ($DIC->user()->getLogin() ?? 'Unbekannt');
+
+        // Prüfe alle Module-Tabellen
+        $tables = [
+            'examcalc_settings' => ['enabled'],
+            'examguard_settings' => ['enabled'], 
+            'examsymbols_settings' => ['enabled', 'template']
+        ];
+
+        foreach ($tables as $table => $fields) {
+            try {
+                if (count($fields) > 1) {
+                    // Mehrere Felder (z.B. ExamSymbols)
+                    $field_list = implode(', ', $fields);
+                    $query = "SELECT $field_list FROM $table WHERE test_id = %s";
+                    $result = $db->queryF($query, ['integer'], [$obj_id]);
+                    
+                    if ($row = $db->fetchAssoc($result)) {
+                        $status_parts = [];
+                        foreach ($fields as $field) {
+                            $value = $row[$field] ?? 'NULL';
+                            if ($field === 'enabled') {
+                                $value = $value ? '✅ aktiviert' : '❌ deaktiviert';
+                            }
+                            $status_parts[] = "$field: $value";
+                        }
+                        $debug_lines[] = "$table: " . implode(', ', $status_parts);
+                    } else {
+                        $debug_lines[] = "$table: ❌ kein Eintrag";
+                    }
+                } else {
+                    // Ein Feld (z.B. ExamCalc, ExamGuard)
+                    $field = $fields[0];
+                    $query = "SELECT $field FROM $table WHERE test_id = %s";
+                    $result = $db->queryF($query, ['integer'], [$obj_id]);
+                    
+                    if ($row = $db->fetchAssoc($result)) {
+                        $status = $row[$field] ? '✅ aktiviert' : '❌ deaktiviert';
+                        $debug_lines[] = "$table: $status";
+                    } else {
+                        $debug_lines[] = "$table: ❌ kein Eintrag";
+                    }
+                }
+            } catch (Exception $e) {
+                $debug_lines[] = "$table: ❌ Fehler - " . $e->getMessage();
+            }
+        }
+
+        // Module-Handler-Status prüfen
+        try {
+            $module_handlers = $this->loadModuleHandlersDirect();
+            $available_modules = array_keys($module_handlers);
+            $debug_lines[] = "Verfügbare Module: " . (empty($available_modules) ? 'Keine' : implode(', ', $available_modules));
+            
+            foreach ($module_handlers as $name => $handler) {
+                $class = get_class($handler);
+                $methods = method_exists($handler, 'getInfo') && method_exists($handler, 'saveSettings') ? '✅' : '❌';
+                $debug_lines[] = "- $name: $class $methods";
+            }
+        } catch (Exception $e) {
+            $debug_lines[] = "Module-Handler: ❌ Fehler - " . $e->getMessage();
+        }
+
+        $debug_text = implode("<br>", $debug_lines);
+
+        return <<<HTML
+<div class="alert alert-warning" style="margin-bottom: 2rem; font-family: monospace; font-size: 12px;">
+    $debug_text
+    <hr>
+    <a href="{$_SERVER['REQUEST_URI']}&debug=0" style="color: #856404;">Debug ausblenden</a>
+</div>
+HTML;
+    }
+
+    /**
+     * Navigation einrichten - Breadcrumb und Zurück-Button (Robust)
+     */
+    private function setupNavigation(int $ref_id): void
+    {
+        global $DIC, $ilLocator, $ilTabs;
+
+        try {
+            $test_title = ilObject::_lookupTitle(ilObject::_lookupObjectId($ref_id));
+            
+            // 1. BREADCRUMB / LOCATOR (mehrere Varianten probieren)
+            $locator = null;
+            if (isset($ilLocator)) {
+                $locator = $ilLocator;
+            } elseif ($DIC->offsetExists('ilLocator')) {
+                $locator = $DIC['ilLocator'];
+            } elseif ($DIC->offsetExists('locator')) {
+                $locator = $DIC['locator'];
+            }
+            
+            if ($locator) {
+                // Repository-Items hinzufügen (Pfad bis zum Test)
+                if (method_exists($locator, 'addRepositoryItems')) {
+                    $locator->addRepositoryItems($ref_id);
+                } else {
+                    // Fallback: Manuell hinzufügen
+                    $locator->addItem(
+                        "Repository", 
+                        "ilias.php?baseClass=ilRepositoryGUI"
+                    );
+                    $locator->addItem(
+                        $test_title, 
+                        "ilias.php?ref_id=" . $ref_id . "&baseClass=ilRepositoryGUI"
+                    );
+                }
+                
+                // Aktueller Bereich
+                $locator->addItem("Erweiterte Einstellungen", "");
+            }
+
+            // 2. TABS UND ZURÜCK-BUTTON (mehrere Varianten)
+            $tabs = null;
+            if (isset($ilTabs)) {
+                $tabs = $ilTabs;
+            } elseif ($DIC->offsetExists('ilTabs')) {
+                $tabs = $DIC['ilTabs'];
+            } elseif ($DIC->offsetExists('tabs')) {
+                $tabs = $DIC['tabs'];
+            }
+            
+            if ($tabs) {
+                // ZURÜCK-BUTTON (sehr prominent)
+                $back_url = "ilias.php?ref_id=" . $ref_id . "&baseClass=ilRepositoryGUI";
+                $tabs->setBackTarget("←  " . $test_title, $back_url);
+                
+                // Main-Tab für diese Seite
+                $this->ctrl->setParameter($this, "ref_id", $ref_id);
+                $tabs->addTab(
+                    "extended_settings", 
+                    "Erweiterte Einstellungen", 
+                    $this->ctrl->getLinkTarget($this, "show")
+                );
+                $tabs->activateTab("extended_settings");
+            }
+
+            // 3. TITEL UND BESCHREIBUNG (Template-Ebene)
+            $this->tpl->setTitle("Erweiterte Test-Einstellungen");
+            $this->tpl->setDescription("Konfiguration für spezielle Prüfungs-Features");
+        } catch (Exception $e) {
+            if (self::DEBUG_ENABLED) {
+                error_log("[ExtendedTestSettings] Navigation-Setup Fehler: " . $e->getMessage());
+            }
+        }
+        
+    } 
+
+    /**
+     * Generiert das komplette Formular mit allen Modulen
+     */
+    private function generateCompleteForm(int $ref_id): string
+    {
+        $form_action = "ilias.php?baseClass=iluipluginroutergui&cmdClass=ilExtendedTestSettingsAdvancedGUI&cmd=saveSettings&ref_id=$ref_id";
+        
+        // Header-Info
+        $header_info = $this->generateHeaderInfo();
+        
+        // Module-Sektionen generieren
+        $modules_html = $this->generateAllModuleSections($ref_id);
+        
+        // Debug-Link
+        $debug_link = !isset($_GET['debug']) || $_GET['debug'] !== '1' 
+            ? "<p style='text-align: right; margin-top: 1rem;'><a href='{$_SERVER['REQUEST_URI']}&debug=1' style='color: #6c757d; font-size: 0.9em;'>🔍 Debug-Informationen anzeigen</a></p>"
+            : '';
+
+        return <<<HTML
+<div class="exam-settings-container">
+    $header_info
+
+    <form method="post" action="$form_action" id="extended-test-settings-form">
+        $modules_html
+        
+        <div class="form-actions" style="text-align: right; padding: 1.5rem 0; border-top: 1px solid #dee2e6; margin-top: 2rem;">
+            <button type="submit" class="btn btn-primary" style="background: #0d6efd; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; font-weight: 500; cursor: pointer; transition: all 0.2s;">
+                💾 Einstellungen speichern
+            </button>
+        </div>
+        
+        <input type="hidden" name="ref_id" value="$ref_id">
+    </form>
+    
+    $debug_link
+</div>
+
+<style>
+.exam-settings-container {
+    max-width: 1000px;
+    margin: 0;
+    padding: 0;
+}
+
+.btn:hover {
+    background: #0b5ed7 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075) !important;
+}
+
+.plugin-section {
+    transition: all 0.15s ease;
+    margin-bottom: 1.5rem;
+    padding: 1.5rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    background: #ffffff;
+}
+
+.plugin-section:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0.125rem 0.5rem rgba(0,0,0,0.15);
+    border-color: #0d6efd;
+}
+</style>
+
+<script>
+// Form-Verbesserungen
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('extended-test-settings-form');
+    if (form) {
+        // Loading-State für Submit-Button
+        form.addEventListener('submit', function(e) {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.innerHTML = '⏳ Speichere...';
+                submitBtn.style.background = '#6c757d';
+                submitBtn.disabled = true;
+            }
+        });
+        
+        // Änderungen visuell markieren
+        const inputs = form.querySelectorAll('input[type="checkbox"], select');
+        inputs.forEach(input => {
+            input.addEventListener('change', function() {
+                const section = this.closest('.plugin-section');
+                if (section && !section.classList.contains('changed')) {
+                    section.style.borderLeftColor = '#ffc107';
+                    section.style.borderLeftWidth = '4px';
+                    section.classList.add('changed');
+                }
+            });
+        });
+    }
+});
+</script>
+HTML;
+    }
+
+    /**
+     * Header-Info generieren - Dezentes Design
+     */
+    private function generateHeaderInfo(): string
+    {
+        $feature_count = 0;
+        try {
+            $module_handlers = $this->loadModuleHandlersDirect();
+            $feature_count = count($module_handlers);
+        } catch (Exception $e) {
+            // Fallback
+            $feature_count = 2; // ExamCalc + ExamSymbols
+        }
+
+        return <<<HTML
+<div style="margin-bottom: 2rem; padding: 1.5rem; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <h4 style="margin: 0; color: #495057; font-size: 1.1rem;">⚙️ Erweiterte Test-Einstellungen</h4>
+        <small style="color: #6c757d; background: #e9ecef; padding: 0.25rem 0.5rem; border-radius: 3px; font-weight: 500;">
+            ExtendedTestSettings v1.0
+        </small>
+    </div>
+    <p style="color: #6c757d; margin: 0; font-size: 0.9rem;">
+        Hier können Sie spezielle Funktionen für diese Prüfung aktivieren. 
+        <strong>$feature_count Module</strong> sind verfügbar und die Einstellungen gelten nur für diesen Test.
+    </p>
+</div>
+HTML;
+    }
+
+    /**
+     * Alle Modul-Sektionen generieren
+     */
+    private function generateAllModuleSections(int $ref_id): string
+    {
+        $html_sections = '';
+
+        try {
+            // Module-Handler direkt laden (ohne UIHookGUI)
+            $module_handlers = $this->loadModuleHandlersDirect();
+
+            if (empty($module_handlers)) {
+                return $this->generateNoModulesMessage();
+            }
+
+            // Jedes verfügbare Modul durchgehen
+            foreach ($module_handlers as $moduleName => $handler) {
+                if (!$handler || !method_exists($handler, 'getInfo') || !method_exists($handler, 'getSettingsHTML')) {
+                    continue;
+                }
+
+                $info = $handler->getInfo();
+                $settings_html = $handler->getSettingsHTML($ref_id);
+                
+                $html_sections .= $this->generateModuleSection($info, $settings_html);
+            }
+
+        } catch (Exception $e) {
+            if (self::DEBUG_ENABLED) {
+                error_log("[ExtendedTestSettings] Fehler beim Generieren der Module: " . $e->getMessage());
+            }
+            
+            // Fallback: Manuelle Module
+            $html_sections .= $this->generateFallbackModules($ref_id);
+        }
+
+        return $html_sections ?: $this->generateNoModulesMessage();
+    }
+
+    /**
+     * Module-Handler direkt laden (ohne UIHookGUI-Abhängigkeit)
+     */
+    private function loadModuleHandlersDirect(): array
+    {
+        $plugin_path = "./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings";
+        $module_handlers = [];
+
+        // ExamCalc Handler laden
+        $examcalc_path = __DIR__ . "/ExamCalc/class.ilExamCalcHandler.php";
+        if (file_exists($examcalc_path)) {
+            require_once $examcalc_path;
+            $module_handlers['examcalc'] = new ilExamCalcHandler($plugin_path);
+        }
+
+        // ExamSymbols Handler laden (mit Config)
+        $examsymbols_path = __DIR__ . "/ExamSymbols/class.ilExamSymbolsHandler.php";
+        $examsymbols_config_path = __DIR__ . "/ExamSymbols/class.ilExamSymbolsConfig.php";
+        
+        if (file_exists($examsymbols_path) && file_exists($examsymbols_config_path)) {
+            require_once $examsymbols_config_path;
+            require_once $examsymbols_path;
+            $module_handlers['examsymbols'] = new ilExamSymbolsHandler($plugin_path);
+        }
+
+        // ExamGuard Handler laden (falls vorhanden)
+        $examguard_path = __DIR__ . "/ExamGuard/class.ilExamGuardHandler.php";
+        if (file_exists($examguard_path)) {
+            require_once $examguard_path;
+            $module_handlers['examguard'] = new ilExamGuardHandler($plugin_path);
+        }
+
+        if (self::DEBUG_ENABLED) {
+            error_log("[ExtendedTestSettings] AdvancedGUI - Module direkt geladen: " . implode(', ', array_keys($module_handlers)));
+        }
+        return $module_handlers;
+    }
+
+    /**
+     * Einzelne Modul-Sektion generieren
+     */
+    private function generateModuleSection(array $info, string $settings_html): string
+    {
+        $title = htmlspecialchars($info['title'] ?? 'Unbekanntes Modul');
+        $icon = $info['icon'] ?? '⚙️';
+        $description = htmlspecialchars($info['description'] ?? '');
+        $version = $info['version'] ?? '1.0';
+        
+        // Features-Liste (falls vorhanden)
+        $features_html = '';
+        if (!empty($info['features']) && is_array($info['features'])) {
+            $features_html = '<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e9ecef;"><small style="color: #6c757d; font-weight: 500;">Verfügbare Features:</small><ul style="margin: 0.5rem 0 0 1rem; color: #6c757d; font-size: 0.85rem;">';
+            foreach ($info['features'] as $feature) {
+                $features_html .= '<li style="margin-bottom: 0.15rem;">✓ ' . htmlspecialchars($feature) . '</li>';
+            }
+            $features_html .= '</ul></div>';
+        }
+
+        return <<<HTML
+        <div class="plugin-section">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                <h3 style="margin: 0; color: #495057; display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 600;">
+                    <span style="font-size: 1.25rem;">$icon</span> 
+                    $title
+                </h3>
+                <span style="background: #f8f9fa; color: #6c757d; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500;">
+                    $version
+                </span>
+            </div>
+            
+            <p style="color: #6c757d; margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.4;">
+                $description
+            </p>
+            
+            <div style="background: #f8f9fa; padding: 1.25rem; border-radius: 0.375rem; border-left: 3px solid #0d6efd;">
+                $settings_html
+            </div>
+            
+            $features_html
+        </div>
+HTML;
+    }
+
+    /**
+     * Fallback wenn keine Module gefunden
+     */
+    private function generateNoModulesMessage(): string
+    {
+        return <<<HTML
+        <div style="text-align: center; padding: 3rem 2rem; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 0.5rem; color: #6c757d;">
+            <h4 style="color: #495057; margin-bottom: 1rem;">⚠️ Keine Module verfügbar</h4>
+            <p style="margin-bottom: 1.5rem;">Es wurden keine Prüfungs-Module gefunden. Stellen Sie sicher, dass die Handler-Klassen korrekt installiert sind:</p>
+            <div style="text-align: left; display: inline-block; background: white; padding: 1rem; border-radius: 0.375rem; border: 1px solid #e9ecef;">
+                <code style="display: block; margin-bottom: 0.5rem;">classes/ExamCalc/class.ilExamCalcHandler.php</code>
+                <code style="display: block; margin-bottom: 0.5rem;">classes/ExamSymbols/class.ilExamSymbolsHandler.php</code>
+                <code style="display: block;">classes/ExamGuard/class.ilExamGuardHandler.php</code>
+            </div>
+        </div>
+HTML;
+    }
+
+    /**
+     * Fallback Module (falls UIHookGUI nicht funktioniert)
+     */
+    private function generateFallbackModules(int $ref_id): string
+    {
+        // ExamCalc Fallback
+        $examcalc_enabled = $this->getFallbackExamCalcStatus($ref_id);
+        $examcalc_checked = $examcalc_enabled ? 'checked' : '';
+        
+        // ExamSymbols Fallback
+        $examsymbols_data = $this->getFallbackExamSymbolsStatus($ref_id);
+        $examsymbols_checked = $examsymbols_data['enabled'] ? 'checked' : '';
+        $examsymbols_template = $examsymbols_data['template'];
+
+        return <<<HTML
+        <div class="plugin-section">
+            <h3 style="margin-top: 0; color: #495057; font-size: 1.1rem; font-weight: 600;">🧮 Wissenschaftlicher Taschenrechner</h3>
+            <p style="color: #6c757d; margin-bottom: 1rem; font-size: 0.9rem;">Wissenschaftlicher Taschenrechner für Prüfungen mit Trigonometrie, Wurzeln, Potenzen etc.</p>
+            <div style="background: #f8f9fa; padding: 1.25rem; border-radius: 0.375rem;">
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" name="examcalc_enabled" value="1" $examcalc_checked style="transform: scale(1.1);">
+                        <strong>Taschenrechner aktivieren</strong>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="plugin-section">
+            <h3 style="margin-top: 0; color: #495057; font-size: 1.1rem; font-weight: 600;">📝 Sonderzeichen-Palette</h3>
+            <p style="color: #6c757d; margin-bottom: 1rem; font-size: 0.9rem;">Palette mit Sonderzeichen für verschiedene Fachbereiche</p>
+            <div style="background: #f8f9fa; padding: 1.25rem; border-radius: 0.375rem;">
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" name="examsymbols_enabled" value="1" $examsymbols_checked style="transform: scale(1.1);">
+                        <strong>Sonderzeichen aktivieren</strong>
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="examsymbols_template" style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #495057;">Vorlage wählen:</label>
+                    <select name="examsymbols_template" id="examsymbols_template" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.375rem;">
+                        <option value="math" ${ $examsymbols_template === 'math' ? 'selected' : '' }>Mathematik/Wissenschaft</option>
+                        <option value="german" ${ $examsymbols_template === 'german' ? 'selected' : '' }>Deutsch</option>
+                        <option value="spanish" ${ $examsymbols_template === 'spanish' ? 'selected' : '' }>Spanisch</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+HTML;
+    }
+
+    /**
+     * Fallback ExamCalc Status
+     */
+    private function getFallbackExamCalcStatus(int $ref_id): bool
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        try {
+            $test_id = ilObject::_lookupObjectId($ref_id);
+            $query = "SELECT enabled FROM examcalc_settings WHERE test_id = %s";
+            $result = $db->queryF($query, ['integer'], [$test_id]);
+
+            if ($row = $db->fetchAssoc($result)) {
+                return (bool) $row['enabled'];
+            }
+        } catch (Exception $e) {
+            if (self::DEBUG_ENABLED) {
+                error_log("[ExtendedTestSettings] Fallback ExamCalc Status Fehler: " . $e->getMessage());
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Fallback ExamSymbols Status
+     */
+    private function getFallbackExamSymbolsStatus(int $ref_id): array
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        try {
+            $test_id = ilObject::_lookupObjectId($ref_id);
+            $query = "SELECT enabled, template FROM examsymbols_settings WHERE test_id = %s";
+            $result = $db->queryF($query, ['integer'], [$test_id]);
+
+            if ($row = $db->fetchAssoc($result)) {
+                return [
+                    'enabled' => (bool) $row['enabled'],
+                    'template' => $row['template'] ?? 'math'
+                ];
+            }
+        } catch (Exception $e) {
+            if (self::DEBUG_ENABLED) {
+                error_log("[ExtendedTestSettings] Fallback ExamSymbols Status Fehler: " . $e->getMessage());
+            }
+        }
+
+        return ['enabled' => false, 'template' => 'math'];
+    }
+
+    /**
+     * Einstellungen speichern
+     */
+    public function saveSettings(): void
+    {
+        $ref_id = (int) ($_POST["ref_id"] ?? $_GET["ref_id"] ?? 0);
+
+        if ($ref_id <= 0) {
+            $this->tpl->setOnScreenMessage('failure', '❌ Kein gültiger Test ausgewählt.');
+            $this->ctrl->redirect($this, "show");
+            return;
+        }
+
+        try {
+            // Module-Handler direkt laden und speichern
+            $module_handlers = $this->loadModuleHandlersDirect();
+            $results = [];
+
+            foreach ($module_handlers as $moduleName => $handler) {
+                try {
+                    if (method_exists($handler, 'saveSettings')) {
+                        $success = $handler->saveSettings($ref_id, $_POST);
+                        $results[$moduleName] = $success;
+                    } else {
+                        $results[$moduleName] = false;
+                        error_log("[ExtendedTestSettings] Handler '$moduleName' hat keine saveSettings() Methode");
+                    }
+                } catch (Exception $e) {
+                    $results[$moduleName] = false;
+                    error_log("[ExtendedTestSettings] Fehler beim Speichern von '$moduleName': " . $e->getMessage());
+                }
+            }
+
+            $success_modules = array_filter($results);
+            $failed_modules = array_diff_key($results, $success_modules);
+
+            $this->ctrl->setParameter($this, "ref_id", $ref_id);
+
+            // Success-Message zusammenstellen
+            if (!empty($success_modules)) {
+                $success_names = array_keys($success_modules);
+                $success_text = $this->formatModuleNames($success_names);
+                $this->tpl->setOnScreenMessage('success', "✅ Einstellungen erfolgreich gespeichert für: $success_text");
+            }
+
+            // Fehler-Message zusammenstellen
+            if (!empty($failed_modules)) {
+                $failed_names = array_keys($failed_modules);
+                $failed_text = $this->formatModuleNames($failed_names);
+                $this->tpl->setOnScreenMessage('failure', "❌ Fehler beim Speichern von: $failed_text");
+            }
+
+            // Keine Module verarbeitet
+            if (empty($results)) {
+                $this->tpl->setOnScreenMessage('info', 'ℹ️ Keine Module zum Speichern gefunden.');
+            }
+
+        } catch (Exception $e) {
+            if (self::DEBUG_ENABLED) {
+                error_log("[ExtendedTestSettings] Fehler beim Speichern: " . $e->getMessage());
+            }
+            $this->tpl->setOnScreenMessage('failure', '❌ Unerwarteter Fehler beim Speichern: ' . $e->getMessage());
+        }
+
+        $this->ctrl->redirect($this, "show");
+    }
+
+    /**
+     * Modul-Namen für Ausgabe formatieren
+     */
+    private function formatModuleNames(array $module_names): string
+    {
+        $formatted = [];
+        foreach ($module_names as $name) {
+            switch (strtolower($name)) {
+                case 'examcalc':
+                    $formatted[] = 'Taschenrechner';
+                    break;
+                case 'examsymbols':
+                    $formatted[] = 'Sonderzeichen';
+                    break;
+                case 'examguard':
+                    $formatted[] = 'Prüfungsschutz';
+                    break;
+                default:
+                    $formatted[] = ucfirst($name);
+                    break;
+            }
+        }
+        
+        return implode(', ', $formatted);
+    }
+}
