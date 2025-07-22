@@ -110,7 +110,7 @@ class ilExamSymbolsHandler
         $tpl->addJavaScript($js_loader_path);
 
         // Template-Pfad und Konfiguration als JavaScript-Variable bereitstellen
-        $template_path = $this->plugin_path . "/templates/symbols_overlay.html";
+        $template_path = ilExamSymbolsPlugin::getInstance()->getPluginWebPath() . "/templates/symbols_overlay.html";
         $symbols_json = json_encode($symbols);
         $templates_json = json_encode($this->getAvailableTemplates());
         
