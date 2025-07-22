@@ -79,40 +79,38 @@ class ilExamCalcHandler
      * Injiziert alle nötigen Assets (CSS, JS, HTML) in Template
      */
     public function injectAssets(ilGlobalTemplateInterface $tpl, int $ref_id): void
-    {
-        if (!$this->isEnabled($ref_id) || !$this->isTestPlayerContext()) {
-            return;
-        }
-
-        // Debug-Logging
-        $tpl->addOnLoadCode("
-            if (typeof window.ecLog === 'undefined') {
-                window.ecLog = function(msg) { 
-                    console.log('[ExamCalc] ' + msg); 
-                };
-            }
-            ecLog('🧮 ExamCalc wird geladen für ref_id: $ref_id');
-        ");
-
-        // CSS laden
-        $css_path = $this->plugin_path . "/css/examcalc.css";
-        $tpl->addCss($css_path);
-
-        // JavaScript laden
-        $js_calc_path = $this->plugin_path . "/js/examcalc/calculator.js";
-        $js_loader_path = $this->plugin_path . "/js/examcalc/examcalc-loader.js";
-        
-        $tpl->addJavaScript($js_calc_path);
-        $tpl->addJavaScript($js_loader_path);
-
-        // Template-Pfad als JavaScript-Variable bereitstellen
-        $template_path = $this->plugin_path . "/templates/calculator_overlay.html";
-        $tpl->addOnLoadCode("
-            window.ExamCalc = window.ExamCalc || {};
-            window.ExamCalc.templatePath = '$template_path';
-            ecLog('✅ ExamCalc Assets geladen');
-        ");
+{
+    if (!$this->isEnabled($ref_id) || !$this->isTestPlayerContext()) {
+        return;
     }
+
+    // Debug-Logging vorbereiten
+    $tpl->addOnLoadCode("
+        if (typeof window.ecLog === 'undefined') {
+            window.ecLog = function(msg) { 
+                console.log('[ExamCalc] ' + msg); 
+            };
+        }
+        ecLog('🧮 ExamCalc wird geladen für ref_id: $ref_id');
+    ");
+
+    // CSS einbinden
+    $tpl->addCss("./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/css/examcalc.css");
+
+    // JavaScript einbinden
+    $tpl->addJavaScript("./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/js/examcalc/calculator.js");
+    $tpl->addJavaScript("./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/js/examcalc/examcalc-loader.js");
+
+    // Template-URL bereitstellen
+    $template_path = "./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/templates/calculator_overlay.html";
+    $tpl->addOnLoadCode("
+        window.ExamCalc = window.ExamCalc || {};
+        window.ExamCalc.templatePath = '$template_path';
+        ecLog('📦 Template-Pfad gesetzt: ' + window.ExamCalc.templatePath);
+    ");
+}
+
+
 
     /**
      * Speichert ExamCalc-Einstellungen

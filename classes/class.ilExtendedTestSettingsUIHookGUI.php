@@ -124,19 +124,122 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                 ");
             }
 
-            // ExamCalc versuchen
-            $this->tryLoadExamCalc($tpl, $current_ref_id);
+            // Plugin-Pfad einmal definieren
+            $plugin_path = "./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings";
 
-            // ExamSymbols versuchen
-            $this->tryLoadExamSymbols($tpl, $current_ref_id);
+            // ExamCalc laden falls aktiviert
+            if ($this->isExamCalcEnabledDirect($current_ref_id)) {
+                if (self::DEBUG_ENABLED) {
+                    error_log("[ExtendedTestSettings] ✅ ExamCalc aktiviert - lade Assets");
+                    $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamCalc: Aktiviert';");
+                }
+
+                // CSS und JavaScript laden
+                $tpl->addCss($plugin_path . "/css/examcalc.css");
+                $tpl->addJavaScript($plugin_path . "/js/examcalc/calculator.js");
+                $tpl->addJavaScript($plugin_path . "/js/examcalc/examcalc-loader.js");
+
+                // Template-Pfad bereitstellen
+                $template_path = $plugin_path . "/templates/calculator_overlay.html";
+                $tpl->addOnLoadCode("
+                    window.ExamCalc = window.ExamCalc || {};
+                    window.ExamCalc.templatePath = '$template_path';
+                ");
+
+                if (self::DEBUG_ENABLED) {
+                    $tpl->addOnLoadCode("
+                        console.log('[ExamCalc] Assets geladen');
+                        window.etsDebug.innerHTML += '<br>✅ ExamCalc: Assets geladen';
+                    ");
+                }
+            } else {
+                if (self::DEBUG_ENABLED) {
+                    error_log("[ExtendedTestSettings] ExamCalc nicht aktiviert");
+                    $tpl->addOnLoadCode("window.etsDebug && (window.etsDebug.innerHTML += '<br>❌ ExamCalc: Nicht aktiviert');");
+                }
+            }
+
+            // ExamSymbols laden falls aktiviert
+            $examsymbols_config = $this->getExamSymbolsConfigDirect($current_ref_id);
+            if ($examsymbols_config['enabled']) {
+                if (self::DEBUG_ENABLED) {
+                    error_log("[ExtendedTestSettings] ✅ ExamSymbols aktiviert - lade Assets");
+                    $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamSymbols: Aktiviert';");
+                }
+
+                // CSS und JavaScript laden
+                $tpl->addCss($plugin_path . "/css/examsymbols.css");
+                $tpl->addJavaScript($plugin_path . "/js/examsymbols/symbols-manager.js");
+                $tpl->addJavaScript($plugin_path . "/js/examsymbols/examsymbols-loader.js");
+
+                // Template-Pfad und Konfiguration bereitstellen
+                $template_path = $plugin_path . "/templates/symbols_overlay.html";
+                $symbols = $this->getSymbolsForTemplate($examsymbols_config['template']);
+                $symbols_json = json_encode($symbols);
+
+                $tpl->addOnLoadCode("
+                    window.ExamSymbols = window.ExamSymbols || {};
+                    window.ExamSymbols.templatePath = '$template_path';
+                    window.ExamSymbols.config = {
+                        template: '{$examsymbols_config['template']}',
+                        refId: $current_ref_id,
+                        symbols: $symbols_json,
+                        keepOpen: true
+                    };
+                ");
+
+                if (self::DEBUG_ENABLED) {
+                    $tpl->addOnLoadCode("
+                        console.log('[ExamSymbols] Assets geladen');
+                        window.etsDebug.innerHTML += '<br>✅ ExamSymbols: Assets geladen';
+                    ");
+                }
+            } else {
+                if (self::DEBUG_ENABLED) {
+                    error_log("[ExtendedTestSettings] ExamSymbols nicht aktiviert");
+                    $tpl->addOnLoadCode("window.etsDebug && (window.etsDebug.innerHTML += '<br>❌ ExamSymbols: Nicht aktiviert');");
+                }
+            }
+
+            // ExamGuard laden falls aktiviert
+            if ($this->isExamGuardEnabledDirect($current_ref_id)) {
+                if (self::DEBUG_ENABLED) {
+                    error_log("[ExtendedTestSettings] ✅ ExamGuard aktiviert - lade Assets");
+                    $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamGuard: Aktiviert';");
+                }
+
+                // JavaScript laden (kein CSS nötig für ExamGuard)
+                $tpl->addJavaScript($plugin_path . "/js/examguard/examguard.js");
+
+                if (self::DEBUG_ENABLED) {
+                    $tpl->addOnLoadCode("
+                        console.log('[ExamGuard] Assets geladen');
+                        window.etsDebug.innerHTML += '<br>✅ ExamGuard: Assets geladen';
+                    ");
+                }
+            } else {
+                if (self::DEBUG_ENABLED) {
+                    error_log("[ExtendedTestSettings] ExamGuard nicht aktiviert");
+                    $tpl->addOnLoadCode("window.etsDebug && (window.etsDebug.innerHTML += '<br>❌ ExamGuard: Nicht aktiviert');");
+                }
+            }
 
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Asset-Injection abgeschlossen");
+                $tpl->addOnLoadCode("
+                    window.etsDebug.innerHTML += '<br>✅ Alle Module verarbeitet';
+                    setTimeout(() => {
+                        if (window.etsDebug) {
+                            window.etsDebug.style.opacity = '0.3';
+                        }
+                    }, 3000);
+                ");
             }
 
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Asset-Injection Fehler: " . $e->getMessage());
+                $tpl->addOnLoadCode("window.etsDebug && (window.etsDebug.innerHTML += '<br>❌ FEHLER: " . $e->getMessage() . "');");
             }
         }
     }
@@ -303,6 +406,35 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
         }
 
         return ['enabled' => false, 'template' => 'math'];
+    }
+
+    /**
+     * Direkte ExamGuard Datenbankprüfung
+     */
+    private function isExamGuardEnabledDirect(int $ref_id): bool
+    {
+        try {
+            global $DIC;
+            $db = $DIC->database();
+            $test_id = ilObject::_lookupObjectId($ref_id);
+
+            if ($test_id <= 0) {
+                return false;
+            }
+
+            $query = "SELECT enabled FROM examguard_settings WHERE test_id = %s";
+            $result = $db->queryF($query, ['integer'], [$test_id]);
+
+            if ($row = $db->fetchAssoc($result)) {
+                return (bool) $row['enabled'];
+            }
+        } catch (Exception $e) {
+            if (self::DEBUG_ENABLED) {
+                error_log("[ExtendedTestSettings] ExamGuard DB-Check Fehler: " . $e->getMessage());
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -514,7 +646,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
     public function getAvailableModules(): array
     {
-        return ['examcalc', 'examsymbols'];
+        return ['examcalc', 'examsymbols', 'examguard'];
     }
 
     public function saveAllModuleSettings(int $ref_id, array $post_data): array
@@ -526,6 +658,9 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
         // ExamSymbols speichern
         $results['examsymbols'] = $this->saveExamSymbolsDirect($ref_id, $post_data);
+
+        // ExamGuard speichern
+        $results['examguard'] = $this->saveExamGuardDirect($ref_id, $post_data);
 
         return $results;
     }
@@ -573,6 +708,29 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] ExamSymbols Speicher-Fehler: " . $e->getMessage());
+            }
+            return false;
+        }
+    }
+
+    private function saveExamGuardDirect(int $ref_id, array $post_data): bool
+    {
+        try {
+            global $DIC;
+            $db = $DIC->database();
+            $obj_id = ilObject::_lookupObjectId($ref_id);
+            $enabled = isset($post_data['examguard_enabled']) ? 1 : 0;
+
+            $db->replace('examguard_settings', [
+                'test_id' => ['integer', $obj_id]
+            ], [
+                'enabled' => ['integer', $enabled]
+            ]);
+
+            return true;
+        } catch (Exception $e) {
+            if (self::DEBUG_ENABLED) {
+                error_log("[ExtendedTestSettings] ExamGuard Speicher-Fehler: " . $e->getMessage());
             }
             return false;
         }

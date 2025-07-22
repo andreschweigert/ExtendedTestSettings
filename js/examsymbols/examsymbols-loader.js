@@ -121,27 +121,39 @@
     /**
      * Hauptfunktion: ExamSymbols Setup
      */
-    async function setupExamSymbols() {
-        window.esLog('🚀 ExamSymbols Loader gestartet');
+    async function setupExamSymbols(retries = 10) {
+    window.esLog('🚀 ExamSymbols Loader gestartet');
 
-        try {
-            // 1. Template laden
-            const templateLoaded = await loadSymbolsTemplate();
-            
-            if (!templateLoaded) {
-                throw new Error('Template konnte nicht geladen werden');
-            }
-
-            // 2. Kurz warten bis DOM ready
+    try {
+        // Warte, bis templatePath vorhanden ist
+        while ((!window.ExamSymbols || !window.ExamSymbols.templatePath) && retries > 0) {
+            window.esLog('⏳ Warte auf window.ExamSymbols.templatePath...');
             await new Promise(resolve => setTimeout(resolve, 100));
-
-            // 3. Symbol-Manager initialisieren
-            initializeSymbolManager();
-
-        } catch (error) {
-            window.esLog('💥 Kritischer Fehler beim ExamSymbols Setup: ' + error.message);
+            retries--;
         }
+
+        if (!window.ExamSymbols || !window.ExamSymbols.templatePath) {
+            throw new Error('Template-Pfad ist nicht verfügbar');
+        }
+
+        // 1. Template laden
+        const templateLoaded = await loadSymbolsTemplate();
+
+        if (!templateLoaded) {
+            throw new Error('Template konnte nicht geladen werden');
+        }
+
+        // 2. Kurz warten bis DOM ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // 3. Symbol-Manager initialisieren
+        initializeSymbolManager();
+
+    } catch (error) {
+        window.esLog('💥 Kritischer Fehler beim ExamSymbols Setup: ' + error.message);
     }
+}
+
 
     // Event-Listener für Page Load
     if (document.readyState === 'loading') {

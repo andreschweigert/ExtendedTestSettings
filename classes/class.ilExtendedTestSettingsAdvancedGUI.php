@@ -620,24 +620,27 @@ HTML;
         }
 
         try {
-            // Module-Handler direkt laden und speichern
-            $module_handlers = $this->loadModuleHandlersDirect();
-            $results = [];
+    // Module-Handler direkt laden und speichern
+    $module_handlers = $this->loadModuleHandlersDirect();
+    $results = [];
 
-            foreach ($module_handlers as $moduleName => $handler) {
-                try {
-                    if (method_exists($handler, 'saveSettings')) {
-                        $success = $handler->saveSettings($ref_id, $_POST);
-                        $results[$moduleName] = $success;
-                    } else {
-                        $results[$moduleName] = false;
-                        error_log("[ExtendedTestSettings] Handler '$moduleName' hat keine saveSettings() Methode");
-                    }
-                } catch (Exception $e) {
-                    $results[$moduleName] = false;
-                    error_log("[ExtendedTestSettings] Fehler beim Speichern von '$moduleName': " . $e->getMessage());
-                }
+    global $DIC;
+    $post_data = $DIC->http()->request()->getParsedBody(); // ILIAS 9 kompatibel
+
+    foreach ($module_handlers as $moduleName => $handler) {
+        try {
+            if (method_exists($handler, 'saveSettings')) {
+                $success = $handler->saveSettings($ref_id, $post_data);
+                $results[$moduleName] = $success;
+            } else {
+                $results[$moduleName] = false;
+                error_log("[ExtendedTestSettings] Handler '$moduleName' hat keine saveSettings() Methode");
             }
+        } catch (Exception $e) {
+            $results[$moduleName] = false;
+            error_log("[ExtendedTestSettings] Fehler beim Speichern von '$moduleName': " . $e->getMessage());
+        }
+    }
 
             $success_modules = array_filter($results);
             $failed_modules = array_diff_key($results, $success_modules);

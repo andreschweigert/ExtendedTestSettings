@@ -17,15 +17,19 @@
      * Calculator HTML Template laden und einfügen
      */
     async function loadCalculatorTemplate() {
-        try {
-            window.ecLog('🔄 Lade Calculator Template...');
+    try {
+        window.ecLog('🔄 Lade Calculator Template...');
 
-            // Template-Pfad prüfen
-            if (!window.ExamCalc || !window.ExamCalc.templatePath) {
-                throw new Error('Template-Pfad nicht gefunden');
-            }
+        // Template-Pfad prüfen
+        if (!window.ExamCalc || !window.ExamCalc.templatePath) {
+            console.error('[ExamCalc] ❌ Kein templatePath gesetzt! window.ExamCalc:', window.ExamCalc);
+            throw new Error('Template-Pfad nicht gefunden');
+        }
 
-            const response = await fetch(window.ExamCalc.templatePath);
+        window.ecLog(`🌐 Versuche Template zu laden von: "${window.ExamCalc.templatePath}"`);
+
+        const response = await fetch(window.ExamCalc.templatePath);
+
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -113,27 +117,36 @@
     /**
      * Hauptfunktion: Calculator laden
      */
-    async function setupExamCalc() {
-        window.ecLog('🚀 ExamCalc Loader gestartet');
+    async function setupExamCalc(retries = 10) {
+    window.ecLog('🚀 ExamCalc Loader gestartet');
 
-        try {
-            // 1. Template laden
-            const templateLoaded = await loadCalculatorTemplate();
-            
-            if (!templateLoaded) {
-                throw new Error('Template konnte nicht geladen werden');
-            }
-
-            // 2. Kurz warten bis DOM ready
+    try {
+        // Warten bis templatePath verfügbar ist (max. 10 Versuche)
+        while ((!window.ExamCalc || !window.ExamCalc.templatePath) && retries > 0) {
+            window.ecLog('⏳ Warte auf window.ExamCalc.templatePath...');
             await new Promise(resolve => setTimeout(resolve, 100));
-
-            // 3. Calculator initialisieren
-            initializeCalculator();
-
-        } catch (error) {
-            window.ecLog('💥 Kritischer Fehler beim ExamCalc Setup: ' + error.message);
+            retries--;
         }
+
+        if (!window.ExamCalc || !window.ExamCalc.templatePath) {
+            throw new Error('Template-Pfad ist nicht verfügbar');
+        }
+
+        const templateLoaded = await loadCalculatorTemplate();
+
+        if (!templateLoaded) {
+            throw new Error('Template konnte nicht geladen werden');
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        initializeCalculator();
+
+    } catch (error) {
+        window.ecLog('💥 Kritischer Fehler beim ExamCalc Setup: ' + error.message);
     }
+}
+
 
     // Event-Listener für Page Load
     if (document.readyState === 'loading') {
