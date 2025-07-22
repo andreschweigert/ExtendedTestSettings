@@ -18,7 +18,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] modifyGUI: component='$component', part='$part'");
             }
-            
+
             global $ilTabs, $ilCtrl, $DIC;
 
             // 1. Tab in Test-Einstellungen hinzufügen
@@ -30,7 +30,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
             if ($DIC->offsetExists('tpl') && $DIC['tpl'] instanceof ilGlobalTemplateInterface) {
                 $this->injectModuleAssets($DIC['tpl']);
             }
-            
+
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] modifyGUI Fehler: " . $e->getMessage());
@@ -70,14 +70,14 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
             $ilTabs->addSubTab(
                 'extended_test_settings',
-                $this->plugin_object->txt('advanced_settings'),
+                'Erweiterte Test-Einstellungen', // Direkt als Text statt Sprachschlüssel
                 $link
             );
 
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] ✅ Tab hinzugefügt für ref_id: $ref_id");
             }
-            
+
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Tab-Fehler: " . $e->getMessage());
@@ -92,7 +92,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
     {
         try {
             $current_ref_id = (int) ($_GET["ref_id"] ?? 0);
-            
+
             if ($current_ref_id <= 0) {
                 if (self::DEBUG_ENABLED) {
                     error_log("[ExtendedTestSettings] Asset-Injection: Keine ref_id");
@@ -110,7 +110,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] ✅ Testplayer-Kontext erkannt - lade Module");
-                
+
                 // Debug-Box nur im Debug-Modus
                 $tpl->addOnLoadCode("
                     console.log('[ExtendedTestSettings] Asset-Injection gestartet für ref_id: $current_ref_id');
@@ -126,14 +126,14 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
             // ExamCalc versuchen
             $this->tryLoadExamCalc($tpl, $current_ref_id);
-            
+
             // ExamSymbols versuchen
             $this->tryLoadExamSymbols($tpl, $current_ref_id);
 
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Asset-Injection abgeschlossen");
             }
-            
+
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Asset-Injection Fehler: " . $e->getMessage());
@@ -149,7 +149,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
         try {
             // Direkte Datenbankprüfung
             $enabled = $this->isExamCalcEnabledDirect($ref_id);
-            
+
             if (!$enabled) {
                 if (self::DEBUG_ENABLED) {
                     error_log("[ExtendedTestSettings] ExamCalc nicht aktiviert");
@@ -165,7 +165,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
             // CSS und JavaScript laden
             $plugin_path = "./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings";
-            
+
             $tpl->addCss($plugin_path . "/css/examcalc.css");
             $tpl->addJavaScript($plugin_path . "/js/examcalc/calculator.js");
             $tpl->addJavaScript($plugin_path . "/js/examcalc/examcalc-loader.js");
@@ -200,7 +200,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
         try {
             // Direkte Datenbankprüfung
             $config = $this->getExamSymbolsConfigDirect($ref_id);
-            
+
             if (!$config['enabled']) {
                 if (self::DEBUG_ENABLED) {
                     error_log("[ExtendedTestSettings] ExamSymbols nicht aktiviert");
@@ -216,7 +216,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
             // CSS und JavaScript laden
             $plugin_path = "./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings";
-            
+
             $tpl->addCss($plugin_path . "/css/examsymbols.css");
             $tpl->addJavaScript($plugin_path . "/js/examsymbols/symbols-manager.js");
             $tpl->addJavaScript($plugin_path . "/js/examsymbols/examsymbols-loader.js");
@@ -225,14 +225,15 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
             $template_path = $plugin_path . "/templates/symbols_overlay.html";
             $symbols = $this->getSymbolsForTemplate($config['template']);
             $symbols_json = json_encode($symbols);
-            
+
             $tpl->addOnLoadCode("
                 window.ExamSymbols = window.ExamSymbols || {};
                 window.ExamSymbols.templatePath = '$template_path';
                 window.ExamSymbols.config = {
                     template: '{$config['template']}',
                     refId: $ref_id,
-                    symbols: $symbols_json
+                    symbols: $symbols_json,
+                    keepOpen: true
                 };
             ");
 
@@ -311,30 +312,153 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
     {
         $templates = [
             "math" => [
-                "π", "√", "∑", "∞", "≈", "≠", "≤", "≥", "±", "∆", 
-                "∫", "∂", "→", "↔", "∈", "∉", "∅", "²", "³", "°",
-                "α", "β", "γ", "δ", "ε", "θ", "λ", "μ", "σ", "ω"
+                "π",
+                "√",
+                "∑",
+                "∞",
+                "≈",
+                "≠",
+                "≤",
+                "≥",
+                "±",
+                "∆",
+                "∫",
+                "∂",
+                "→",
+                "↔",
+                "∈",
+                "∉",
+                "∅",
+                "²",
+                "³",
+                "°",
+                "α",
+                "β",
+                "γ",
+                "δ",
+                "ε",
+                "θ",
+                "λ",
+                "μ",
+                "σ",
+                "ω"
             ],
             "spanish" => [
-                "á", "é", "í", "ó", "ú", "ñ", "¿", "¡",
-                "Á", "É", "Í", "Ó", "Ú", "Ñ", "ü", "Ü"
+                "á",
+                "é",
+                "í",
+                "ó",
+                "ú",
+                "ñ",
+                "¿",
+                "¡",
+                "Á",
+                "É",
+                "Í",
+                "Ó",
+                "Ú",
+                "Ñ",
+                "ü",
+                "Ü"
             ],
             "german" => ["ä", "ö", "ü", "ß", "Ä", "Ö", "Ü"],
             "italian" => [
-                "à", "è", "ì", "ò", "ù", "é", "í", "ó", 
-                "À", "È", "Ì", "Ò", "Ù", "É", "Í", "Ó"
+                "à",
+                "è",
+                "ì",
+                "ò",
+                "ù",
+                "é",
+                "í",
+                "ó",
+                "À",
+                "È",
+                "Ì",
+                "Ò",
+                "Ù",
+                "É",
+                "Í",
+                "Ó"
             ],
             "greek" => [
-                "α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "ι", "κ",
-                "λ", "μ", "ν", "ξ", "ο", "π", "ρ", "σ", "τ", "υ",
-                "φ", "χ", "ψ", "ω", "Α", "Β", "Γ", "Δ", "Ε", "Θ",
-                "Λ", "Μ", "Ν", "Ξ", "Ο", "Π", "Ρ", "Σ", "Τ", "Υ",
-                "Φ", "Χ", "Ψ", "Ω"
+                "α",
+                "β",
+                "γ",
+                "δ",
+                "ε",
+                "ζ",
+                "η",
+                "θ",
+                "ι",
+                "κ",
+                "λ",
+                "μ",
+                "ν",
+                "ξ",
+                "ο",
+                "π",
+                "ρ",
+                "σ",
+                "τ",
+                "υ",
+                "φ",
+                "χ",
+                "ψ",
+                "ω",
+                "Α",
+                "Β",
+                "Γ",
+                "Δ",
+                "Ε",
+                "Θ",
+                "Λ",
+                "Μ",
+                "Ν",
+                "Ξ",
+                "Ο",
+                "Π",
+                "Ρ",
+                "Σ",
+                "Τ",
+                "Υ",
+                "Φ",
+                "Χ",
+                "Ψ",
+                "Ω"
             ],
             "french" => [
-                "à", "â", "é", "è", "ê", "ë", "î", "ï", "ô", "ù", "û", "ü", "ÿ", "ç",
-                "À", "Â", "É", "È", "Ê", "Ë", "Î", "Ï", "Ô", "Ù", "Û", "Ü", "Ÿ", "Ç",
-                "æ", "œ", "Æ", "Œ"
+                "à",
+                "â",
+                "é",
+                "è",
+                "ê",
+                "ë",
+                "î",
+                "ï",
+                "ô",
+                "ù",
+                "û",
+                "ü",
+                "ÿ",
+                "ç",
+                "À",
+                "Â",
+                "É",
+                "È",
+                "Ê",
+                "Ë",
+                "Î",
+                "Ï",
+                "Ô",
+                "Ù",
+                "Û",
+                "Ü",
+                "Ÿ",
+                "Ç",
+                "æ",
+                "œ",
+                "Æ",
+                "Œ"
             ]
         ];
 
@@ -351,8 +475,12 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
         // Testplayer-Klassen
         $test_player_classes = [
-            'iltestplayer', 'iltestplayerfixedquestionsetgui', 'iltestplayerrandquestionsetgui',
-            'iltestplayergui', 'iltestplayercommandsgui', 'iltestoutputgui'
+            'iltestplayer',
+            'iltestplayerfixedquestionsetgui',
+            'iltestplayerrandquestionsetgui',
+            'iltestplayergui',
+            'iltestplayercommandsgui',
+            'iltestoutputgui'
         ];
 
         foreach ($test_player_classes as $test_class) {
@@ -366,7 +494,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
         // URL-Pattern prüfen
         $url_patterns = ['cmd=startPlayer', 'cmd=resumePlayer', 'cmd=showQuestion', 'cmd=nextQuestion'];
-        
+
         foreach ($url_patterns as $pattern) {
             if (str_contains($request_uri, $pattern)) {
                 if (self::DEBUG_ENABLED) {
@@ -395,7 +523,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
         // ExamCalc speichern
         $results['examcalc'] = $this->saveExamCalcDirect($ref_id, $post_data);
-        
+
         // ExamSymbols speichern
         $results['examsymbols'] = $this->saveExamSymbolsDirect($ref_id, $post_data);
 

@@ -4,12 +4,6 @@
  */
 class ilExtendedTestSettingsAdvancedGUI
 {
-    // ============================================
-    // 🔧 DEBUG-SCHALTER 
-    // ============================================
-    // false = PRODUCTION (keine Logs, keine Debug-Infos)
-    // true  = DEBUG (alle Logs und Debug-Ausgaben)
-    // ============================================
     private const DEBUG_ENABLED = false;
 
     protected ilCtrl $ctrl;
