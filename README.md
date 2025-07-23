@@ -44,6 +44,15 @@ Sichert den Prüfungsmodus durch Einschränkung von Interaktionen.
 
 ---
 
+### 4. ExamAlert – Zeit-Warnung
+
+Zeigt zeitbasierte Warnungen mit benutzerdefinierten Nachrichten während des Tests an.
+
+- Konfigurierbare Warnzeit: 5 Sekunden bis 1 Stunde vor Testende
+- Benutzerdefinierte Nachrichten: Individuelle Warntexte pro Test
+
+---
+
 ## Installation
 
 1. Das Repository in folgendes Verzeichnis klonen:
