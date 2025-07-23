@@ -6,12 +6,12 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
     {
         return "ExtendedTestSettings";
     }
-    
+
     public function hasConfiguration(): bool
     {
         return false; // Keine globale Konfiguration - alles per Test
     }
-    
+
     public function getUIHookClass(): string
     {
         return ilExtendedTestSettingsUIHookGUI::class;
@@ -36,13 +36,14 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
             // Warnung anzeigen
             global $DIC;
             $tpl = $DIC->ui()->mainTemplate();
-            $tpl->setOnScreenMessage('info', 
+            $tpl->setOnScreenMessage(
+                'info',
                 'WARNUNG: Das Deinstallieren löscht alle gespeicherten Einstellungen für alle Tests! ' .
                 'Um fortzufahren, aktivieren Sie die Checkbox "Daten löschen" im Deinstallations-Dialog.'
             );
             return false;
         }
-        
+
         $this->dropTables();
         return true;
     }
@@ -74,7 +75,7 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
                     'notnull' => false
                 ],
                 'updated_at' => [
-                    'type' => 'timestamp', 
+                    'type' => 'timestamp',
                     'notnull' => false
                 ]
             ];
@@ -150,6 +151,45 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
             $db->createTable('examsymbols_settings', $fields);
             $db->addPrimaryKey('examsymbols_settings', ['test_id']);
         }
+        // ExamAlert Tabelle
+        if (!$db->tableExists('examalert_settings')) {
+            $fields = [
+                'test_id' => [
+                    'type' => 'integer',
+                    'length' => 4,
+                    'notnull' => true
+                ],
+                'enabled' => [
+                    'type' => 'integer',
+                    'length' => 1,
+                    'notnull' => true,
+                    'default' => 0
+                ],
+                'alert_time' => [
+                    'type' => 'integer',
+                    'length' => 4,
+                    'notnull' => true,
+                    'default' => 30
+                ],
+                'alert_message' => [
+                    'type' => 'text',
+                    'length' => 1000,
+                    'notnull' => false,
+                    'default' => 'Achtung: Der Test endet bald!'
+                ],
+                'created_at' => [
+                    'type' => 'timestamp',
+                    'notnull' => false
+                ],
+                'updated_at' => [
+                    'type' => 'timestamp',
+                    'notnull' => false
+                ]
+            ];
+
+            $db->createTable('examalert_settings', $fields);
+            $db->addPrimaryKey('examalert_settings', ['test_id']);
+        }
     }
 
     /**
@@ -160,8 +200,8 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
         global $DIC;
         $db = $DIC->database();
 
-        $tables = ['examcalc_settings', 'examguard_settings', 'examsymbols_settings'];
-        
+        $tables = ['examcalc_settings', 'examguard_settings', 'examsymbols_settings', 'examalert_settings'];
+
         foreach ($tables as $table) {
             if ($db->tableExists($table)) {
                 $db->dropTable($table);
@@ -175,7 +215,7 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
     private function logActivation(): void
     {
         error_log("[ExtendedTestSettings] Plugin erfolgreich aktiviert - Tabellen erstellt");
-        
+
         // Optional: Statistik sammeln
         global $DIC;
         if ($DIC->offsetExists('user')) {
@@ -203,12 +243,12 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
 
         // Zuerst versuchen, echte Sprachdatei zu laden
         $translated = parent::txt($key);
-        
+
         // Fallback wenn keine Übersetzung gefunden
         if ($translated === '-' . $key . '-') {
             return $translations[$key] ?? $key;
         }
-        
+
         return $translated;
     }
 
@@ -254,6 +294,12 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
                 $stats['examguard_enabled_tests'] = (int) $row['cnt'];
             }
 
+            // ExamAlert
+            $result = $db->query("SELECT COUNT(*) as cnt FROM examalert_settings WHERE enabled = 1");
+            if ($row = $db->fetchAssoc($result)) {
+                $stats['examalert_enabled_tests'] = (int) $row['cnt'];
+            }
+
             // Totale konfigurierte Tests (mindestens ein Feature aktiviert)
             $result = $db->query("
                 SELECT COUNT(DISTINCT test_id) as cnt 
@@ -287,9 +333,10 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
 
         try {
             $tables = ['examcalc_settings', 'examsymbols_settings', 'examguard_settings'];
-            
+
             foreach ($tables as $table) {
-                if (!$db->tableExists($table)) continue;
+                if (!$db->tableExists($table))
+                    continue;
 
                 // Finde verwaiste Einträge
                 $query = "
@@ -298,10 +345,10 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
                         SELECT obj_id FROM object_data WHERE type = 'tst'
                     )
                 ";
-                
+
                 $affected = $db->manipulate($query);
                 $cleaned += $affected;
-                
+
                 if ($affected > 0) {
                     error_log("[ExtendedTestSettings] $affected verwaiste Einträge aus $table entfernt");
                 }

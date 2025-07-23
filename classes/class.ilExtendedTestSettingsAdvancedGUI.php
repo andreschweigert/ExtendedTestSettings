@@ -89,13 +89,14 @@ class ilExtendedTestSettingsAdvancedGUI
         $tables = [
             'examcalc_settings' => ['enabled'],
             'examguard_settings' => ['enabled'], 
-            'examsymbols_settings' => ['enabled', 'template']
+            'examsymbols_settings' => ['enabled', 'template'],
+            'examalert_settings' => ['enabled', 'alert_time', 'alert_message'] // NEU
         ];
 
         foreach ($tables as $table => $fields) {
             try {
                 if (count($fields) > 1) {
-                    // Mehrere Felder (z.B. ExamSymbols)
+                    // Mehrere Felder (z.B. ExamSymbols, ExamAlert)
                     $field_list = implode(', ', $fields);
                     $query = "SELECT $field_list FROM $table WHERE test_id = %s";
                     $result = $db->queryF($query, ['integer'], [$obj_id]);
@@ -342,8 +343,8 @@ HTML;
             $module_handlers = $this->loadModuleHandlersDirect();
             $feature_count = count($module_handlers);
         } catch (Exception $e) {
-            // Fallback
-            $feature_count = 2; // ExamCalc + ExamSymbols
+            // Fallback - jetzt sind es 4 Module
+            $feature_count = 4; // ExamCalc + ExamSymbols + ExamGuard + ExamAlert
         }
 
         return <<<HTML
@@ -433,6 +434,13 @@ HTML;
             $module_handlers['examguard'] = new ilExamGuardHandler($plugin_path);
         }
 
+        // ExamAlert Handler laden - NEU
+        $examalert_path = __DIR__ . "/ExamAlert/class.ilExamAlertHandler.php";
+        if (file_exists($examalert_path)) {
+            require_once $examalert_path;
+            $module_handlers['examalert'] = new ilExamAlertHandler($plugin_path);
+        }
+
         if (self::DEBUG_ENABLED) {
             error_log("[ExtendedTestSettings] AdvancedGUI - Module direkt geladen: " . implode(', ', array_keys($module_handlers)));
         }
@@ -496,7 +504,8 @@ HTML;
             <div style="text-align: left; display: inline-block; background: white; padding: 1rem; border-radius: 0.375rem; border: 1px solid #e9ecef;">
                 <code style="display: block; margin-bottom: 0.5rem;">classes/ExamCalc/class.ilExamCalcHandler.php</code>
                 <code style="display: block; margin-bottom: 0.5rem;">classes/ExamSymbols/class.ilExamSymbolsHandler.php</code>
-                <code style="display: block;">classes/ExamGuard/class.ilExamGuardHandler.php</code>
+                <code style="display: block; margin-bottom: 0.5rem;">classes/ExamGuard/class.ilExamGuardHandler.php</code>
+                <code style="display: block;">classes/ExamAlert/class.ilExamAlertHandler.php</code>
             </div>
         </div>
 HTML;
@@ -515,6 +524,12 @@ HTML;
         $examsymbols_data = $this->getFallbackExamSymbolsStatus($ref_id);
         $examsymbols_checked = $examsymbols_data['enabled'] ? 'checked' : '';
         $examsymbols_template = $examsymbols_data['template'];
+
+        // ExamAlert Fallback - NEU
+        $examalert_data = $this->getFallbackExamAlertStatus($ref_id);
+        $examalert_checked = $examalert_data['enabled'] ? 'checked' : '';
+        $examalert_time = $examalert_data['alert_time'];
+        $examalert_message = htmlspecialchars($examalert_data['alert_message'], ENT_QUOTES);
 
         return <<<HTML
         <div class="plugin-section">
@@ -547,6 +562,30 @@ HTML;
                         <option value="german" ${ $examsymbols_template === 'german' ? 'selected' : '' }>Deutsch</option>
                         <option value="spanish" ${ $examsymbols_template === 'spanish' ? 'selected' : '' }>Spanisch</option>
                     </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="plugin-section">
+            <h3 style="margin-top: 0; color: #495057; font-size: 1.1rem; font-weight: 600;">⏰ Zeit-Warnung</h3>
+            <p style="color: #6c757d; margin-bottom: 1rem; font-size: 0.9rem;">Zeigt zeitbasierte Warnungen mit benutzerdefinierten Nachrichten während des Tests an</p>
+            <div style="background: #f8f9fa; padding: 1.25rem; border-radius: 0.375rem;">
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" name="examalert_enabled" value="1" $examalert_checked style="transform: scale(1.1);">
+                        <strong>Zeit-Warnung aktivieren</strong>
+                    </label>
+                </div>
+                <div class="form-group" style="margin-bottom: 1rem;">
+                    <label for="examalert_time" style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #495057;">Warnung anzeigen:</label>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="number" name="examalert_time" id="examalert_time" value="$examalert_time" min="5" max="3600" style="width: 80px; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.375rem;">
+                        <span>Sekunden vor Testende</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="examalert_message" style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #495057;">Nachricht:</label>
+                    <textarea name="examalert_message" id="examalert_message" rows="3" placeholder="Achtung: Der Test endet bald!" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.375rem; resize: vertical;">$examalert_message</textarea>
                 </div>
             </div>
         </div>
@@ -604,6 +643,35 @@ HTML;
         }
 
         return ['enabled' => false, 'template' => 'math'];
+    }
+
+    /**
+     * Fallback ExamAlert Status - NEU
+     */
+    private function getFallbackExamAlertStatus(int $ref_id): array
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        try {
+            $test_id = ilObject::_lookupObjectId($ref_id);
+            $query = "SELECT enabled, alert_time, alert_message FROM examalert_settings WHERE test_id = %s";
+            $result = $db->queryF($query, ['integer'], [$test_id]);
+
+            if ($row = $db->fetchAssoc($result)) {
+                return [
+                    'enabled' => (bool) $row['enabled'],
+                    'alert_time' => (int) ($row['alert_time'] ?? 30),
+                    'alert_message' => $row['alert_message'] ?? 'Achtung: Der Test endet bald!'
+                ];
+            }
+        } catch (Exception $e) {
+            if (self::DEBUG_ENABLED) {
+                error_log("[ExtendedTestSettings] Fallback ExamAlert Status Fehler: " . $e->getMessage());
+            }
+        }
+
+        return ['enabled' => false, 'alert_time' => 30, 'alert_message' => 'Achtung: Der Test endet bald!'];
     }
 
     /**
@@ -692,6 +760,9 @@ HTML;
                     break;
                 case 'examguard':
                     $formatted[] = 'Prüfungsschutz';
+                    break;
+                case 'examalert':  // NEU
+                    $formatted[] = 'Zeit-Warnung';
                     break;
                 default:
                     $formatted[] = ucfirst($name);
