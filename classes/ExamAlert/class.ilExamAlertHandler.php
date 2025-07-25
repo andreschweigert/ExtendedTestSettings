@@ -253,7 +253,7 @@ HTML;
             'title' => 'Zeit-Warnung',
             'icon' => '⏰',
             'description' => 'Zeigt zeitbasierte Warnungen mit benutzerdefinierten Nachrichten während des Tests an',
-            'version' => '0.0.1',
+            'version' => '0.0.2',
             'features' => [
                 'Einstellbare Warnzeit (5 Sekunden bis 1 Stunde)',
                 'Benutzerdefinierte Warnnachrichten', 

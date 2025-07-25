@@ -1,5 +1,5 @@
 /**
- * examalert.js - KORRIGIERTE VERSION - Syntax-Fehler behoben
+ * examalert.js - KORRIGIERTE VERSION - Syntax-Fehler behoben + Live-Countdown
  * Diskrete Toast-Benachrichtigung ohne Ton
  */
 
@@ -17,6 +17,7 @@
             this.alertShown = false;
             this.checkInterval = null;
             this.isInitialized = false;
+            this.countdownInterval = null; // Für Live-Countdown
         }
 
         init() {
@@ -150,6 +151,11 @@
 
             log('Zeige diskrete Zeit-Benachrichtigung');
 
+            // Aktuelle verbleibende Zeit berechnen
+            const now = Date.now();
+            const timeRemaining = this.testEndTime - now;
+            const secondsRemaining = Math.floor(timeRemaining / 1000);
+
             // Diskrete Toast-Benachrichtigung von oben
             const toastHTML = `
                 <div id="exam-alert-toast" style="
@@ -181,10 +187,10 @@
                                 ${this.escapeHtml(this.config.alert_message)}
                             </div>
                             <div style="font-size: 13px; margin-top: 8px; padding: 6px 12px; background: rgba(255,255,255,0.2); border-radius: 20px; display: inline-block;">
-                                <strong>Noch ${this.config.alert_time} Sekunden</strong>
+                                <strong id="exam-alert-countdown">Noch ${secondsRemaining} Sekunden</strong>
                             </div>
                         </div>
-                        <button onclick="document.getElementById('exam-alert-toast').style.top='-100px'; setTimeout(() => { const toast = document.getElementById('exam-alert-toast'); if(toast) toast.remove(); }, 400);" style="
+                        <button onclick="window.ExamAlert.instance.closeToast()" style="
                             background: rgba(255, 255, 255, 0.2);
                             border: 1px solid rgba(255, 255, 255, 0.3);
                             color: white;
@@ -247,18 +253,63 @@
                 }
             }, 100);
 
+            // Live-Countdown starten
+            this.startCountdown();
+
             // Auto-close nach 20 Sekunden
             setTimeout(() => {
-                const toast = document.getElementById('exam-alert-toast');
-                if (toast) {
-                    toast.style.top = '-100px';
-                    setTimeout(() => {
-                        if (toast.parentNode) {
-                            toast.remove();
-                        }
-                    }, 400);
-                }
+                this.closeToast();
             }, 20000);
+        }
+
+        startCountdown() {
+            // Countdown alle Sekunde aktualisieren
+            this.countdownInterval = setInterval(() => {
+                const countdownElement = document.getElementById('exam-alert-countdown');
+                if (!countdownElement) {
+                    // Element nicht mehr da, Interval stoppen
+                    this.stopCountdown();
+                    return;
+                }
+
+                const now = Date.now();
+                const timeRemaining = this.testEndTime - now;
+                const secondsRemaining = Math.floor(timeRemaining / 1000);
+
+                if (secondsRemaining <= 0) {
+                    this.stopCountdown();
+                    return;
+                }
+
+                // Format: Minuten:Sekunden falls > 60s, sonst nur Sekunden
+                if (secondsRemaining >= 60) {
+                    const minutes = Math.floor(secondsRemaining / 60);
+                    const seconds = secondsRemaining % 60;
+                    countdownElement.innerHTML = `Noch ${minutes}:${seconds.toString().padStart(2, '0')} Minuten`;
+                } else {
+                    countdownElement.innerHTML = `Noch ${secondsRemaining} Sekunden`;
+                }
+            }, 1000);
+        }
+
+        stopCountdown() {
+            if (this.countdownInterval) {
+                clearInterval(this.countdownInterval);
+                this.countdownInterval = null;
+            }
+        }
+
+        closeToast() {
+            const toast = document.getElementById('exam-alert-toast');
+            if (toast) {
+                toast.style.top = '-100px';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.remove();
+                    }
+                }, 400);
+            }
+            this.stopCountdown();
         }
 
         stopMonitoring() {
@@ -266,6 +317,7 @@
                 clearInterval(this.checkInterval);
                 this.checkInterval = null;
             }
+            this.stopCountdown();
             log('Monitoring gestoppt');
         }
 
