@@ -24,8 +24,14 @@ window.ExamSymbols.Manager = class {
                 "∫", "∂", "→", "↔", "∈", "∉", "∅", "²", "³", "°"
             ],
             spanish: [
-                "á", "é", "í", "ó", "ú", "ñ", "¿", "¡",
-                "Á", "É", "Í", "Ó", "Ú", "Ñ", "ü", "Ü"
+                // Reihe 1: Vokale groß mit Akzent (5 Tasten)
+                "Á", "É", "Í", "Ó", "Ú",
+                
+                // Reihe 2: Vokale klein mit Akzent (5 Tasten)  
+                "á", "é", "í", "ó", "ú",
+                
+                // Reihe 3: Ñ ñ ¿ ¡ (4 Tasten)
+                "Ñ", "ñ", "¿", "¡"
             ],
             italian: [
                 "à", "è", "ì", "ò", "ù", "é", "í", "ó",
@@ -57,6 +63,7 @@ window.ExamSymbols.Manager = class {
 
         this.setupEventListeners();
         this.setupFocusTracking();
+        this.setupDragAndDrop();
         this.loadConfiguration();
         this.isInitialized = true;
 
@@ -65,6 +72,53 @@ window.ExamSymbols.Manager = class {
         }
 
         return true;
+    }
+
+    /**
+     * Panel draggable machen (genau wie Calculator)
+     */
+    setupDragAndDrop() {
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let startLeft = 0;
+        let startTop = 0;
+
+        this.panel.addEventListener('mousedown', (e) => {
+            // Nur bei Klick auf Panel-Header (nicht Buttons, Select, etc.)
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT' || e.target.classList.contains('symbol-btn')) {
+                return;
+            }
+            
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            
+            const rect = this.panel.getBoundingClientRect();
+            startLeft = rect.left;
+            startTop = rect.top;
+            
+            this.panel.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            
+            this.panel.style.left = (startLeft + deltaX) + 'px';
+            this.panel.style.top = (startTop + deltaY) + 'px';
+            this.panel.style.right = 'auto';
+            this.panel.style.bottom = 'auto';
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                this.panel.style.cursor = '';
+            }
+        });
     }
 
     /**
@@ -121,13 +175,6 @@ window.ExamSymbols.Manager = class {
                 this.switchTemplate(e.target.value);
             });
         }
-
-        // Panel schließen bei Außenklick
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('#symbols-panel') && !e.target.closest('#symbols-btn')) {
-                this.hide();
-            }
-        });
 
         // Close Button
         const closeBtn = this.panel.querySelector('.close-btn');
@@ -255,6 +302,7 @@ window.ExamSymbols.Manager = class {
         if (!this.symbolsGrid) return;
 
         this.symbolsGrid.innerHTML = '';
+        this.symbolsGrid.style.gridTemplateColumns = 'repeat(5, 1fr)';
 
         this.currentSymbols.forEach(symbol => {
             const symbolBtn = document.createElement('button');
@@ -354,9 +402,6 @@ window.ExamSymbols.Manager = class {
                 if (window.esLog) {
                     window.esLog('Symbol in normales Feld eingefügt');
                 }
-                if (!window.ExamSymbols?.config?.keepOpen) {
-                    this.hide();
-                }
                 return true;
 
             } else if (targetElement.contentEditable === 'true') {
@@ -372,7 +417,6 @@ window.ExamSymbols.Manager = class {
                 if (window.esLog) {
                     window.esLog('Symbol in ContentEditable eingefügt');
                 }
-                this.hide();
                 return true;
             }
         } catch (error) {
@@ -395,9 +439,6 @@ window.ExamSymbols.Manager = class {
                     if (window.esLog) {
                         window.esLog('Symbol in TinyMCE eingefügt');
                     }
-                    if (!window.ExamSymbols?.config?.keepOpen) {
-                        this.hide();
-                    }
 
                     return true;
                 }
@@ -411,9 +452,6 @@ window.ExamSymbols.Manager = class {
                         editor.selection.setContent(symbol);
                         if (window.esLog) {
                             window.esLog('Symbol in TinyMCE Editor eingefügt');
-                        }
-                        if (!window.ExamSymbols?.config?.keepOpen) {
-                            this.hide();
                         }
 
                         return true;
@@ -441,9 +479,6 @@ window.ExamSymbols.Manager = class {
                         if (window.esLog) {
                             window.esLog('Symbol in CKEditor eingefügt');
                         }
-                        if (!window.ExamSymbols?.config?.keepOpen) {
-                            this.hide();
-                        }
 
                         return true;
                     }
@@ -459,9 +494,6 @@ window.ExamSymbols.Manager = class {
                         });
                         if (window.esLog) {
                             window.esLog('Symbol in CKEditor 5 eingefügt');
-                        }
-                        if (!window.ExamSymbols?.config?.keepOpen) {
-                            this.hide();
                         }
 
                         return true;
@@ -499,9 +531,6 @@ window.ExamSymbols.Manager = class {
 
                         if (window.esLog) {
                             window.esLog('Symbol in Iframe eingefügt');
-                        }
-                        if (!window.ExamSymbols?.config?.keepOpen) {
-                            this.hide();
                         }
 
                         return true;

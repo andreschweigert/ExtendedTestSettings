@@ -236,8 +236,14 @@ HTML;
             "spanish" => [
                 "label" => "Spanisch", 
                 "symbols" => [
-                    "á", "é", "í", "ó", "ú", "ñ", "¿", "¡",
-                    "Á", "É", "Í", "Ó", "Ú", "Ñ", "ü", "Ü"
+                    // Reihe 1: Vokale groß mit Akzent (5 Tasten)
+                    "Á", "É", "Í", "Ó", "Ú",
+                    
+                    // Reihe 2: Vokale klein mit Akzent (5 Tasten)  
+                    "á", "é", "í", "ó", "ú",
+                    
+                    // Reihe 3: Ñ ñ ¿ ¡ (4 Tasten)
+                    "Ñ", "ñ", "¿", "¡"
                 ]
             ],
             "italian" => [
@@ -280,7 +286,7 @@ HTML;
             'title' => 'Sonderzeichen-Palette',
             'icon' => '📝',
             'description' => 'Palette mit Sonderzeichen für verschiedene Fachbereiche (Mathematik, Sprachen, etc.)',
-            'version' => '0.0.1',
+            'version' => '0.0.2',
             'features' => [
                 'Floating Button (Alt + S)',
                 'Multiple Templates (Math, Sprachen)', 
