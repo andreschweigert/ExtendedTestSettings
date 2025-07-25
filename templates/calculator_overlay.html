@@ -1,8 +1,9 @@
 <!--
-    calculator_overlay.html - ExamCalc HTML Template
+    calculator_overlay.html - ExamCalc HTML Template (Updated Design)
     Part of ExtendedTestSettings Plugin
     
     Dieses Template wird dynamisch vom examcalc-loader.js geladen
+    Design-Update: Ähnlich zu ExamSymbols Panel
 -->
 
 <!-- Floating Calculator Button -->
@@ -12,6 +13,13 @@
 
 <!-- Calculator Window -->
 <div id="calculator" role="application" aria-label="Wissenschaftlicher Taschenrechner">
+    
+    <!-- Panel Header (NEU - wie bei ExamSymbols) -->
+    <div class="header">
+        <h3>Taschenrechner</h3>
+        <button class="close-btn" type="button" aria-label="Taschenrechner schließen">×</button>
+    </div>
+    
     <!-- Display -->
     <input type="text" 
            id="calc-display" 
@@ -64,8 +72,10 @@
         <button type="button" class="sci" aria-label="Natürlicher Logarithmus">ln</button>
     </div>
     
-    <!-- Keyboard Shortcuts Info (optional) -->
-    <div class="shortcuts-info" style="margin-top: 8px; font-size: 11px; color: #666; text-align: center;">
-        Alt + R: Ein/Aus | Enter: = | Esc: AC
+    <!-- Panel Info (NEU - wie bei ExamSymbols) -->
+    <div class="calc-info" role="complementary">
+        Wissenschaftlicher Taschenrechner
+        <br><small>Alt + R: Ein/Aus | Enter: = | Esc: AC</small>
     </div>
+    
 </div>

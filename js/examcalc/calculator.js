@@ -1,6 +1,6 @@
 /**
- * calculator.js - Taschenrechner-Logic für ExtendedTestSettings
- * Saubere Trennung von Loader und Calculator-Funktionalität
+ * calculator.js - Taschenrechner-Logic für ExtendedTestSettings (Updated)
+ * Update: Support für neuen Header mit Close-Button
  */
 
 window.ExamCalc = window.ExamCalc || {};
@@ -61,8 +61,14 @@ window.ExamCalc.Calculator = class {
             }
         });
 
+        // Close Button (NEU - im Header)
+        const closeBtn = this.calc.querySelector('.close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.hide());
+        }
+
         // Calculator Buttons
-        this.calc.querySelectorAll('button').forEach(button => {
+        this.calc.querySelectorAll('.buttons button').forEach(button => {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
                 this.handleButtonClick(button.textContent);
@@ -78,10 +84,32 @@ window.ExamCalc.Calculator = class {
      */
     toggle() {
         const isVisible = this.calc.style.display === 'block';
-        this.calc.style.display = isVisible ? 'none' : 'block';
+        if (isVisible) {
+            this.hide();
+        } else {
+            this.show();
+        }
+    }
+
+    /**
+     * Calculator anzeigen (NEU - separate Methode)
+     */
+    show() {
+        this.calc.style.display = 'block';
         
         if (window.ecLog) {
-            window.ecLog(`🔄 Calculator ${isVisible ? 'versteckt' : 'angezeigt'}`);
+            window.ecLog('🔄 Calculator angezeigt');
+        }
+    }
+
+    /**
+     * Calculator verstecken (NEU - separate Methode)
+     */
+    hide() {
+        this.calc.style.display = 'none';
+        
+        if (window.ecLog) {
+            window.ecLog('🔄 Calculator versteckt');
         }
     }
 
@@ -217,6 +245,11 @@ window.ExamCalc.Calculator = class {
         this.calc.addEventListener('mousedown', (e) => {
             // Nur bei Klick auf Calculator-Header (nicht Buttons)
             if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') {
+                return;
+            }
+            
+            // GEÄNDERT: Auch nicht bei Close-Button
+            if (e.target.classList.contains('close-btn')) {
                 return;
             }
             
