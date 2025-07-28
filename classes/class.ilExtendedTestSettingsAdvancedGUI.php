@@ -88,7 +88,7 @@ class ilExtendedTestSettingsAdvancedGUI
         // Prüfe alle Module-Tabellen
         $tables = [
             'examcalc_settings' => ['enabled'],
-            'examguard_settings' => ['enabled'], 
+            'examguard_settings' => ['enabled'],
             'examsymbols_settings' => ['enabled', 'template'],
             'examalert_settings' => ['enabled', 'alert_time', 'alert_message'] // NEU
         ];
@@ -100,7 +100,7 @@ class ilExtendedTestSettingsAdvancedGUI
                     $field_list = implode(', ', $fields);
                     $query = "SELECT $field_list FROM $table WHERE test_id = %s";
                     $result = $db->queryF($query, ['integer'], [$obj_id]);
-                    
+
                     if ($row = $db->fetchAssoc($result)) {
                         $status_parts = [];
                         foreach ($fields as $field) {
@@ -119,7 +119,7 @@ class ilExtendedTestSettingsAdvancedGUI
                     $field = $fields[0];
                     $query = "SELECT $field FROM $table WHERE test_id = %s";
                     $result = $db->queryF($query, ['integer'], [$obj_id]);
-                    
+
                     if ($row = $db->fetchAssoc($result)) {
                         $status = $row[$field] ? '✅ aktiviert' : '❌ deaktiviert';
                         $debug_lines[] = "$table: $status";
@@ -137,7 +137,7 @@ class ilExtendedTestSettingsAdvancedGUI
             $module_handlers = $this->loadModuleHandlersDirect();
             $available_modules = array_keys($module_handlers);
             $debug_lines[] = "Verfügbare Module: " . (empty($available_modules) ? 'Keine' : implode(', ', $available_modules));
-            
+
             foreach ($module_handlers as $name => $handler) {
                 $class = get_class($handler);
                 $methods = method_exists($handler, 'getInfo') && method_exists($handler, 'saveSettings') ? '✅' : '❌';
@@ -167,7 +167,7 @@ HTML;
 
         try {
             $test_title = ilObject::_lookupTitle(ilObject::_lookupObjectId($ref_id));
-            
+
             // 1. BREADCRUMB / LOCATOR (mehrere Varianten probieren)
             $locator = null;
             if (isset($ilLocator)) {
@@ -177,7 +177,7 @@ HTML;
             } elseif ($DIC->offsetExists('locator')) {
                 $locator = $DIC['locator'];
             }
-            
+
             if ($locator) {
                 // Repository-Items hinzufügen (Pfad bis zum Test)
                 if (method_exists($locator, 'addRepositoryItems')) {
@@ -185,15 +185,15 @@ HTML;
                 } else {
                     // Fallback: Manuell hinzufügen
                     $locator->addItem(
-                        "Repository", 
+                        "Repository",
                         "ilias.php?baseClass=ilRepositoryGUI"
                     );
                     $locator->addItem(
-                        $test_title, 
+                        $test_title,
                         "ilias.php?ref_id=" . $ref_id . "&baseClass=ilRepositoryGUI"
                     );
                 }
-                
+
                 // Aktueller Bereich
                 $locator->addItem("Erweiterte Einstellungen", "");
             }
@@ -207,17 +207,17 @@ HTML;
             } elseif ($DIC->offsetExists('tabs')) {
                 $tabs = $DIC['tabs'];
             }
-            
+
             if ($tabs) {
                 // ZURÜCK-BUTTON (sehr prominent)
                 $back_url = "ilias.php?ref_id=" . $ref_id . "&baseClass=ilRepositoryGUI";
                 $tabs->setBackTarget("←  " . $test_title, $back_url);
-                
+
                 // Main-Tab für diese Seite
                 $this->ctrl->setParameter($this, "ref_id", $ref_id);
                 $tabs->addTab(
-                    "extended_settings", 
-                    "Erweiterte Einstellungen", 
+                    "extended_settings",
+                    "Erweiterte Einstellungen",
                     $this->ctrl->getLinkTarget($this, "show")
                 );
                 $tabs->activateTab("extended_settings");
@@ -231,8 +231,8 @@ HTML;
                 error_log("[ExtendedTestSettings] Navigation-Setup Fehler: " . $e->getMessage());
             }
         }
-        
-    } 
+
+    }
 
     /**
      * Generiert das komplette Formular mit allen Modulen
@@ -240,15 +240,15 @@ HTML;
     private function generateCompleteForm(int $ref_id): string
     {
         $form_action = "ilias.php?baseClass=iluipluginroutergui&cmdClass=ilExtendedTestSettingsAdvancedGUI&cmd=saveSettings&ref_id=$ref_id";
-        
+
         // Header-Info
         $header_info = $this->generateHeaderInfo();
-        
+
         // Module-Sektionen generieren
         $modules_html = $this->generateAllModuleSections($ref_id);
-        
+
         // Debug-Link
-        $debug_link = !isset($_GET['debug']) || $_GET['debug'] !== '1' 
+        $debug_link = !isset($_GET['debug']) || $_GET['debug'] !== '1'
             ? "<p style='text-align: right; margin-top: 1rem;'><a href='{$_SERVER['REQUEST_URI']}&debug=1' style='color: #6c757d; font-size: 0.9em;'>🔍 Debug-Informationen anzeigen</a></p>"
             : '';
 
@@ -386,7 +386,7 @@ HTML;
 
                 $info = $handler->getInfo();
                 $settings_html = $handler->getSettingsHTML($ref_id);
-                
+
                 $html_sections .= $this->generateModuleSection($info, $settings_html);
             }
 
@@ -394,7 +394,7 @@ HTML;
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Fehler beim Generieren der Module: " . $e->getMessage());
             }
-            
+
             // Fallback: Manuelle Module
             $html_sections .= $this->generateFallbackModules($ref_id);
         }
@@ -420,7 +420,7 @@ HTML;
         // ExamSymbols Handler laden (mit Config)
         $examsymbols_path = __DIR__ . "/ExamSymbols/class.ilExamSymbolsHandler.php";
         $examsymbols_config_path = __DIR__ . "/ExamSymbols/class.ilExamSymbolsConfig.php";
-        
+
         if (file_exists($examsymbols_path) && file_exists($examsymbols_config_path)) {
             require_once $examsymbols_config_path;
             require_once $examsymbols_path;
@@ -441,6 +441,16 @@ HTML;
             $module_handlers['examalert'] = new ilExamAlertHandler($plugin_path);
         }
 
+        // ExamChecker Handler laden
+        $examchecker_path = __DIR__ . "/ExamChecker/class.ilExamCheckerHandler.php";
+        $examchecker_config_path = __DIR__ . "/ExamChecker/class.ilExamCheckerConfig.php";
+
+        if (file_exists($examchecker_path) && file_exists($examchecker_config_path)) {
+            require_once $examchecker_config_path;
+            require_once $examchecker_path;
+            $module_handlers['examchecker'] = new ilExamCheckerHandler($plugin_path);
+        }
+
         if (self::DEBUG_ENABLED) {
             error_log("[ExtendedTestSettings] AdvancedGUI - Module direkt geladen: " . implode(', ', array_keys($module_handlers)));
         }
@@ -456,7 +466,7 @@ HTML;
         $icon = $info['icon'] ?? '⚙️';
         $description = htmlspecialchars($info['description'] ?? '');
         $version = $info['version'] ?? '1.0';
-        
+
         // Features-Liste (falls vorhanden)
         $features_html = '';
         if (!empty($info['features']) && is_array($info['features'])) {
@@ -519,7 +529,7 @@ HTML;
         // ExamCalc Fallback
         $examcalc_enabled = $this->getFallbackExamCalcStatus($ref_id);
         $examcalc_checked = $examcalc_enabled ? 'checked' : '';
-        
+
         // ExamSymbols Fallback
         $examsymbols_data = $this->getFallbackExamSymbolsStatus($ref_id);
         $examsymbols_checked = $examsymbols_data['enabled'] ? 'checked' : '';
@@ -558,9 +568,9 @@ HTML;
                 <div class="form-group">
                     <label for="examsymbols_template" style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #495057;">Vorlage wählen:</label>
                     <select name="examsymbols_template" id="examsymbols_template" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.375rem;">
-                        <option value="math" ${ $examsymbols_template === 'math' ? 'selected' : '' }>Mathematik/Wissenschaft</option>
-                        <option value="german" ${ $examsymbols_template === 'german' ? 'selected' : '' }>Deutsch</option>
-                        <option value="spanish" ${ $examsymbols_template === 'spanish' ? 'selected' : '' }>Spanisch</option>
+                        <option value="math" ${$examsymbols_template === 'math' ? 'selected' : ''}>Mathematik/Wissenschaft</option>
+                        <option value="german" ${$examsymbols_template === 'german' ? 'selected' : ''}>Deutsch</option>
+                        <option value="spanish" ${$examsymbols_template === 'spanish' ? 'selected' : ''}>Spanisch</option>
                     </select>
                 </div>
             </div>
@@ -688,27 +698,27 @@ HTML;
         }
 
         try {
-    // Module-Handler direkt laden und speichern
-    $module_handlers = $this->loadModuleHandlersDirect();
-    $results = [];
+            // Module-Handler direkt laden und speichern
+            $module_handlers = $this->loadModuleHandlersDirect();
+            $results = [];
 
-    global $DIC;
-    $post_data = $DIC->http()->request()->getParsedBody(); // ILIAS 9 kompatibel
+            global $DIC;
+            $post_data = $DIC->http()->request()->getParsedBody(); // ILIAS 9 kompatibel
 
-    foreach ($module_handlers as $moduleName => $handler) {
-        try {
-            if (method_exists($handler, 'saveSettings')) {
-                $success = $handler->saveSettings($ref_id, $post_data);
-                $results[$moduleName] = $success;
-            } else {
-                $results[$moduleName] = false;
-                error_log("[ExtendedTestSettings] Handler '$moduleName' hat keine saveSettings() Methode");
+            foreach ($module_handlers as $moduleName => $handler) {
+                try {
+                    if (method_exists($handler, 'saveSettings')) {
+                        $success = $handler->saveSettings($ref_id, $post_data);
+                        $results[$moduleName] = $success;
+                    } else {
+                        $results[$moduleName] = false;
+                        error_log("[ExtendedTestSettings] Handler '$moduleName' hat keine saveSettings() Methode");
+                    }
+                } catch (Exception $e) {
+                    $results[$moduleName] = false;
+                    error_log("[ExtendedTestSettings] Fehler beim Speichern von '$moduleName': " . $e->getMessage());
+                }
             }
-        } catch (Exception $e) {
-            $results[$moduleName] = false;
-            error_log("[ExtendedTestSettings] Fehler beim Speichern von '$moduleName': " . $e->getMessage());
-        }
-    }
 
             $success_modules = array_filter($results);
             $failed_modules = array_diff_key($results, $success_modules);
@@ -761,15 +771,19 @@ HTML;
                 case 'examguard':
                     $formatted[] = 'Prüfungsschutz';
                     break;
-                case 'examalert':  // NEU
+                case 'examalert':  
                     $formatted[] = 'Zeit-Warnung';
                     break;
+                case 'examchecker':
+                    $formatted[] = 'Prüfungs-Checker';
+                    break;
+
                 default:
                     $formatted[] = ucfirst($name);
                     break;
             }
         }
-        
+
         return implode(', ', $formatted);
     }
 }
