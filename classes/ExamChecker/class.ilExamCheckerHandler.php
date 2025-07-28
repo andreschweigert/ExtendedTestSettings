@@ -283,54 +283,31 @@ class ilExamCheckerHandler
         $db = $DIC->database();
 
         try {
-            error_log("[ExamChecker] getTestDataFromDB gestartet für ref_id: $ref_id");
-            
             $obj_id = ilObject::_lookupObjectId($ref_id);
-            error_log("[ExamChecker] obj_id aus ref_id $ref_id: $obj_id");
-            
             if ($obj_id <= 0) {
-                error_log("[ExamChecker] obj_id ist 0 oder negativ - Abbruch");
                 return null;
             }
 
             // Prüfe ob es wirklich ein Test ist
             $obj_type = ilObject::_lookupType($obj_id);
-            error_log("[ExamChecker] Objekt-Typ für obj_id $obj_id: $obj_type");
-            
             if ($obj_type !== 'tst') {
-                error_log("[ExamChecker] Objekt ist kein Test (tst) sondern: $obj_type");
                 return null;
             }
 
-            $query = "SELECT * FROM tst_tests WHERE test_id = %s";
-            error_log("[ExamChecker] SQL-Query: $query mit test_id = $obj_id");
-            
+            // KORRIGIERT: obj_fi statt test_id verwenden!
+            $query = "SELECT * FROM tst_tests WHERE obj_fi = %s";
             $result = $db->queryF($query, array('integer'), array($obj_id));
 
             if ($row = $db->fetchAssoc($result)) {
-                error_log("[ExamChecker] Test-Daten gefunden - Anzahl Felder: " . count($row));
-                error_log("[ExamChecker] Wichtige Felder - online_status: " . ($row['online_status'] ?? 'NULL') . 
-                         ", anonymity: " . ($row['anonymity'] ?? 'NULL') . 
-                         ", password_enabled: " . ($row['password_enabled'] ?? 'NULL'));
+                error_log("[ExamChecker] ✅ Test-Daten gefunden für obj_id: $obj_id");
                 return $row;
             } else {
-                error_log("[ExamChecker] Kein Eintrag in tst_tests für test_id: $obj_id gefunden");
-                
-                // Debug: Schaue welche test_ids existieren
-                $debug_query = "SELECT test_id, obj_fi FROM tst_tests LIMIT 5";
-                $debug_result = $db->query($debug_query);
-                $existing_tests = array();
-                while ($debug_row = $db->fetchAssoc($debug_result)) {
-                    $existing_tests[] = $debug_row['test_id'] . ' (obj_fi: ' . $debug_row['obj_fi'] . ')';
-                }
-                error_log("[ExamChecker] Existierende test_ids in DB: " . implode(', ', $existing_tests));
-                
+                error_log("[ExamChecker] ❌ Kein Test-Eintrag für obj_fi: $obj_id");
                 return null;
             }
 
         } catch (Exception $e) {
-            error_log("[ExamChecker] Exception in getTestDataFromDB: " . $e->getMessage());
-            error_log("[ExamChecker] Stack Trace: " . $e->getTraceAsString());
+            error_log("[ExamChecker] Exception: " . $e->getMessage());
             return null;
         }
     }
@@ -591,13 +568,13 @@ class ilExamCheckerHandler
     public function getInfo(): array
     {
         return array(
-            'name' => 'ExamChecker - NOT WORKING!',
+            'name' => 'ExamChecker - WIP',
             'title' => 'Prüfungs-Einstellungen Checker',
             'icon' => '🔍',
             'description' => 'Überprüft Test-Einstellungen gegen definierte Standards für Präsenz- und Fernprüfungen.',
-            'version' => '0.0',
+            'version' => '0.0.1',
             'features' => array(
-                'WIP'
+
             )
         );
     }
