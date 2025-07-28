@@ -68,5 +68,5 @@ Dort können die Features testbezogen aktiviert oder deaktiviert werden.
 
 ## Kontakt
 
-Andre.Schweigert@fau.de
+Andre.Schweigert@fau.de & Cornel.Musielak@fau.de
 
