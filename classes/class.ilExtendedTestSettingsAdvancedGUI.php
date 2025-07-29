@@ -524,6 +524,9 @@ HTML;
     /**
      * Fallback Module (falls UIHookGUI nicht funktioniert)
      */
+    /**
+     * Fallback Module (falls UIHookGUI nicht funktioniert)
+     */
     private function generateFallbackModules(int $ref_id): string
     {
         // ExamCalc Fallback
@@ -540,6 +543,11 @@ HTML;
         $examalert_checked = $examalert_data['enabled'] ? 'checked' : '';
         $examalert_time = $examalert_data['alert_time'];
         $examalert_message = htmlspecialchars($examalert_data['alert_message'], ENT_QUOTES);
+
+        // Template-Optionen für ExamSymbols generieren
+        $math_selected = ($examsymbols_template === 'math') ? 'selected' : '';
+        $german_selected = ($examsymbols_template === 'german') ? 'selected' : '';
+        $spanish_selected = ($examsymbols_template === 'spanish') ? 'selected' : '';
 
         return <<<HTML
         <div class="plugin-section">
@@ -568,9 +576,9 @@ HTML;
                 <div class="form-group">
                     <label for="examsymbols_template" style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #495057;">Vorlage wählen:</label>
                     <select name="examsymbols_template" id="examsymbols_template" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.375rem;">
-                        <option value="math" ${$examsymbols_template === 'math' ? 'selected' : ''}>Mathematik/Wissenschaft</option>
-                        <option value="german" ${$examsymbols_template === 'german' ? 'selected' : ''}>Deutsch</option>
-                        <option value="spanish" ${$examsymbols_template === 'spanish' ? 'selected' : ''}>Spanisch</option>
+                        <option value="math" $math_selected>Mathematik/Wissenschaft</option>
+                        <option value="german" $german_selected>Deutsch</option>
+                        <option value="spanish" $spanish_selected>Spanisch</option>
                     </select>
                 </div>
             </div>
@@ -771,7 +779,7 @@ HTML;
                 case 'examguard':
                     $formatted[] = 'Prüfungsschutz';
                     break;
-                case 'examalert':  
+                case 'examalert':
                     $formatted[] = 'Zeit-Warnung';
                     break;
                 case 'examchecker':
