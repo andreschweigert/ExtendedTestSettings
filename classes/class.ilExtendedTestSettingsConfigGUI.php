@@ -51,6 +51,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $this->cleanupOrphanedEntries();
                 break;
                 
+            case 'previewCleanup':
+                $this->previewCleanup();
+                break;
+                
             default:
                 $this->showGeneral();
                 break;
@@ -167,51 +171,99 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         ];
 
         try {
-            // ExamCalc
+            // ExamCalc - nur aktive Tests
             if ($db->tableExists('examcalc_settings')) {
-                $result = $db->query("SELECT COUNT(*) as cnt FROM examcalc_settings WHERE enabled = 1");
+                $result = $db->query("
+                    SELECT COUNT(*) as cnt 
+                    FROM examcalc_settings s
+                    JOIN object_data od ON s.test_id = od.obj_id
+                    JOIN object_reference ref ON od.obj_id = ref.obj_id
+                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
+                ");
                 if ($row = $db->fetchAssoc($result)) {
                     $stats['examcalc_enabled_tests'] = (int) $row['cnt'];
                 }
             }
 
-            // ExamSymbols  
+            // ExamSymbols - nur aktive Tests
             if ($db->tableExists('examsymbols_settings')) {
-                $result = $db->query("SELECT COUNT(*) as cnt FROM examsymbols_settings WHERE enabled = 1");
+                $result = $db->query("
+                    SELECT COUNT(*) as cnt 
+                    FROM examsymbols_settings s
+                    JOIN object_data od ON s.test_id = od.obj_id
+                    JOIN object_reference ref ON od.obj_id = ref.obj_id
+                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
+                ");
                 if ($row = $db->fetchAssoc($result)) {
                     $stats['examsymbols_enabled_tests'] = (int) $row['cnt'];
                 }
             }
 
-            // ExamGuard
+            // ExamGuard - nur aktive Tests
             if ($db->tableExists('examguard_settings')) {
-                $result = $db->query("SELECT COUNT(*) as cnt FROM examguard_settings WHERE enabled = 1");
+                $result = $db->query("
+                    SELECT COUNT(*) as cnt 
+                    FROM examguard_settings s
+                    JOIN object_data od ON s.test_id = od.obj_id
+                    JOIN object_reference ref ON od.obj_id = ref.obj_id
+                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
+                ");
                 if ($row = $db->fetchAssoc($result)) {
                     $stats['examguard_enabled_tests'] = (int) $row['cnt'];
                 }
             }
 
-            // ExamAlert
+            // ExamAlert - nur aktive Tests
             if ($db->tableExists('examalert_settings')) {
-                $result = $db->query("SELECT COUNT(*) as cnt FROM examalert_settings WHERE enabled = 1");
+                $result = $db->query("
+                    SELECT COUNT(*) as cnt 
+                    FROM examalert_settings s
+                    JOIN object_data od ON s.test_id = od.obj_id
+                    JOIN object_reference ref ON od.obj_id = ref.obj_id
+                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
+                ");
                 if ($row = $db->fetchAssoc($result)) {
                     $stats['examalert_enabled_tests'] = (int) $row['cnt'];
                 }
             }
 
-            // Totale konfigurierte Tests (mindestens ein Feature aktiviert)
+            // Totale konfigurierte Tests (mindestens ein Feature aktiviert) - nur aktive
             $union_queries = [];
             if ($db->tableExists('examcalc_settings')) {
-                $union_queries[] = "SELECT test_id FROM examcalc_settings WHERE enabled = 1";
+                $union_queries[] = "
+                    SELECT s.test_id 
+                    FROM examcalc_settings s
+                    JOIN object_data od ON s.test_id = od.obj_id
+                    JOIN object_reference ref ON od.obj_id = ref.obj_id
+                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
+                ";
             }
             if ($db->tableExists('examsymbols_settings')) {
-                $union_queries[] = "SELECT test_id FROM examsymbols_settings WHERE enabled = 1";
+                $union_queries[] = "
+                    SELECT s.test_id 
+                    FROM examsymbols_settings s
+                    JOIN object_data od ON s.test_id = od.obj_id
+                    JOIN object_reference ref ON od.obj_id = ref.obj_id
+                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
+                ";
             }
             if ($db->tableExists('examguard_settings')) {
-                $union_queries[] = "SELECT test_id FROM examguard_settings WHERE enabled = 1";
+                $union_queries[] = "
+                    SELECT s.test_id 
+                    FROM examguard_settings s
+                    JOIN object_data od ON s.test_id = od.obj_id
+                    JOIN object_reference ref ON od.obj_id = ref.obj_id
+                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
+                ";
             }
             if ($db->tableExists('examalert_settings')) {
-                $union_queries[] = "SELECT test_id FROM examalert_settings WHERE enabled = 1";
+                $union_queries[] = "
+                    SELECT s.test_id 
+                    FROM examalert_settings s
+                    JOIN object_data od ON s.test_id = od.obj_id
+                    JOIN object_reference ref ON od.obj_id = ref.obj_id
+                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
+                ";
             }
 
             if (!empty($union_queries)) {
@@ -556,6 +608,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function renderCleanupSection(): string
     {
         $cleanup_url = $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries');
+        $preview_url = $this->ctrl->getLinkTarget($this, 'previewCleanup');
         
         return "
         <div style='background: #fff3cd; border: 1px solid #ffeeba; border-radius: 0.5rem; padding: 1.5rem;'>
@@ -563,13 +616,20 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 <div style='font-size: 1.5rem;'>🧹</div>
                 <div>
                     <div style='font-weight: 500; color: #856404;'>Verwaiste Einträge bereinigen</div>
-                    <div style='font-size: 0.9rem; color: #856404;'>Entfernt Einstellungen von Tests, die nicht mehr existieren.</div>
+                    <div style='font-size: 0.9rem; color: #856404;'>Entfernt Einstellungen von Tests, die gelöscht wurden.</div>
                 </div>
             </div>
-            <button onclick=\"if(confirm('Wirklich verwaiste Einträge löschen?')) { window.location.href='$cleanup_url'; }\" 
-                    style='background: #856404; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer;'>
-                Jetzt bereinigen
-            </button>
+            
+            <div style='display: flex; gap: 0.5rem;'>
+                <button onclick=\"window.location.href='$preview_url'\" 
+                        style='background: #6c757d; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer; font-size: 0.9rem;'>
+                    👁️ Vorschau
+                </button>
+                <button onclick=\"if(confirm('Wirklich verwaiste Einträge löschen?')) { window.location.href='$cleanup_url'; }\" 
+                        style='background: #856404; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer;'>
+                    🗑️ Jetzt bereinigen
+                </button>
+            </div>
         </div>";
     }
 
@@ -878,13 +938,193 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     }
 
     /**
+     * Vorschau der zu bereinigenden Einträge
+     */
+    protected function previewCleanup(): void
+    {
+        $this->tabs->activateTab('statistics');
+        
+        try {
+            $orphaned_entries = $this->getOrphanedEntries();
+            $preview_html = $this->renderCleanupPreview($orphaned_entries);
+            $this->tpl->setContent($preview_html);
+            
+        } catch (Exception $e) {
+            $this->tpl->setOnScreenMessage('failure', '❌ Fehler bei der Vorschau: ' . $e->getMessage());
+            $this->showStatistics();
+        }
+    }
+
+    /**
+     * Findet verwaiste Einträge (ohne zu löschen)
+     */
+    private function getOrphanedEntries(): array
+    {
+        global $DIC;
+        $db = $DIC->database();
+        $orphaned = [];
+
+        $tables = ['examcalc_settings', 'examsymbols_settings', 'examguard_settings', 'examalert_settings'];
+
+        foreach ($tables as $table) {
+            if (!$db->tableExists($table)) continue;
+
+            try {
+                // Finde verwaiste Einträge mit Details
+                $query = "
+                    SELECT s.test_id, 
+                           COALESCE(od.title, 'Test gelöscht') as test_title,
+                           CASE 
+                               WHEN od.obj_id IS NULL THEN 'Nicht gefunden'
+                               WHEN ref.deleted IS NOT NULL THEN 'Gelöscht'
+                               ELSE 'Aktiv'
+                           END as status
+                    FROM $table s
+                    LEFT JOIN object_data od ON s.test_id = od.obj_id AND od.type = 'tst'
+                    LEFT JOIN object_reference ref ON od.obj_id = ref.obj_id AND ref.deleted IS NULL
+                    WHERE ref.obj_id IS NULL OR od.obj_id IS NULL
+                ";
+
+                $result = $db->query($query);
+                $entries = [];
+
+                while ($row = $db->fetchAssoc($result)) {
+                    $entries[] = [
+                        'test_id' => $row['test_id'],
+                        'title' => $row['test_title'],
+                        'status' => $row['status']
+                    ];
+                }
+
+                if (!empty($entries)) {
+                    $orphaned[$table] = $entries;
+                }
+
+            } catch (Exception $e) {
+                error_log("[ExtendedTestSettings] Fehler bei Vorschau für $table: " . $e->getMessage());
+            }
+        }
+
+        return $orphaned;
+    }
+
+    /**
+     * Rendert die Bereinigungsvorschau
+     */
+    private function renderCleanupPreview(array $orphaned_entries): string
+    {
+        $back_url = $this->ctrl->getLinkTarget($this, 'showStatistics');
+        $cleanup_url = $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries');
+        
+        $total_count = array_sum(array_map('count', $orphaned_entries));
+        
+        if (empty($orphaned_entries)) {
+            return "
+            <div style='padding: 2rem;'>
+                <div style='margin-bottom: 2rem;'>
+                    <a href='$back_url' style='color: #007bff; text-decoration: none;'>← Zurück zu Statistiken</a>
+                </div>
+                
+                <div style='text-align: center; padding: 3rem; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 0.5rem;'>
+                    <div style='font-size: 3rem; margin-bottom: 1rem; color: #155724;'>✅</div>
+                    <h3 style='color: #155724; margin-bottom: 1rem;'>Keine verwaisten Einträge</h3>
+                    <p style='color: #155724; margin: 0;'>
+                        Alle Plugin-Einstellungen gehören zu aktiven Tests.
+                    </p>
+                </div>
+            </div>";
+        }
+
+        $table_names = [
+            'examcalc_settings' => 'Taschenrechner',
+            'examsymbols_settings' => 'Sonderzeichen',
+            'examguard_settings' => 'Prüfungsschutz',
+            'examalert_settings' => 'Zeit-Warnung'
+        ];
+
+        $details_html = '';
+        foreach ($orphaned_entries as $table => $entries) {
+            $table_name = $table_names[$table] ?? $table;
+            $count = count($entries);
+            
+            $details_html .= "
+            <div style='margin-bottom: 2rem; background: white; border: 1px solid #e9ecef; border-radius: 0.5rem; overflow: hidden;'>
+                <div style='background: #f8d7da; padding: 1rem; border-bottom: 1px solid #f5c6cb;'>
+                    <h4 style='margin: 0; color: #721c24;'>$table_name ($count Einträge)</h4>
+                </div>
+                <div style='max-height: 200px; overflow-y: auto;'>
+                    <table style='width: 100%; border-collapse: collapse;'>
+                        <thead style='background: #f8f9fa;'>
+                            <tr>
+                                <th style='padding: 0.5rem; text-align: left; border-bottom: 1px solid #dee2e6;'>Test-ID</th>
+                                <th style='padding: 0.5rem; text-align: left; border-bottom: 1px solid #dee2e6;'>Test-Name</th>
+                                <th style='padding: 0.5rem; text-align: left; border-bottom: 1px solid #dee2e6;'>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>";
+            
+            foreach ($entries as $entry) {
+                $status_color = $entry['status'] === 'Gelöscht' ? '#dc3545' : '#6c757d';
+                $details_html .= "
+                    <tr style='border-bottom: 1px solid #e9ecef;'>
+                        <td style='padding: 0.5rem;'>{$entry['test_id']}</td>
+                        <td style='padding: 0.5rem;'>" . htmlspecialchars($entry['title']) . "</td>
+                        <td style='padding: 0.5rem; color: $status_color; font-weight: 500;'>{$entry['status']}</td>
+                    </tr>";
+            }
+            
+            $details_html .= "
+                        </tbody>
+                    </table>
+                </div>
+            </div>";
+        }
+
+        return "
+        <div style='padding: 2rem;'>
+            <div style='margin-bottom: 2rem;'>
+                <a href='$back_url' style='color: #007bff; text-decoration: none;'>← Zurück zu Statistiken</a>
+            </div>
+            
+            <div style='background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem;'>
+                <div style='display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;'>
+                    <div style='font-size: 2rem; color: #721c24;'>⚠️</div>
+                    <div>
+                        <h3 style='margin: 0; color: #721c24;'>Bereinigungsvorschau</h3>
+                        <p style='margin: 0.5rem 0 0 0; color: #721c24;'>
+                            <strong>$total_count verwaiste Einträge</strong> werden beim Bereinigen entfernt.
+                        </p>
+                    </div>
+                </div>
+                
+                <button onclick=\"if(confirm('$total_count Einträge werden unwiderruflich gelöscht. Fortfahren?')) { window.location.href='$cleanup_url'; }\" 
+                        style='background: #dc3545; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.375rem; font-weight: 500; cursor: pointer;'>
+                    🗑️ $total_count Einträge jetzt löschen
+                </button>
+            </div>
+            
+            $details_html
+        </div>";
+    }
+
+    /**
      * Verwaiste Einträge bereinigen (ILIAS 9 kompatibel)
      */
     protected function cleanupOrphanedEntries(): void
     {
         try {
+            // Erst Vorschau sammeln für Meldung
+            $orphaned_before = $this->getOrphanedEntries();
+            $total_before = array_sum(array_map('count', $orphaned_before));
+            
+            // Bereinigung durchführen
             $cleaned = $this->performCleanup();
-            $this->tpl->setOnScreenMessage('success', "✅ $cleaned verwaiste Einträge wurden bereinigt.");
+            
+            if ($cleaned > 0) {
+                $this->tpl->setOnScreenMessage('success', "✅ $cleaned verwaiste Einträge wurden erfolgreich bereinigt.");
+            } else {
+                $this->tpl->setOnScreenMessage('info', "ℹ️ Keine verwaisten Einträge gefunden - alles sauber!");
+            }
             
         } catch (Exception $e) {
             $this->tpl->setOnScreenMessage('failure', '❌ Fehler bei der Bereinigung: ' . $e->getMessage());
@@ -909,11 +1149,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 if (!$db->tableExists($table))
                     continue;
 
-                // Finde verwaiste Einträge
+                // KORRIGIERT: Prüfe auf aktive Tests (nicht gelöschte)
                 $query = "
                     DELETE FROM $table 
                     WHERE test_id NOT IN (
-                        SELECT obj_id FROM object_data WHERE type = 'tst'
+                        SELECT DISTINCT od.obj_id 
+                        FROM object_data od
+                        JOIN object_reference ref ON od.obj_id = ref.obj_id 
+                        WHERE od.type = 'tst' AND ref.deleted IS NULL
                     )
                 ";
 
