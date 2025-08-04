@@ -319,6 +319,78 @@ class ilExamCheckerHandler
     {
         $checks = array();
         
+        // *** NEU: Standards aus Plugin-Konfiguration laden (ILIAS 9 kompatibel) ***
+        $required_standards = $this->getConfiguredStandards($exam_type);
+        
+        // Alle möglichen Checks durchführen, aber nur die konfigurierten bewerten
+        $all_checks = $this->performAllChecks($test_data, $exam_type);
+        
+        // Nur die konfigurierten Standards zurückgeben
+        foreach ($required_standards as $standard) {
+            if (isset($all_checks[$standard])) {
+                $checks[$standard] = $all_checks[$standard];
+            }
+        }
+        
+        return $checks;
+    }
+
+    private function getConfiguredStandards(string $exam_type): array
+    {
+        try {
+            $settings = new ilSetting('extendedtestsettings');
+            $standards_string = $settings->get("examchecker_standards_$exam_type", '');
+            
+            if (!empty($standards_string)) {
+                return explode(',', $standards_string);
+            }
+        } catch (Exception $e) {
+            error_log("[ExamChecker] Fehler beim Laden der Standards: " . $e->getMessage());
+        }
+        
+        // Fallback auf hardcodierte Defaults
+        return $this->getHardcodedDefaults($exam_type);
+    }
+
+
+    private function getHardcodedDefaults(string $exam_type): array
+    {
+        $defaults = [
+            'fragenpools_verwenden',
+            'datenschutz', 
+            'online',
+            'passwort',
+            'nur_ausgewaehlte_teilnehmer',
+            'testdurchlaeufe_begrenzen',
+            'wartezeit_erzwingen',
+            'pruefungsansicht',
+            'automatisches_speichern',
+            'direkte_rueckmeldung',
+            'fragen_markieren',
+            'bewertungssystem',
+            'negative_punkte',
+            'besten_durchlauf_bewerten'
+        ];
+
+        if ($exam_type === 'fern') {
+            $defaults[] = 'eigenstaendigkeitserklaerung';
+            $defaults[] = 'bearbeitungsdauer';
+        }
+
+        if ($exam_type === 'praesenz') {
+            $defaults[] = 'weiterleitung';
+        }
+
+        return $defaults;
+    }
+
+    /**
+     * *** NEU: Führt alle möglichen Checks durch (ohne Filterung) ***
+     */
+    private function performAllChecks(array $test_data, string $exam_type): array
+    {
+        $checks = array();
+        
         // Basis-Checks für alle Prüfungstypen
         $checks['fragenpools_verwenden'] = (int)$test_data['pool_usage'] === 1;
         $checks['datenschutz'] = (int)$test_data['anonymity'] === 0; // Mit Namen
@@ -358,26 +430,23 @@ class ilExamCheckerHandler
             $checks['weiterleitung'] = $redirection_mode && $redirection_url;
         }
         
+        // Bewertungssystem-Checks (für beide Typen relevant)
+        $checks['bewertungssystem'] = (int)$test_data['count_system'] === 0;
+        $checks['negative_punkte'] = (int)$test_data['score_cutting'] === 0;
+        $checks['besten_durchlauf_bewerten'] = (int)$test_data['pass_scoring'] === 1;
+        
         return $checks;
     }
+
 
     /**
      * Prüft die Auswertungseinstellungen
      */
     private function checkAuswertung(array $test_data, string $exam_type): array
     {
-        $checks = array();
-        
-        // Bewertungssystem: Auch teilweise falsche Antworten erzielen Punkte (count_system = 0)
-        $checks['bewertungssystem'] = (int)$test_data['count_system'] === 0;
-        
-        // Negative Punkte deaktiviert (score_cutting = 0)
-        $checks['negative_punkte'] = (int)$test_data['score_cutting'] === 0;
-        
-        // Besten Testdurchlauf bewerten (pass_scoring = 1)
-        $checks['besten_durchlauf_bewerten'] = (int)$test_data['pass_scoring'] === 1;
-        
-        return $checks;
+        // Diese Methode ist jetzt redundant, da alles in performAllChecks() gemacht wird
+        // Aber wir behalten sie für Kompatibilität
+        return []; // Leeres Array, da Auswertung bereits in checkEinstellungen() integriert ist
     }
 
     /**
@@ -425,9 +494,9 @@ class ilExamCheckerHandler
     {
         $settings_descriptions = $this->getSettingDescriptions();
         
-        // Zusammenfassung berechnen
-        $total = count($results['einstellungen']) + count($results['auswertung']);
-        $passed = count(array_filter($results['einstellungen'])) + count(array_filter($results['auswertung']));
+        // *** GEÄNDERT: Nur noch Einstellungen zählen (Auswertung ist integriert) ***
+        $total = count($results['einstellungen']);
+        $passed = count(array_filter($results['einstellungen']));
         $failed = $total - $passed;
         $percentage = $total > 0 ? round(($passed / $total) * 100) : 0;
         
@@ -440,60 +509,71 @@ class ilExamCheckerHandler
             $summary_color = '#dc3545'; $summary_icon = '❌';
         }
 
-        // HTML zusammenbauen (ohne Heredoc)
+        // *** NEU: Hinweis auf konfigurierbare Standards ***
+        $config_hint = $total > 0 ? '' : '
+        <div style="background: #fff3cd; border: 1px solid #ffeeba; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem;">
+            <div style="color: #856404; display: flex; align-items: center; gap: 0.5rem;">
+                <span>⚙️</span>
+                <strong>Keine Standards konfiguriert</strong>
+            </div>
+            <p style="margin: 0.5rem 0 0 0; color: #856404; font-size: 0.9rem;">
+                Für diesen Prüfungstyp wurden noch keine Vorgaben in der Plugin-Konfiguration festgelegt.
+                <br><a href="ilias.php?baseClass=ilAdministrationGUI&cmdClass=ilobjcomponentsettingsgui&cmdNode=lg:mk&cmd=configure&pluginname=ExtendedTestSettings" style="color: #856404; text-decoration: underline;">→ Zur Plugin-Konfiguration</a>
+            </p>
+        </div>';
+
+        // HTML zusammenbauen
         $html = '<div class="check-results-container" style="margin-top: 1rem;">';
         
-        // Zusammenfassung
-        $html .= '<div style="background: ' . $summary_color . '15; border: 2px solid ' . $summary_color . '; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem; text-align: center;">';
-        $html .= '<div style="font-size: 3rem; margin-bottom: 0.5rem;">' . $summary_icon . '</div>';
-        $html .= '<h3 style="color: ' . $summary_color . '; margin: 0 0 0.5rem 0;">Check abgeschlossen: ' . $percentage . '%</h3>';
-        $html .= '<p style="margin: 0; color: #6c757d;">';
-        $html .= '<strong>' . $passed . '</strong> korrekt • <strong>' . $failed . '</strong> zu überprüfen • <strong>' . count($results['manuell_check']) . '</strong> manuell';
-        $html .= '</p></div>';
+        $html .= $config_hint;
+        
+        if ($total > 0) {
+            // Zusammenfassung
+            $html .= '<div style="background: ' . $summary_color . '15; border: 2px solid ' . $summary_color . '; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem; text-align: center;">';
+            $html .= '<div style="font-size: 3rem; margin-bottom: 0.5rem;">' . $summary_icon . '</div>';
+            $html .= '<h3 style="color: ' . $summary_color . '; margin: 0 0 0.5rem 0;">Check abgeschlossen: ' . $percentage . '%</h3>';
+            $html .= '<p style="margin: 0; color: #6c757d;">';
+            $html .= '<strong>' . $passed . '</strong> korrekt • <strong>' . $failed . '</strong> zu überprüfen • <strong>' . count($results['manuell_check']) . '</strong> manuell';
+            $html .= '</p></div>';
 
-        // Erfolgreich geprüfte Einstellungen
-        $passed_items = array();
-        foreach ($results['einstellungen'] as $key => $passed_check) {
-            if ($passed_check) $passed_items[] = $settings_descriptions[$key] ?? $key;
-        }
-        foreach ($results['auswertung'] as $key => $passed_check) {
-            if ($passed_check) $passed_items[] = $settings_descriptions[$key] ?? $key;
-        }
-
-        if (!empty($passed_items)) {
-            $html .= '<div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem;">';
-            $html .= '<h4 style="color: #155724; margin: 0 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem;">';
-            $html .= '<span>✅</span> Korrekte Einstellungen (' . count($passed_items) . ')';
-            $html .= '</h4>';
-            $html .= '<ul style="margin: 0; padding-left: 1.5rem; color: #155724;">';
-            foreach ($passed_items as $item) {
-                $html .= '<li style="margin-bottom: 0.25rem;">' . htmlspecialchars($item) . '</li>';
+            // Erfolgreich geprüfte Einstellungen
+            $passed_items = array();
+            foreach ($results['einstellungen'] as $key => $passed_check) {
+                if ($passed_check) $passed_items[] = $settings_descriptions[$key] ?? $key;
             }
-            $html .= '</ul></div>';
-        }
 
-        // Fehlerhafte Einstellungen
-        $failed_items = array();
-        foreach ($results['einstellungen'] as $key => $passed_check) {
-            if (!$passed_check) $failed_items[] = $settings_descriptions[$key] ?? $key;
-        }
-        foreach ($results['auswertung'] as $key => $passed_check) {
-            if (!$passed_check) $failed_items[] = $settings_descriptions[$key] ?? $key;
-        }
-
-        if (!empty($failed_items)) {
-            $html .= '<div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem;">';
-            $html .= '<h4 style="color: #721c24; margin: 0 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem;">';
-            $html .= '<span>❌</span> Zu überprüfende Einstellungen (' . count($failed_items) . ')';
-            $html .= '</h4>';
-            $html .= '<ul style="margin: 0; padding-left: 1.5rem; color: #721c24;">';
-            foreach ($failed_items as $item) {
-                $html .= '<li style="margin-bottom: 0.25rem;"><strong>' . htmlspecialchars($item) . '</strong></li>';
+            if (!empty($passed_items)) {
+                $html .= '<div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem;">';
+                $html .= '<h4 style="color: #155724; margin: 0 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem;">';
+                $html .= '<span>✅</span> Korrekte Einstellungen (' . count($passed_items) . ')';
+                $html .= '</h4>';
+                $html .= '<ul style="margin: 0; padding-left: 1.5rem; color: #155724;">';
+                foreach ($passed_items as $item) {
+                    $html .= '<li style="margin-bottom: 0.25rem;">' . htmlspecialchars($item) . '</li>';
+                }
+                $html .= '</ul></div>';
             }
-            $html .= '</ul></div>';
+
+            // Fehlerhafte Einstellungen
+            $failed_items = array();
+            foreach ($results['einstellungen'] as $key => $passed_check) {
+                if (!$passed_check) $failed_items[] = $settings_descriptions[$key] ?? $key;
+            }
+
+            if (!empty($failed_items)) {
+                $html .= '<div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem;">';
+                $html .= '<h4 style="color: #721c24; margin: 0 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem;">';
+                $html .= '<span>❌</span> Zu überprüfende Einstellungen (' . count($failed_items) . ')';
+                $html .= '</h4>';
+                $html .= '<ul style="margin: 0; padding-left: 1.5rem; color: #721c24;">';
+                foreach ($failed_items as $item) {
+                    $html .= '<li style="margin-bottom: 0.25rem;"><strong>' . htmlspecialchars($item) . '</strong></li>';
+                }
+                $html .= '</ul></div>';
+            }
         }
 
-        // Manuelle Checks
+        // Manuelle Checks (bleiben unverändert)
         if (!empty($results['manuell_check'])) {
             $html .= '<div style="background: #fff3cd; border: 1px solid #ffeeba; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem;">';
             $html .= '<h4 style="color: #856404; margin: 0 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem;">';

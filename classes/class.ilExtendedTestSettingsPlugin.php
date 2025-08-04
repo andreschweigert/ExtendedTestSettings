@@ -7,15 +7,24 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
         return "ExtendedTestSettings";
     }
 
+    // *** GEÄNDERT: Konfiguration aktivieren ***
     public function hasConfiguration(): bool
     {
-        return false; // Keine globale Konfiguration - alles per Test
+        return true; // Konfigurationsseite aktivieren
+    }
+
+    // *** NEU: Konfigurationsgui zurückgeben ***
+    public function getConfigurationClass(): string
+    {
+        return ilExtendedTestSettingsConfigGUI::class;
     }
 
     public function getUIHookClass(): string
     {
         return ilExtendedTestSettingsUIHookGUI::class;
     }
+
+    // *** REST DER KLASSE BLEIBT UNVERÄNDERT ***
 
     /**
      * Wird beim Aktivieren des Plugins ausgeführt
@@ -272,6 +281,7 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
             'examcalc_enabled_tests' => 0,
             'examsymbols_enabled_tests' => 0,
             'examguard_enabled_tests' => 0,
+            'examalert_enabled_tests' => 0,
             'total_configured_tests' => 0
         ];
 
@@ -309,6 +319,8 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
                     SELECT test_id FROM examsymbols_settings WHERE enabled = 1
                     UNION
                     SELECT test_id FROM examguard_settings WHERE enabled = 1
+                    UNION
+                    SELECT test_id FROM examalert_settings WHERE enabled = 1
                 ) as combined
             ");
             if ($row = $db->fetchAssoc($result)) {
@@ -332,7 +344,7 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
         $cleaned = 0;
 
         try {
-            $tables = ['examcalc_settings', 'examsymbols_settings', 'examguard_settings'];
+            $tables = ['examcalc_settings', 'examsymbols_settings', 'examguard_settings', 'examalert_settings'];
 
             foreach ($tables as $table) {
                 if (!$db->tableExists($table))
