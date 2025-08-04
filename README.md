@@ -40,8 +40,6 @@ Sichert den Prüfungsmodus durch Einschränkung von Interaktionen.
   - Copy/Paste
   - Tastenkombinationen für Entwickler-Tools
 
-- Einsatz sinnvoll bei Präsenzprüfungen mit digitaler Aufsicht
-
 ---
 
 ### 4. ExamAlert – Zeit-Warnung
@@ -53,6 +51,12 @@ Zeigt zeitbasierte Warnungen mit benutzerdefinierten Nachrichten während des Te
 
 ---
 
+### 5. ExamChecker
+
+TBA
+
+---
+
 ## Installation
 
 1. Das Repository in folgendes Verzeichnis klonen:
@@ -60,7 +64,7 @@ Zeigt zeitbasierte Warnungen mit benutzerdefinierten Nachrichten während des Te
    Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/
 
 
-2. Plugin im ILIAS-Pluginmanager installieren und aktivieren.
+2. composer install --no-dev + Plugin im ILIAS-Pluginmanager installieren und aktivieren.
 
 3. In einem ILIAS-Testobjekt erscheint unter „Einstellungen“ ein neuer Tab: **Zusätzliche Funktionen**  
 Dort können die Features testbezogen aktiviert oder deaktiviert werden.
