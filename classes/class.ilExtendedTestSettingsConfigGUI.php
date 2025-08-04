@@ -268,21 +268,289 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $status_text = $data['exists'] ? 'Verfügbar' : 'Nicht gefunden';
             $status_color = $data['exists'] ? '#28a745' : '#dc3545';
             
+            // Detaillierte Statistiken laden wenn Modul verfügbar
+            $details_html = '';
+            if ($data['exists']) {
+                $detailed_stats = $this->getDetailedModuleStats($module);
+                $details_html = $this->renderModuleDetails($module, $detailed_stats);
+                $click_cursor = 'cursor: pointer;';
+                $expand_icon = '<span style="color: #6c757d; font-size: 0.8rem;">▼ Details</span>';
+            } else {
+                $click_cursor = '';
+                $expand_icon = '';
+            }
+            
             $cards .= "
-            <div style='background: white; border: 1px solid #e9ecef; border-radius: 0.5rem; padding: 1rem; display: flex; align-items: center; gap: 1rem;'>
-                <div style='font-size: 1.5rem;'>{$data['icon']}</div>
-                <div style='flex: 1;'>
-                    <div style='font-weight: 500; color: #495057;'>{$data['title']}</div>
-                    <div style='font-size: 0.85rem; color: #6c757d;'>{$data['class']}</div>
+            <div class='module-card' data-module='$module' style='background: white; border: 1px solid #e9ecef; border-radius: 0.5rem; overflow: hidden;'>
+                <div class='module-header' style='padding: 1rem; display: flex; align-items: center; gap: 1rem; $click_cursor transition: background-color 0.15s;' " . ($data['exists'] ? "onclick='toggleModuleDetails(\"$module\")'" : "") . ">
+                    <div style='font-size: 1.5rem;'>{$data['icon']}</div>
+                    <div style='flex: 1;'>
+                        <div style='font-weight: 500; color: #495057;'>{$data['title']}</div>
+                        <div style='font-size: 0.85rem; color: #6c757d;'>{$data['class']}</div>
+                    </div>
+                    <div style='display: flex; align-items: center; gap: 0.5rem; color: $status_color; font-weight: 500;'>
+                        <span>$status_icon</span>
+                        <span>$status_text</span>
+                    </div>
+                    <div class='expand-icon' id='expand-$module'>$expand_icon</div>
                 </div>
-                <div style='display: flex; align-items: center; gap: 0.5rem; color: $status_color; font-weight: 500;'>
-                    <span>$status_icon</span>
-                    <span>$status_text</span>
+                
+                <div class='module-details' id='details-$module' style='display: none; padding: 0 1rem 1rem 1rem; border-top: 1px solid #e9ecef; background: #f8f9fa;'>
+                    $details_html
                 </div>
             </div>";
         }
 
-        return "<div style='display: grid; gap: 0.75rem;'>$cards</div>";
+        $javascript = $this->getModuleDetailsJavaScript();
+
+        return "<div style='display: grid; gap: 0.75rem;'>$cards</div>$javascript";
+    }
+
+    /**
+     * Lädt detaillierte Statistiken für ein Modul
+     */
+    private function getDetailedModuleStats(string $module): array
+    {
+        global $DIC;
+        $db = $DIC->database();
+        
+        $table_map = [
+            'examcalc' => 'examcalc_settings',
+            'examsymbols' => 'examsymbols_settings', 
+            'examguard' => 'examguard_settings',
+            'examalert' => 'examalert_settings',
+            'examchecker' => null // ExamChecker hat keine Settings-Tabelle
+        ];
+        
+        $table = $table_map[$module] ?? null;
+        if (!$table || !$db->tableExists($table)) {
+            return [];
+        }
+        
+        try {
+            // Query für Test-Details mit Eigentümer-Info
+            $query = "
+                SELECT 
+                    s.test_id,
+                    od.title as test_title,
+                    ref.ref_id,
+                    usr.login as owner_login,
+                    usr.firstname,
+                    usr.lastname,
+                    od.create_date,
+                    od.last_update
+                FROM $table s
+                JOIN object_data od ON s.test_id = od.obj_id
+                JOIN object_reference ref ON od.obj_id = ref.obj_id AND ref.deleted IS NULL
+                LEFT JOIN usr_data usr ON od.owner = usr.usr_id
+                WHERE s.enabled = 1
+                ORDER BY od.title ASC
+            ";
+            
+            $result = $db->query($query);
+            $tests = [];
+            
+            while ($row = $db->fetchAssoc($result)) {
+                $owner_name = trim($row['firstname'] . ' ' . $row['lastname']);
+                if (empty($owner_name)) {
+                    $owner_name = $row['owner_login'] ?? 'Unbekannt';
+                }
+                
+                $tests[] = [
+                    'test_id' => $row['test_id'],
+                    'ref_id' => $row['ref_id'],
+                    'title' => $row['test_title'],
+                    'owner_login' => $row['owner_login'],
+                    'owner_name' => $owner_name,
+                    'created' => $this->formatDate($row['create_date']),
+                    'updated' => $this->formatDateTime($row['last_update'])
+                ];
+            }
+            
+            return $tests;
+            
+        } catch (Exception $e) {
+            error_log("[ExtendedTestSettings] Fehler bei Modul-Details für $module: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Formatiert ein Datum sicher
+     */
+    private function formatDate($date_value): string
+    {
+        if (empty($date_value)) {
+            return '';
+        }
+        
+        // Wenn es bereits ein Unix-Timestamp (Integer) ist
+        if (is_numeric($date_value) && (int)$date_value == $date_value) {
+            return date('d.m.Y', (int)$date_value);
+        }
+        
+        // Wenn es ein Datums-String ist (DATETIME, DATE etc.)
+        try {
+            $timestamp = strtotime($date_value);
+            if ($timestamp !== false) {
+                return date('d.m.Y', $timestamp);
+            }
+        } catch (Exception $e) {
+            error_log("[ExtendedTestSettings] Fehler beim Formatieren des Datums: " . $e->getMessage());
+        }
+        
+        return '';
+    }
+
+    /**
+     * Formatiert ein Datum+Zeit sicher
+     */
+    private function formatDateTime($datetime_value): string
+    {
+        if (empty($datetime_value)) {
+            return '';
+        }
+        
+        // Wenn es bereits ein Unix-Timestamp (Integer) ist
+        if (is_numeric($datetime_value) && (int)$datetime_value == $datetime_value) {
+            return date('d.m.Y H:i', (int)$datetime_value);
+        }
+        
+        // Wenn es ein Datums-String ist (DATETIME, DATE etc.)
+        try {
+            $timestamp = strtotime($datetime_value);
+            if ($timestamp !== false) {
+                return date('d.m.Y H:i', $timestamp);
+            }
+        } catch (Exception $e) {
+            error_log("[ExtendedTestSettings] Fehler beim Formatieren der DateTime: " . $e->getMessage());
+        }
+        
+        return '';
+    }
+
+    /**
+     * Rendert die Detail-Ansicht für ein Modul
+     */
+    private function renderModuleDetails(string $module, array $tests): string
+    {
+        if (empty($tests)) {
+            return '<p style="color: #6c757d; font-style: italic; margin: 1rem 0;">Keine aktiven Tests gefunden.</p>';
+        }
+        
+        $module_names = [
+            'examcalc' => 'Taschenrechner',
+            'examsymbols' => 'Sonderzeichen', 
+            'examguard' => 'Prüfungsschutz',
+            'examalert' => 'Zeit-Warnung'
+        ];
+        
+        $module_name = $module_names[$module] ?? ucfirst($module);
+        $count = count($tests);
+        
+        $html = "
+        <div style='margin: 1rem 0 0.5rem 0;'>
+            <strong style='color: #495057;'>$count Tests verwenden $module_name:</strong>
+        </div>
+        
+        <div style='max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; background: white;'>
+            <table style='width: 100%; border-collapse: collapse;'>
+                <thead style='background: #f8f9fa; border-bottom: 1px solid #dee2e6;'>
+                    <tr>
+                        <th style='padding: 0.5rem; text-align: left; font-size: 0.85rem; color: #495057; border-right: 1px solid #dee2e6;'>Test</th>
+                        <th style='padding: 0.5rem; text-align: left; font-size: 0.85rem; color: #495057; border-right: 1px solid #dee2e6;'>Eigentümer</th>
+                        <th style='padding: 0.5rem; text-align: left; font-size: 0.85rem; color: #495057;'>Erstellt</th>
+                    </tr>
+                </thead>
+                <tbody>";
+        
+        foreach ($tests as $test) {
+            $test_url = "ilias.php?ref_id={$test['ref_id']}&baseClass=ilRepositoryGUI";
+            $test_title = htmlspecialchars($test['title']);
+            $owner_name = htmlspecialchars($test['owner_name']);
+            $owner_login = htmlspecialchars($test['owner_login']);
+            $created = htmlspecialchars($test['created']);
+            
+            $html .= "
+                <tr style='border-bottom: 1px solid #e9ecef;'>
+                    <td style='padding: 0.5rem; border-right: 1px solid #e9ecef;'>
+                        <a href='$test_url' target='_blank' style='color: #007bff; text-decoration: none; font-weight: 500;'>
+                            $test_title
+                        </a>
+                        <div style='font-size: 0.75rem; color: #6c757d;'>ID: {$test['test_id']}</div>
+                    </td>
+                    <td style='padding: 0.5rem; border-right: 1px solid #e9ecef;'>
+                        <div style='font-weight: 500; color: #495057;'>$owner_name</div>
+                        <div style='font-size: 0.75rem; color: #6c757d;'>@$owner_login</div>
+                    </td>
+                    <td style='padding: 0.5rem;'>
+                        <div style='font-size: 0.85rem; color: #495057;'>$created</div>
+                    </td>
+                </tr>";
+        }
+        
+        $html .= "
+                </tbody>
+            </table>
+        </div>";
+        
+        return $html;
+    }
+
+    /**
+     * JavaScript für Module-Details Accordion
+     */
+    private function getModuleDetailsJavaScript(): string
+    {
+        return "
+        <script>
+        function toggleModuleDetails(module) {
+            const detailsDiv = document.getElementById('details-' + module);
+            const expandIcon = document.getElementById('expand-' + module);
+            const header = detailsDiv.parentElement.querySelector('.module-header');
+            
+            if (detailsDiv.style.display === 'none' || detailsDiv.style.display === '') {
+                // Öffnen
+                detailsDiv.style.display = 'block';
+                expandIcon.innerHTML = '<span style=\"color: #6c757d; font-size: 0.8rem;\">▲ Schließen</span>';
+                header.style.backgroundColor = '#f8f9fa';
+            } else {
+                // Schließen
+                detailsDiv.style.display = 'none';
+                expandIcon.innerHTML = '<span style=\"color: #6c757d; font-size: 0.8rem;\">▼ Details</span>';
+                header.style.backgroundColor = 'white';
+            }
+        }
+        
+        // Hover-Effekte für klickbare Karten
+        document.addEventListener('DOMContentLoaded', function() {
+            const headers = document.querySelectorAll('.module-header[onclick]');
+            headers.forEach(header => {
+                header.addEventListener('mouseenter', function() {
+                    if (this.style.backgroundColor !== 'rgb(248, 249, 250)') {
+                        this.style.backgroundColor = '#f8f9fa';
+                    }
+                });
+                
+                header.addEventListener('mouseleave', function() {
+                    const detailsDiv = this.parentElement.querySelector('.module-details');
+                    if (detailsDiv.style.display !== 'block') {
+                        this.style.backgroundColor = 'white';
+                    }
+                });
+            });
+        });
+        </script>
+        
+        <style>
+        .module-card .module-header[onclick]:hover {
+            background-color: #f8f9fa !important;
+        }
+        
+        .module-details table a:hover {
+            text-decoration: underline !important;
+        }
+        </style>";
     }
 
     private function renderCleanupSection(): string
