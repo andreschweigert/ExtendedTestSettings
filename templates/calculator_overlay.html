@@ -1,21 +1,12 @@
-<!--
-    calculator_overlay.html - ExamCalc HTML Template (Extended Version)
-    Part of ExtendedTestSettings Plugin
-    
-    Dieses Template wird dynamisch vom examcalc-loader.js geladen
-    Erweitert um: Verlauf, Brüche, DEL-Funktion
-    Layout: = Button rechts unten verschoben
--->
-
 <!-- Floating Calculator Button -->
 <button id="calculator-btn" title="Taschenrechner öffnen/schließen (Alt + R)" aria-label="Taschenrechner">
     🧮
 </button>
 
-<!-- Calculator Window -->
-<div id="calculator" role="application" aria-label="Wissenschaftlicher Taschenrechner">
-    
-    <!-- Panel Header (erweitert mit Verlauf-Button) -->
+<!-- Calculator Window (leicht breiter via bestehender .with-history Regel) -->
+<div id="calculator" class="with-history" role="application" aria-label="Wissenschaftlicher Taschenrechner">
+
+    <!-- Panel Header -->
     <div class="header">
         <h3>Taschenrechner</h3>
         <div class="header-buttons">
@@ -25,76 +16,79 @@
             <button class="close-btn" type="button" aria-label="Taschenrechner schließen">×</button>
         </div>
     </div>
-    
+
     <!-- Calculator Content Container -->
     <div class="calculator-content">
         <!-- Main Calculator -->
         <div class="calculator-main">
             <!-- Display -->
-            <input type="text" 
-                   id="calc-display" 
-                   readonly 
-                   placeholder="0"
-                   aria-label="Rechenergebnis">
-            
+            <input
+                type="text"
+                id="calc-display"
+                readonly
+                placeholder="0"
+                aria-label="Rechenergebnis"
+            />
+
             <!-- Button Grid -->
             <div class="buttons" role="grid">
-                <!-- Row 1: Advanced functions + DEL -->
+                <!-- ROW 1: Edit/Klammern/Inverse -->
+                <button type="button" aria-label="Alles löschen">AC</button>
+                <button type="button" aria-label="Letztes Zeichen löschen" class="del-btn">DEL</button>
                 <button type="button" aria-label="Öffnende Klammer">(</button>
                 <button type="button" aria-label="Schließende Klammer">)</button>
-                <button type="button" aria-label="Quadratwurzel">√</button>
-                <button type="button" aria-label="Potenz">^</button>
-                <button type="button" aria-label="Alles löschen">AC</button>
-                
-                <!-- Row 2: Numbers 7-9, division, DEL -->
+                <button type="button" aria-label="1 durch x">1/x</button>
+
+                <!-- ROW 2: 7–9 / √ -->
                 <button type="button" aria-label="Sieben">7</button>
                 <button type="button" aria-label="Acht">8</button>
                 <button type="button" aria-label="Neun">9</button>
                 <button type="button" aria-label="Division">/</button>
-                <button type="button" aria-label="Letztes Zeichen löschen" class="del-btn">DEL</button>
-                
-                <!-- Row 3: Numbers 4-6, multiplication, Bruch-Toggle -->
+                <button type="button" aria-label="Quadratwurzel">√</button>
+
+                <!-- ROW 3: 4–6 * x² -->
                 <button type="button" aria-label="Vier">4</button>
                 <button type="button" aria-label="Fünf">5</button>
                 <button type="button" aria-label="Sechs">6</button>
                 <button type="button" aria-label="Multiplikation">*</button>
-                <button type="button" aria-label="Bruchdarstellung umschalten" class="fraction-toggle" id="fraction-toggle">⅓</button>
-                
-                <!-- Row 4: Numbers 1-3, subtraction, pi -->
+                <button type="button" aria-label="x hoch 2">x²</button>
+
+                <!-- ROW 4: 1–3 − ^ -->
                 <button type="button" aria-label="Eins">1</button>
                 <button type="button" aria-label="Zwei">2</button>
                 <button type="button" aria-label="Drei">3</button>
                 <button type="button" aria-label="Subtraktion">-</button>
-                <button type="button" aria-label="Pi">π</button>
-                
-                <!-- Row 5: Zero, decimal, addition, euler, EQUALS (= verschoben hierher) -->
+                <button type="button" aria-label="Potenz">^</button>
+
+                <!-- ROW 5: 0 . + % ! -->
                 <button type="button" aria-label="Null">0</button>
                 <button type="button" aria-label="Dezimalkomma">.</button>
                 <button type="button" aria-label="Addition">+</button>
+                <button type="button" aria-label="Prozent">%</button>
+                <button type="button" aria-label="Fakultät">!</button>
+
+                <!-- ROW 6: Konstanten/Logs + "=" startet hier und ist doppelt hoch -->
+                <button type="button" aria-label="Pi">π</button>
                 <button type="button" aria-label="Eulersche Zahl">e</button>
-                <button type="button" aria-label="Gleich" class="equals">=</button>
-                
-                <!-- Row 6: Scientific Functions + SCI -->
-                <button type="button" class="sci" aria-label="Sinus">sin</button>
-                <button type="button" class="sci" aria-label="Cosinus">cos</button>
-                <button type="button" class="sci" aria-label="Tangens">tan</button>
-                <button type="button" class="sci" aria-label="Logarithmus">log</button>
-                <button type="button" aria-label="Wissenschaftliche Funktionen ein/aus">SCI</button>
-                
-                <!-- Row 7: More Scientific Functions (Hidden by default) -->
-                <button type="button" class="sci" aria-label="Natürlicher Logarithmus">ln</button>
-                <button type="button" class="sci" aria-label="Prozent">%</button>
-                <button type="button" class="sci" aria-label="Fakultät">!</button>
-                <button type="button" class="sci" aria-label="x hoch 2">x²</button>
-                <button type="button" class="sci" aria-label="1 durch x">1/x</button>
+                <button type="button" aria-label="Natürlicher Logarithmus">ln</button>
+                <button type="button" aria-label="Logarithmus">log</button>
+                <button type="button" aria-label="Gleich" class="equals"
+                        style="grid-column: 5; grid-row: 6 / span 2;">=</button>
+
+                <!-- ROW 7: trig zusammen + Bruch -->
+                <button type="button" aria-label="Sinus">sin</button>
+                <button type="button" aria-label="Cosinus">cos</button>
+                <button type="button" aria-label="Tangens">tan</button>
+                <button type="button" aria-label="Bruchdarstellung umschalten" class="fraction-toggle" id="fraction-toggle">⅓</button>
+                <!-- Spalte 5 ist durch "=" belegt -->
             </div>
-            
+
             <!-- Panel Info -->
             <div class="calc-info" role="complementary">
                 Wissenschaftlicher Taschenrechner
             </div>
         </div>
-        
+
         <!-- History Panel (Hidden by default) -->
         <div id="history-panel" class="history-panel hidden">
             <div class="history-header">
@@ -108,5 +102,4 @@
             </div>
         </div>
     </div>
-    
 </div>

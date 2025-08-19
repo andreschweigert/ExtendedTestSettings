@@ -1,9 +1,10 @@
 /**
- * calculator.js - Taschenrechner-Logic für ExtendedTestSettings 
+ * calculator.js - Taschenrechner-Logic für ExtendedTestSettings
  */
 
 window.ExamCalc = window.ExamCalc || {};
 
+// NEU: Debug-Steuerung
 window.ExamCalc.DEBUG = false; // Debug ein/aus
 
 // Zentrale Log-Funktion
@@ -23,7 +24,6 @@ window.ExamCalc.Calculator = class {
         this.btn = null;
         this.calc = null;
         this.display = null;
-        this.sciButtons = null;
         
         this.isInitialized = false;
         
@@ -41,7 +41,6 @@ window.ExamCalc.Calculator = class {
         this.btn = document.getElementById('calculator-btn');
         this.calc = document.getElementById('calculator');
         this.display = document.getElementById('calc-display');
-        this.sciButtons = document.querySelectorAll('.sci');
 
         if (!this.btn || !this.calc || !this.display) {
             console.error("[ExamCalc] Calculator-Elemente nicht gefunden");
@@ -192,9 +191,6 @@ window.ExamCalc.Calculator = class {
             case 'AC':
                 this.clear();
                 break;
-            case 'SCI':
-                this.toggleScientific();
-                break;
             case '!':
                 this.addFactorial();
                 break;
@@ -340,19 +336,6 @@ window.ExamCalc.Calculator = class {
         
         if (window.ecLog) {
             window.ecLog('🧹 Calculator cleared');
-        }
-    }
-
-    /**
-     * Scientific Mode toggle
-     */
-    toggleScientific() {
-        this.sciButtons.forEach(btn => {
-            btn.style.display = btn.style.display === 'none' ? 'inline-block' : 'none';
-        });
-        
-        if (window.ecLog) {
-            window.ecLog('🔬 Scientific mode toggled');
         }
     }
 
