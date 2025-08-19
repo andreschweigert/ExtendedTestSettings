@@ -1,7 +1,5 @@
 /**
- * calculator.js - Taschenrechner-Logic für ExtendedTestSettings (FINAL WORKING)
- * Update: Support für neuen Header mit Close-Button
- * Erweitert um: Verlauf, Brüche, DEL-Funktion, Smart Exponenten
+ * calculator.js - Taschenrechner-Logic für ExtendedTestSettings
  */
 
 window.ExamCalc = window.ExamCalc || {};
@@ -157,12 +155,23 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * Button-Klicks verarbeiten (erweitert)
+     * Button-Klicks verarbeiten (erweitert mit neuen Funktionen)
      */
     handleButtonClick(value, classList) {
         // NEU: DEL Button
         if (classList.contains('del-btn')) {
             this.deleteLastChar();
+            return;
+        }
+
+        // NEU: Spezielle Funktions-Buttons
+        if (value === '1/x') {
+            this.addReciprocal();
+            return;
+        }
+
+        if (value === 'x²' || value === 'x^2') {
+            this.addSquare();
             return;
         }
 
@@ -176,6 +185,12 @@ window.ExamCalc.Calculator = class {
                 break;
             case 'SCI':
                 this.toggleScientific();
+                break;
+            case '!':
+                this.addFactorial();
+                break;
+            case '%':
+                this.addPercent();
                 break;
             default:
                 this.addToExpression(value);
@@ -238,36 +253,70 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * Expression für JavaScript eval() umwandeln (FINALE WORKING VERSION)
+     * Expression für JavaScript eval() umwandeln (ERWEITERTE VERSION)
      */
     parseExpression(expression) {
-    let parsed = expression;
-    if (window.ecLog) window.ecLog(`🔧 Parse Input: "${expression}"`);
+        let parsed = expression;
+        if (window.ecLog) window.ecLog(`🔧 Parse Input: "${expression}"`);
 
-    // Konstanten nur als eigenständige Tokens ersetzen (verhindert 1e5 -> 1Math.E5)
-    parsed = parsed
-        .replace(/(^|[^A-Za-z0-9_.])π(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.PI)
-        .replace(/(^|[^A-Za-z0-9_.])e(?![A-Za-z0-9_])/g,  (_, pre) => pre + Math.E);
+        // NEU: Fakultät-Funktion definieren (muss vor anderen Ersetzungen stehen)
+        if (!window.factorialFunction) {
+            window.factorialFunction = (n) => {
+                if (n < 0) return NaN;
+                if (n === 0 || n === 1) return 1;
+                let result = 1;
+                for (let i = 2; i <= n; i++) {
+                    result *= i;
+                }
+                return result;
+            };
+        }
 
-    // Trig-Funktionen mit beliebigem Exponenten: sin^n(x), cos^n(x), tan^n(x)
-    // Nur matchen, wenn NICHT Buchstabe/Ziffer/_/. direkt davor steht (also nicht Math.sin)
-    parsed = parsed.replace(
-        /(^|[^A-Za-z0-9_.])(sin|cos|tan)\^(\d+)\s*\(([^)]+)\)/g,
-        (m, pre, fn, exp, arg) => `${pre}Math.pow(Math.${fn}(${arg}*Math.PI/180),${exp})`
-    );
+        // NEU: Fakultät-Operator (!) verarbeiten - ZUERST
+        parsed = parsed.replace(/(\d+(?:\.\d+)?)!/g, 'factorialFunction($1)');
 
-    // Normale trigonometrische Funktionen in Grad
-    parsed = parsed.replace(
-        /(^|[^A-Za-z0-9_.])(sin|cos|tan)\s*\(([^)]+)\)/g,
-        (m, pre, fn, arg) => `${pre}Math.${fn}(${arg}*Math.PI/180)`
-    );
+        // NEU: Prozent-Operator (%) verarbeiten
+        // Pattern: Zahl% wird zu (Zahl/100)
+        parsed = parsed.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
 
-    // Exponenten-Operator zuletzt
-    parsed = parsed.replace(/\^/g, '**');
+        // NEU: Kehrwert 1/x - wenn 1/x als Token gefunden wird
+        parsed = parsed.replace(/1\/x/g, '(1/x)');
 
-    if (window.ecLog) window.ecLog(`🔧 Parse Output: "${parsed}"`);
-    return parsed;
-}
+        // Konstanten nur als eigenständige Tokens ersetzen (verhindert 1e5 -> 1Math.E5)
+        parsed = parsed
+            .replace(/(^|[^A-Za-z0-9_.])π(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.PI)
+            .replace(/(^|[^A-Za-z0-9_.])e(?![A-Za-z0-9_])/g,  (_, pre) => pre + Math.E);
+
+        // NEU: Natürlicher Logarithmus ln() 
+        parsed = parsed.replace(
+            /(^|[^A-Za-z0-9_.])ln\s*\(([^)]+)\)/g,
+            (m, pre, arg) => `${pre}Math.log(${arg})`
+        );
+
+        // Trig-Funktionen mit beliebigem Exponenten: sin^n(x), cos^n(x), tan^n(x)
+        parsed = parsed.replace(
+            /(^|[^A-Za-z0-9_.])(sin|cos|tan)\^(\d+)\s*\(([^)]+)\)/g,
+            (m, pre, fn, exp, arg) => `${pre}Math.pow(Math.${fn}(${arg}*Math.PI/180),${exp})`
+        );
+
+        // Normale trigonometrische Funktionen in Grad
+        parsed = parsed.replace(
+            /(^|[^A-Za-z0-9_.])(sin|cos|tan)\s*\(([^)]+)\)/g,
+            (m, pre, fn, arg) => `${pre}Math.${fn}(${arg}*Math.PI/180)`
+        );
+
+        // Logarithmus zur Basis 10
+        parsed = parsed.replace(
+            /(^|[^A-Za-z0-9_.])log\s*\(([^)]+)\)/g,
+            (m, pre, arg) => `${pre}Math.log10(${arg})`
+        );
+
+        // Exponenten-Operator zuletzt
+        parsed = parsed.replace(/\^/g, '**');
+
+        if (window.ecLog) window.ecLog(`🔧 Parse Output: "${parsed}"`);
+        return parsed;
+    }
 
 
     /**
@@ -329,7 +378,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Smart Exponenten-Verarbeitung
+     * NEU: Smart Exponenten-Verarbeitung (erweitert)
      */
     processSmartExponent(currentExpression, newDigit) {
         // Pattern für automatische Exponenten
@@ -358,6 +407,168 @@ window.ExamCalc.Calculator = class {
         }
 
         return currentExpression + newDigit;
+    }
+
+    /**
+     * NEU: Kehrwert hinzufügen (1/x)
+     */
+    addReciprocal() {
+        if (this.lastResult !== null && this.current === '') {
+            // Wenn letztes Ergebnis vorhanden, Kehrwert davon
+            const reciprocal = 1 / this.lastResult;
+            this.lastResult = reciprocal;
+            this.updateDisplay(reciprocal);
+            
+            if (window.ecLog) {
+                window.ecLog(`🔄 Kehrwert von Ergebnis: 1/${this.lastResult} = ${reciprocal}`);
+            }
+        } else if (this.current) {
+            // Aktuelle Expression in Kehrwert umwandeln
+            this.current = `1/(${this.current})`;
+            this.display.value = this.formatDisplayExpression(this.current);
+            
+            if (window.ecLog) {
+                window.ecLog(`🔄 Kehrwert von Expression: ${this.current}`);
+            }
+        } else {
+            // Nichts vorhanden - "1/x" als Eingabe starten
+            this.current = '1/x';
+            this.display.value = '1/x';
+            
+            if (window.ecLog) {
+                window.ecLog('🔄 1/x Eingabe gestartet');
+            }
+        }
+    }
+
+    /**
+     * NEU: Fakultät hinzufügen (!)
+     */
+    addFactorial() {
+        if (this.lastResult !== null && this.current === '') {
+            // Fakultät vom letzten Ergebnis
+            try {
+                const factorial = window.factorialFunction(Math.floor(this.lastResult));
+                this.lastResult = factorial;
+                this.updateDisplay(factorial);
+                
+                if (window.ecLog) {
+                    window.ecLog(`❗ Fakultät von Ergebnis: ${Math.floor(this.lastResult)}! = ${factorial}`);
+                }
+            } catch (error) {
+                this.display.value = 'Fehler';
+                if (window.ecLog) {
+                    window.ecLog(`❌ Fakultät-Fehler: ${error.message}`);
+                }
+            }
+        } else {
+            // Fakultät zur aktuellen Expression hinzufügen
+            this.current += '!';
+            this.display.value = this.formatDisplayExpression(this.current);
+            
+            if (window.ecLog) {
+                window.ecLog(`❗ Fakultät hinzugefügt: ${this.current}`);
+            }
+        }
+    }
+
+    /**
+     * NEU: Prozent hinzufügen (%)
+     */
+    addPercent() {
+        if (this.lastResult !== null && this.current === '') {
+            // Prozent vom letzten Ergebnis
+            const percent = this.lastResult / 100;
+            this.lastResult = percent;
+            this.updateDisplay(percent);
+            
+            if (window.ecLog) {
+                window.ecLog(`📊 Prozent von Ergebnis: ${this.lastResult}% = ${percent}`);
+            }
+        } else {
+            // Prozent zur aktuellen Expression hinzufügen
+            this.current += '%';
+            this.display.value = this.formatDisplayExpression(this.current);
+            
+            if (window.ecLog) {
+                window.ecLog(`📊 Prozent hinzugefügt: ${this.current}`);
+            }
+        }
+    }
+
+    /**
+     * NEU: Quadrat hinzufügen (x²)
+     */
+    addSquare() {
+        if (this.lastResult !== null && this.current === '') {
+            // Quadrat vom letzten Ergebnis
+            const square = Math.pow(this.lastResult, 2);
+            this.lastResult = square;
+            this.updateDisplay(square);
+            
+            if (window.ecLog) {
+                window.ecLog(`⏹️ Quadrat von Ergebnis: ${this.lastResult}² = ${square}`);
+            }
+        } else if (this.current) {
+            // Quadrat zur aktuellen Expression hinzufügen
+            // Intelligente Erkennung des letzten Elements
+            const lastToken = this.extractLastToken(this.current);
+            if (lastToken) {
+                this.current = lastToken.remaining + `(${lastToken.token})^2`;
+            } else {
+                this.current = `(${this.current})^2`;
+            }
+            this.display.value = this.formatDisplayExpression(this.current);
+            
+            if (window.ecLog) {
+                window.ecLog(`⏹️ Quadrat hinzugefügt: ${this.current}`);
+            }
+        } else {
+            // Nichts vorhanden - "x²" als Platzhalter
+            this.current = 'x^2';
+            this.display.value = this.formatDisplayExpression(this.current);
+            
+            if (window.ecLog) {
+                window.ecLog('⏹️ x² Eingabe gestartet');
+            }
+        }
+    }
+
+    /**
+     * NEU: Letzten Token aus Expression extrahieren (für x² Funktion)
+     */
+    extractLastToken(expression) {
+        if (!expression) return null;
+        
+        // Patterns für verschiedene Token-Typen (von komplexen zu einfachen)
+        const patterns = [
+            // Funktionen mit Klammern: sin(30), cos(45), log(10), etc.
+            /([a-zA-Z]+\([^)]*\))$/,
+            // Geklammerte Ausdrücke: (2+3), (5*6)
+            /(\([^)]*\))$/,
+            // Konstanten: π, e
+            /([πe])$/,
+            // Dezimalzahlen: 123.45, .5
+            /(\d*\.?\d+)$/,
+            // Einzelne Ziffer
+            /(\d)$/
+        ];
+        
+        for (const pattern of patterns) {
+            const match = expression.match(pattern);
+            if (match) {
+                const token = match[1];
+                const remaining = expression.slice(0, -token.length);
+                
+                if (window.ecLog) {
+                    window.ecLog(`🔍 Token für x² gefunden: "${token}" | Rest: "${remaining}"`);
+                }
+                
+                return { token, remaining };
+            }
+        }
+        
+        return null;
     }
 
     /**
