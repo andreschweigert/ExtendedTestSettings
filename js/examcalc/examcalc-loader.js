@@ -1,6 +1,7 @@
 /**
- * examcalc-loader.js - Lädt HTML Template und initialisiert Calculator
+ * examcalc-loader.js - Lädt HTML Template und initialisiert Calculator (Extended)
  * Part of ExtendedTestSettings Plugin
+ * Erweitert um: Test-Ende Cleanup für Prüfungssicherheit
  */
 
 (function() {
@@ -49,13 +50,13 @@
         } catch (error) {
             window.ecLog('❌ Fehler beim Laden des Templates: ' + error.message);
             
-            // Fallback: Inline HTML verwenden
+            // Fallback: Inline HTML verwenden (erweitert)
             return loadCalculatorFallback();
         }
     }
 
     /**
-     * Fallback: Calculator HTML inline erstellen
+     * Fallback: Calculator HTML inline erstellen (erweitert)
      */
     function loadCalculatorFallback() {
         window.ecLog('🔄 Verwende Fallback-HTML...');
@@ -63,16 +64,36 @@
         const calcHTML = `
             <button id="calculator-btn" title="Taschenrechner (Alt + R)">🧮</button>
             <div id="calculator">
-                <input type="text" id="calc-display" readonly>
-                <div class="buttons">
-                    <button>(</button><button>)</button><button>√</button><button>^</button><button>AC</button>
-                    <button>7</button><button>8</button><button>9</button><button>/</button><button>%</button>
-                    <button>4</button><button>5</button><button>6</button><button>*</button><button>π</button>
-                    <button>1</button><button>2</button><button>3</button><button>-</button><button>e</button>
-                    <button>0</button><button>.</button><button>=</button><button>+</button><button>SCI</button>
-                    <!-- Erweiterte Funktionen -->
-                    <button class="sci">sin</button><button class="sci">cos</button><button class="sci">tan</button>
-                    <button class="sci">log</button><button class="sci">ln</button>
+                <div class="header">
+                    <h3>Taschenrechner</h3>
+                    <div class="header-buttons">
+                        <button id="history-toggle" class="history-btn" type="button" title="Verlauf">📜</button>
+                        <button class="close-btn" type="button">×</button>
+                    </div>
+                </div>
+                <div class="calculator-content">
+                    <div class="calculator-main">
+                        <input type="text" id="calc-display" readonly placeholder="0">
+                        <div class="buttons">
+                            <button>(</button><button>)</button><button>√</button><button>^</button><button>AC</button>
+                            <button>7</button><button>8</button><button>9</button><button>/</button><button class="del-btn">DEL</button>
+                            <button>4</button><button>5</button><button>6</button><button>*</button><button id="fraction-toggle" class="fraction-toggle">⅓</button>
+                            <button>1</button><button>2</button><button>3</button><button>-</button><button>π</button>
+                            <button>0</button><button>.</button><button class="equals">=</button><button>+</button><button>e</button>
+                            <button class="sci">sin</button><button class="sci">cos</button><button class="sci">tan</button><button class="sci">log</button><button>SCI</button>
+                            <button class="sci">ln</button><button class="sci">%</button><button class="sci">!</button><button class="sci">x²</button><button class="sci">1/x</button>
+                        </div>
+                        <div class="calc-info">Wissenschaftlicher Taschenrechner</div>
+                    </div>
+                    <div id="history-panel" class="history-panel hidden">
+                        <div class="history-header">
+                            <h4>Verlauf</h4>
+                            <button id="clear-history" class="clear-history-btn" type="button">🗑️</button>
+                        </div>
+                        <div id="history-list" class="history-list">
+                            <div class="history-empty">Noch keine Rechnungen</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -104,6 +125,10 @@
             if (success) {
                 // Global verfügbar machen für Debugging
                 window.ExamCalc.instance = calculator;
+                
+                // NEU: Test-Ende Cleanup einrichten
+                setupTestEndCleanup(calculator);
+                
                 window.ecLog('🎉 ExamCalc vollständig initialisiert!');
             } else {
                 throw new Error('Calculator-Initialisierung fehlgeschlagen');
@@ -111,6 +136,80 @@
 
         } catch (error) {
             window.ecLog('❌ Fehler bei Calculator-Initialisierung: ' + error.message);
+        }
+    }
+
+    /**
+     * NEU: Test-Ende Cleanup einrichten (wichtig für Prüfungen!)
+     */
+    function setupTestEndCleanup(calculator) {
+        // Beim Verlassen der Seite
+        window.addEventListener('beforeunload', () => {
+            cleanupForTestEnd(calculator);
+        });
+
+        // Bei Seitenwechsel innerhalb ILIAS
+        window.addEventListener('pagehide', () => {
+            cleanupForTestEnd(calculator);
+        });
+
+        // Bei Klick auf "Test beenden" Buttons
+        document.addEventListener('click', (e) => {
+            const target = e.target;
+            
+            // Verschiedene mögliche "Test beenden" Buttons erkennen
+            if (target.type === 'submit' || target.tagName === 'BUTTON' || target.tagName === 'A') {
+                const text = target.textContent.toLowerCase();
+                const finishKeywords = ['beenden', 'finish', 'submit', 'abgeben', 'end test', 'test beenden'];
+                
+                if (finishKeywords.some(keyword => text.includes(keyword))) {
+                    window.ecLog('🔚 Test-Ende erkannt - Cleanup wird ausgeführt');
+                    cleanupForTestEnd(calculator);
+                }
+            }
+        });
+
+        // Auch bei Navigation zu anderen ILIAS-Seiten
+        const originalPushState = history.pushState;
+        const originalReplaceState = history.replaceState;
+        
+        history.pushState = function() {
+            cleanupForTestEnd(calculator);
+            return originalPushState.apply(history, arguments);
+        };
+        
+        history.replaceState = function() {
+            cleanupForTestEnd(calculator);
+            return originalReplaceState.apply(history, arguments);
+        };
+
+        window.ecLog('🛡️ Test-Ende Cleanup eingerichtet');
+    }
+
+    /**
+     * NEU: Cleanup für Prüfungsende
+     */
+    function cleanupForTestEnd(calculator) {
+        if (calculator && calculator.reset) {
+            calculator.reset();
+            window.ecLog('🧹 Calculator für Prüfungsende zurückgesetzt');
+        }
+        
+        // Calculator verstecken
+        if (calculator && calculator.hide) {
+            calculator.hide();
+        }
+        
+        // Zusätzlich: Alle Daten aus localStorage/sessionStorage löschen (falls vorhanden)
+        try {
+            const keys = Object.keys(localStorage);
+            keys.forEach(key => {
+                if (key.includes('examcalc') || key.includes('calculator')) {
+                    localStorage.removeItem(key);
+                }
+            });
+        } catch (e) {
+            // localStorage nicht verfügbar - ignorieren
         }
     }
 
@@ -147,6 +246,21 @@
     }
 }
 
+    /**
+     * NEU: Public API für externe Steuerung
+     */
+    window.ExamCalc = window.ExamCalc || {};
+    window.ExamCalc.cleanup = function() {
+        if (window.ExamCalc.instance) {
+            cleanupForTestEnd(window.ExamCalc.instance);
+        }
+    };
+    
+    window.ExamCalc.reset = function() {
+        if (window.ExamCalc.instance && window.ExamCalc.instance.reset) {
+            window.ExamCalc.instance.reset();
+        }
+    };
 
     // Event-Listener für Page Load
     if (document.readyState === 'loading') {
