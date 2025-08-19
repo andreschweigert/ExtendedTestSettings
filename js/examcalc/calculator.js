@@ -1,7 +1,7 @@
 /**
- * calculator.js - Taschenrechner-Logic für ExtendedTestSettings (Extended)
+ * calculator.js - Taschenrechner-Logic für ExtendedTestSettings (FINAL WORKING)
  * Update: Support für neuen Header mit Close-Button
- * Erweitert um: Verlauf, Brüche, DEL-Funktion
+ * Erweitert um: Verlauf, Brüche, DEL-Funktion, Smart Exponenten
  */
 
 window.ExamCalc = window.ExamCalc || {};
@@ -97,7 +97,7 @@ window.ExamCalc.Calculator = class {
                         window.ecLog('⅓ Fraction-Button über Button-Handler geklickt!');
                     }
                     this.toggleFractionMode();
-                    return; // Wichtig: Nicht weiter verarbeiten
+                    return;
                 }
                 
                 // DEBUG: Welcher Button wurde geklickt?
@@ -166,12 +166,6 @@ window.ExamCalc.Calculator = class {
             return;
         }
 
-        // NEU: Fraction Toggle Button
-        if (classList.contains('fraction-toggle')) {
-            this.toggleFractionMode();
-            return;
-        }
-
         // Standard Button Logic
         switch (value) {
             case '=':
@@ -190,12 +184,13 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Letztes Zeichen löschen (DEL-Funktion)
+     * NEU: Letztes Zeichen löschen (DEL-Funktion) - erweitert
      */
     deleteLastChar() {
         if (this.current.length > 0) {
             this.current = this.current.slice(0, -1);
-            this.display.value = this.current || '';
+            // Display mit Formatierung aktualisieren
+            this.display.value = this.formatDisplayExpression(this.current) || '';
             
             if (window.ecLog) {
                 window.ecLog('🗑️ Letztes Zeichen gelöscht');
@@ -219,8 +214,10 @@ window.ExamCalc.Calculator = class {
             const parsed = this.parseExpression(expression);
             const result = eval(parsed);
             
-            // NEU: In Verlauf hinzufügen
-            this.addToHistory(expression, result);
+            // NEU: In Verlauf hinzufügen (nur wenn gültiges Ergebnis)
+            if (!isNaN(result) && isFinite(result)) {
+                this.addToHistory(expression, result);
+            }
             
             this.lastResult = result;
             this.updateDisplay(result);
@@ -241,24 +238,37 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * Expression für JavaScript eval() umwandeln
+     * Expression für JavaScript eval() umwandeln (FINALE WORKING VERSION)
      */
     parseExpression(expression) {
-        return expression
-            .replace(/π/g, Math.PI)
-            .replace(/e(?![a-z])/g, Math.E) // e aber nicht in "exp" etc.
-            .replace(/√(\d+\.?\d*)/g, 'Math.sqrt($1)')
-            .replace(/√\(([^)]+)\)/g, 'Math.sqrt($1)') // √(expression)
-            .replace(/\^/g, '**')
-            .replace(/sin\(/g, 'Math.sin(')
-            .replace(/cos\(/g, 'Math.cos(')
-            .replace(/tan\(/g, 'Math.tan(')
-            .replace(/log\(/g, 'Math.log10(')
-            .replace(/ln\(/g, 'Math.log(')
-            .replace(/x²/g, '**2')
-            .replace(/!/g, '') // Factorial - vereinfacht
-            .replace(/1\/x/g, '(1/x)');
-    }
+    let parsed = expression;
+    if (window.ecLog) window.ecLog(`🔧 Parse Input: "${expression}"`);
+
+    // Konstanten nur als eigenständige Tokens ersetzen (verhindert 1e5 -> 1Math.E5)
+    parsed = parsed
+        .replace(/(^|[^A-Za-z0-9_.])π(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.PI)
+        .replace(/(^|[^A-Za-z0-9_.])e(?![A-Za-z0-9_])/g,  (_, pre) => pre + Math.E);
+
+    // Trig-Funktionen mit beliebigem Exponenten: sin^n(x), cos^n(x), tan^n(x)
+    // Nur matchen, wenn NICHT Buchstabe/Ziffer/_/. direkt davor steht (also nicht Math.sin)
+    parsed = parsed.replace(
+        /(^|[^A-Za-z0-9_.])(sin|cos|tan)\^(\d+)\s*\(([^)]+)\)/g,
+        (m, pre, fn, exp, arg) => `${pre}Math.pow(Math.${fn}(${arg}*Math.PI/180),${exp})`
+    );
+
+    // Normale trigonometrische Funktionen in Grad
+    parsed = parsed.replace(
+        /(^|[^A-Za-z0-9_.])(sin|cos|tan)\s*\(([^)]+)\)/g,
+        (m, pre, fn, arg) => `${pre}Math.${fn}(${arg}*Math.PI/180)`
+    );
+
+    // Exponenten-Operator zuletzt
+    parsed = parsed.replace(/\^/g, '**');
+
+    if (window.ecLog) window.ecLog(`🔧 Parse Output: "${parsed}"`);
+    return parsed;
+}
+
 
     /**
      * Alles zurücksetzen
@@ -289,9 +299,19 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * Zu Expression hinzufügen
+     * Zu Expression hinzufügen (erweitert mit Smart Exponents)
      */
     addToExpression(value) {
+        // Smart Exponenten-Verarbeitung
+        if (!isNaN(value) && value !== '.') {
+            const smartExpression = this.processSmartExponent(this.current, value);
+            if (smartExpression !== this.current + value) {
+                this.current = smartExpression;
+                this.display.value = this.formatDisplayExpression(this.current);
+                return;
+            }
+        }
+
         // Operator merken
         if (/[\+\-\*\/]/.test(value)) {
             this.lastOperator = value;
@@ -305,7 +325,63 @@ window.ExamCalc.Calculator = class {
         }
 
         this.current += value;
-        this.display.value = this.current;
+        this.display.value = this.formatDisplayExpression(this.current);
+    }
+
+    /**
+     * NEU: Smart Exponenten-Verarbeitung
+     */
+    processSmartExponent(currentExpression, newDigit) {
+        // Pattern für automatische Exponenten
+        const patterns = [
+            { regex: /e$/, replacement: `e^${newDigit}` },
+            { regex: /π$/, replacement: `π^${newDigit}` },
+            { regex: /sin$/, replacement: `sin^${newDigit}` },
+            { regex: /cos$/, replacement: `cos^${newDigit}` },
+            { regex: /tan$/, replacement: `tan^${newDigit}` },
+            { regex: /log$/, replacement: `log^${newDigit}` },
+            { regex: /ln$/, replacement: `ln^${newDigit}` },
+            { regex: /x$/, replacement: `x^${newDigit}` },
+            { regex: /\)$/, replacement: `)^${newDigit}` }
+        ];
+
+        for (const pattern of patterns) {
+            if (pattern.regex.test(currentExpression)) {
+                const newExpression = currentExpression.replace(pattern.regex, pattern.replacement);
+                
+                if (window.ecLog) {
+                    window.ecLog(`🔤 Smart Exponent: "${currentExpression}" + "${newDigit}" → "${newExpression}"`);
+                }
+                
+                return newExpression;
+            }
+        }
+
+        return currentExpression + newDigit;
+    }
+
+    /**
+     * NEU: Expression für Display formatieren (mit Superscript)
+     */
+    formatDisplayExpression(expression) {
+        const superscriptMap = {
+            '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+            '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+            '+': '⁺', '-': '⁻', '(': '⁽', ')': '⁾'
+        };
+
+        let formattedExpression = expression;
+
+        // Exponenten in Superscript umwandeln
+        formattedExpression = formattedExpression.replace(/\^(\d+)/g, (match, exponent) => {
+            return exponent.split('').map(char => superscriptMap[char] || char).join('');
+        });
+
+        if (window.ecLog && formattedExpression !== expression) {
+            window.ecLog(`📝 Display-Format: "${expression}" → "${formattedExpression}"`);
+        }
+
+        return formattedExpression;
     }
 
     /**
@@ -320,7 +396,6 @@ window.ExamCalc.Calculator = class {
 
         this.history.unshift(historyItem);
         
-        // Nur die letzten 10 Einträge behalten
         if (this.history.length > this.maxHistoryItems) {
             this.history = this.history.slice(0, this.maxHistoryItems);
         }
@@ -415,29 +490,12 @@ window.ExamCalc.Calculator = class {
             fractionToggle.title = this.showingFraction 
                 ? "Zur Dezimaldarstellung wechseln" 
                 : "Zur Bruchdarstellung wechseln";
-                
-            if (window.ecLog) {
-                window.ecLog(`⅓ Button-Klasse aktualisiert: ${fractionToggle.className}`);
-            }
-        } else {
-            if (window.ecLog) {
-                window.ecLog('❌ Fraction-Toggle Button nicht gefunden!');
-            }
         }
         
-        // Aktuelles Display aktualisieren wenn es ein Ergebnis zeigt
         if (this.lastResult !== null && this.current === '') {
-            if (window.ecLog) {
-                window.ecLog(`⅓ Aktualisiere Display für lastResult: ${this.lastResult}`);
-            }
             this.updateDisplay(this.lastResult);
-        } else {
-            if (window.ecLog) {
-                window.ecLog(`⅓ Kein lastResult zum Aktualisieren (lastResult: ${this.lastResult}, current: "${this.current}")`);
-            }
         }
         
-        // Verlauf aktualisieren
         this.updateHistoryDisplay();
         
         if (window.ecLog) {
@@ -456,16 +514,8 @@ window.ExamCalc.Calculator = class {
         if (this.showingFraction && !isNaN(value) && value !== 0) {
             const fractionText = this.formatAsFraction(parseFloat(value));
             this.display.value = fractionText;
-            
-            if (window.ecLog) {
-                window.ecLog(`🖥️ Bruch-Display gesetzt: ${fractionText}`);
-            }
         } else {
             this.display.value = value;
-            
-            if (window.ecLog) {
-                window.ecLog(`🖥️ Dezimal-Display gesetzt: ${value}`);
-            }
         }
     }
 
@@ -480,10 +530,8 @@ window.ExamCalc.Calculator = class {
         const fraction = this.decimalToFraction(decimal);
         
         if (fraction.whole !== 0) {
-            // Gemischte Zahl
             return `${fraction.whole} ${fraction.numerator}/${fraction.denominator}`;
         } else {
-            // Einfacher Bruch
             return `${fraction.numerator}/${fraction.denominator}`;
         }
     }
@@ -512,7 +560,6 @@ window.ExamCalc.Calculator = class {
         numerator = h1;
         denominator = k1;
 
-        // Handle mixed numbers
         const whole = Math.floor(Math.abs(decimal));
         if (whole > 0 && Math.abs(decimal) > 1) {
             numerator = Math.abs(numerator) % denominator;
@@ -537,7 +584,6 @@ window.ExamCalc.Calculator = class {
      * NEU: Verlauf-Ergebnis verwenden
      */
     useHistoryResult(result) {
-        // Entferne eventuelle Bruch-Formatierung
         const cleanResult = result.replace(/\s+\d+\/\d+/, '').trim();
         this.current = cleanResult;
         this.display.value = cleanResult;
@@ -566,7 +612,6 @@ window.ExamCalc.Calculator = class {
         this.showingFraction = false;
         this.historyVisible = false;
         
-        // UI zurücksetzen
         const fractionToggle = document.getElementById('fraction-toggle');
         if (fractionToggle) {
             fractionToggle.classList.remove('active');
@@ -597,12 +642,10 @@ window.ExamCalc.Calculator = class {
         let startTop = 0;
 
         this.calc.addEventListener('mousedown', (e) => {
-            // Nur bei Klick auf Calculator-Header (nicht Buttons)
             if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') {
                 return;
             }
             
-            // GEÄNDERT: Auch nicht bei Close-Button oder History
             if (e.target.classList.contains('close-btn') || 
                 e.target.classList.contains('history-btn') ||
                 e.target.closest('.history-panel')) {
