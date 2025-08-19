@@ -26,10 +26,10 @@ window.ExamSymbols.Manager = class {
             spanish: [
                 // Reihe 1: Vokale groß mit Akzent (5 Tasten)
                 "Á", "É", "Í", "Ó", "Ú",
-                
+
                 // Reihe 2: Vokale klein mit Akzent (5 Tasten)  
                 "á", "é", "í", "ó", "ú",
-                
+
                 // Reihe 3: Ñ ñ ¿ ¡ (4 Tasten)
                 "Ñ", "ñ", "¿", "¡"
             ],
@@ -89,24 +89,24 @@ window.ExamSymbols.Manager = class {
             if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT' || e.target.classList.contains('symbol-btn')) {
                 return;
             }
-            
+
             isDragging = true;
             startX = e.clientX;
             startY = e.clientY;
-            
+
             const rect = this.panel.getBoundingClientRect();
             startLeft = rect.left;
             startTop = rect.top;
-            
+
             this.panel.style.cursor = 'grabbing';
         });
 
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
-            
+
             const deltaX = e.clientX - startX;
             const deltaY = e.clientY - startY;
-            
+
             this.panel.style.left = (startLeft + deltaX) + 'px';
             this.panel.style.top = (startTop + deltaY) + 'px';
             this.panel.style.right = 'auto';

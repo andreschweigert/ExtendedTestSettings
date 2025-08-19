@@ -430,24 +430,16 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                 "σ",
                 "ω"
             ],
-            "spanish" => [
-                "á",
-                "é",
-                "í",
-                "ó",
-                "ú",
-                "ñ",
-                "¿",
-                "¡",
-                "Á",
-                "É",
-                "Í",
-                "Ó",
-                "Ú",
-                "Ñ",
-                "ü",
-                "Ü"
-            ],
+"spanish" => [
+    // Reihe 1: Vokale groß mit Akzent (5 Tasten)
+    "Á", "É", "Í", "Ó", "Ú",
+    
+    // Reihe 2: Vokale klein mit Akzent (5 Tasten)  
+    "á", "é", "í", "ó", "ú",
+    
+    // Reihe 3: Ñ ñ ¿ ¡ (4 Tasten)
+    "Ñ", "ñ", "¿", "¡"
+],
             "german" => ["ä", "ö", "ü", "ß", "Ä", "Ö", "Ü"],
             "italian" => [
                 "à",

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ExamSymbols Handler - Komplette Logic für Sonderzeichen-Integration
  * Part of ExtendedTestSettings Plugin
@@ -7,7 +8,7 @@
 class ilExamSymbolsHandler
 {
     private string $plugin_path;
-    
+
     public function __construct(string $plugin_path)
     {
         $this->plugin_path = $plugin_path;
@@ -23,7 +24,7 @@ class ilExamSymbolsHandler
 
         try {
             $test_id = ilObject::_lookupObjectId($ref_id);
-            
+
             if ($test_id <= 0) {
                 return false;
             }
@@ -36,7 +37,6 @@ class ilExamSymbolsHandler
             }
 
             return false;
-
         } catch (Exception $e) {
             error_log("[ExamSymbols] Fehler beim Prüfen der Aktivierung: " . $e->getMessage());
             return false;
@@ -49,11 +49,11 @@ class ilExamSymbolsHandler
     public function isTestPlayerContext(): bool
     {
         $cmd_class = strtolower($_GET["cmdClass"] ?? "");
-        
+
         // Testplayer-Klassen (identisch zu ExamCalc)
         $test_player_classes = [
             'iltestplayer',
-            'iltestplayergui', 
+            'iltestplayergui',
             'iltestplayercommandsgui',
             'iltestoutputgui'
         ];
@@ -66,9 +66,11 @@ class ilExamSymbolsHandler
 
         // URL-Pattern prüfen
         $request_uri = $_SERVER['REQUEST_URI'] ?? '';
-        if (str_contains($request_uri, 'cmd=startPlayer') || 
+        if (
+            str_contains($request_uri, 'cmd=startPlayer') ||
             str_contains($request_uri, 'cmd=resumePlayer') ||
-            str_contains($request_uri, 'cmdClass=ilTestPlayer')) {
+            str_contains($request_uri, 'cmdClass=ilTestPlayer')
+        ) {
             return true;
         }
 
@@ -105,26 +107,26 @@ class ilExamSymbolsHandler
         // JavaScript laden
         $js_symbols_path = $this->plugin_path . "/js/examsymbols/symbols-manager.js";
         $js_loader_path = $this->plugin_path . "/js/examsymbols/examsymbols-loader.js";
-        
+
         $tpl->addJavaScript($js_symbols_path);
         $tpl->addJavaScript($js_loader_path);
 
         // Template-Pfad und Konfiguration als JavaScript-Variable bereitstellen
-        $template_path = ilExamSymbolsPlugin::getInstance()->getPluginWebPath() . "/templates/symbols_overlay.html";
+        $template_path = $this->plugin_path . "/templates/symbols_overlay.html";
         $symbols_json = json_encode($symbols);
         $templates_json = json_encode($this->getAvailableTemplates());
-        
+
         $tpl->addOnLoadCode("
-            window.ExamSymbols = window.ExamSymbols || {};
-            window.ExamSymbols.templatePath = '$template_path';
-            window.ExamSymbols.config = {
-                template: '$template',
-                refId: $ref_id,
-                symbols: $symbols_json,
-                availableTemplates: $templates_json
-            };
-            esLog('✅ ExamSymbols Assets geladen - Template: $template mit ' + " . count($symbols) . " + ' Symbolen');
-        ");
+    window.ExamSymbols = window.ExamSymbols || {};
+    window.ExamSymbols.templatePath = '$template_path';
+    window.ExamSymbols.config = {
+        template: '$template',
+        refId: $ref_id,
+        symbols: $symbols_json,
+        availableTemplates: $templates_json
+    };
+    esLog('✅ ExamSymbols Assets geladen - Template: $template mit ' + " . count($symbols) . " + ' Symbole');
+");
     }
 
     /**
@@ -148,7 +150,6 @@ class ilExamSymbolsHandler
             ]);
 
             return true;
-
         } catch (Exception $e) {
             error_log("[ExamSymbols] Fehler beim Speichern: " . $e->getMessage());
             return false;
@@ -169,7 +170,7 @@ class ilExamSymbolsHandler
             $label = htmlspecialchars($data['label'], ENT_QUOTES);
             $options .= "<option value=\"$key\" $selected>$label</option>";
         }
-        
+
         return <<<HTML
             <div class="form-group">
                 <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
@@ -211,7 +212,6 @@ HTML;
             if ($row = $db->fetchAssoc($result)) {
                 return $row['template'] ?? 'math';
             }
-
         } catch (Exception $e) {
             error_log("[ExamSymbols] Fehler beim Laden des Templates: " . $e->getMessage());
         }
@@ -228,29 +228,81 @@ HTML;
             "math" => [
                 "label" => "Mathematik/Wissenschaft",
                 "symbols" => [
-                    "π", "√", "∑", "∞", "≈", "≠", "≤", "≥", "±", "∆", 
-                    "α", "β", "γ", "δ", "ε", "θ", "λ", "μ", "σ", "ω",
-                    "²", "³", "°", "∫", "∂", "→", "↔", "∈", "∉", "∅"
+                    "π",
+                    "√",
+                    "∑",
+                    "∞",
+                    "≈",
+                    "≠",
+                    "≤",
+                    "≥",
+                    "±",
+                    "∆",
+                    "α",
+                    "β",
+                    "γ",
+                    "δ",
+                    "ε",
+                    "θ",
+                    "λ",
+                    "μ",
+                    "σ",
+                    "ω",
+                    "²",
+                    "³",
+                    "°",
+                    "∫",
+                    "∂",
+                    "→",
+                    "↔",
+                    "∈",
+                    "∉",
+                    "∅"
                 ]
             ],
             "spanish" => [
-                "label" => "Spanisch", 
+                "label" => "Spanisch",
                 "symbols" => [
                     // Reihe 1: Vokale groß mit Akzent (5 Tasten)
-                    "Á", "É", "Í", "Ó", "Ú",
-                    
+                    "Á",
+                    "É",
+                    "Í",
+                    "Ó",
+                    "Ú",
+
                     // Reihe 2: Vokale klein mit Akzent (5 Tasten)  
-                    "á", "é", "í", "ó", "ú",
-                    
+                    "á",
+                    "é",
+                    "í",
+                    "ó",
+                    "ú",
+
                     // Reihe 3: Ñ ñ ¿ ¡ (4 Tasten)
-                    "Ñ", "ñ", "¿", "¡"
+                    "Ñ",
+                    "ñ",
+                    "¿",
+                    "¡"
                 ]
             ],
             "italian" => [
                 "label" => "Italienisch",
                 "symbols" => [
-                    "à", "è", "ì", "ò", "ù", "é", "í", "ó", 
-                    "À", "È", "Ì", "Ò", "Ù", "É", "Í", "Ó"
+                    "à",
+                    "è",
+                    "ì",
+                    "ò",
+                    "ù",
+                    "é",
+                    "í",
+                    "ó",
+                    "À",
+                    "È",
+                    "Ì",
+                    "Ò",
+                    "Ù",
+                    "É",
+                    "Í",
+                    "Ó"
                 ]
             ],
             "german" => [
@@ -260,8 +312,26 @@ HTML;
             "greek" => [
                 "label" => "Griechisch",
                 "symbols" => [
-                    "α", "β", "γ", "δ", "ε", "θ", "λ", "μ", "σ", "ω",
-                    "Α", "Β", "Γ", "Δ", "Ε", "Θ", "Λ", "Μ", "Σ", "Ω"
+                    "α",
+                    "β",
+                    "γ",
+                    "δ",
+                    "ε",
+                    "θ",
+                    "λ",
+                    "μ",
+                    "σ",
+                    "ω",
+                    "Α",
+                    "Β",
+                    "Γ",
+                    "Δ",
+                    "Ε",
+                    "Θ",
+                    "Λ",
+                    "Μ",
+                    "Σ",
+                    "Ω"
                 ]
             ]
         ];
@@ -286,10 +356,10 @@ HTML;
             'title' => 'Sonderzeichen-Palette',
             'icon' => '📝',
             'description' => 'Palette mit Sonderzeichen für verschiedene Fachbereiche (Mathematik, Sprachen, etc.)',
-            'version' => '0.0.2',
+            'version' => '0.0.3',
             'features' => [
                 'Floating Button (Alt + S)',
-                'Multiple Templates (Math, Sprachen)', 
+                'Multiple Templates (Math, Sprachen)',
                 'Rich-Text-Editor Support',
                 'Focus-Tracking System',
                 'Mobile Responsive'

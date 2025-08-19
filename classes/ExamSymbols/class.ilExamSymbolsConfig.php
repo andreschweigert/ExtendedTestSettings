@@ -52,19 +52,19 @@ class ilExamSymbolsConfig
                 ]
             ],
             "spanish" => [
-                "label" => "Spanisch",
-                "description" => "Spanische Akzente und Sonderzeichen",
-                "symbols" => [
-                    // Reihe 1: Vokale groß mit Akzent (5 Tasten)
-                    "Á", "É", "Í", "Ó", "Ú",
-                    
-                    // Reihe 2: Vokale klein mit Akzent (5 Tasten)  
-                    "á", "é", "í", "ó", "ú",
-                    
-                    // Reihe 3: Ñ ñ ¿ ¡ (4 Tasten)
-                    "Ñ", "ñ", "¿", "¡"
-                ]
-            ],
+    "label" => "Spanisch",
+    "description" => "Spanische Akzente und Sonderzeichen",
+    "symbols" => [
+        // Reihe 1: Vokale groß mit Akzent (5 Tasten)
+        "Á", "É", "Í", "Ó", "Ú",
+        
+        // Reihe 2: Vokale klein mit Akzent (5 Tasten)  
+        "á", "é", "í", "ó", "ú",
+        
+        // Reihe 3: Ñ ñ ¿ ¡ (4 Tasten)
+        "Ñ", "ñ", "¿", "¡"
+    ]
+],
             "italian" => [
                 "label" => "Italienisch", 
                 "description" => "Italienische Akzente und Sonderzeichen",
