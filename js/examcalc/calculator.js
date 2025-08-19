@@ -1,8 +1,17 @@
 /**
- * calculator.js - Taschenrechner-Logic für ExtendedTestSettings
+ * calculator.js - Taschenrechner-Logic für ExtendedTestSettings 
  */
 
 window.ExamCalc = window.ExamCalc || {};
+
+window.ExamCalc.DEBUG = false; // Debug ein/aus
+
+// Zentrale Log-Funktion
+window.ecLog = function(message) {
+    if (window.ExamCalc.DEBUG) {
+        console.log(`[ExamCalc] ${message}`);
+    }
+};
 
 window.ExamCalc.Calculator = class {
     constructor() {
@@ -840,6 +849,15 @@ window.ExamCalc.Calculator = class {
         if (window.ecLog) {
             window.ecLog('🔄 Calculator komplett zurückgesetzt');
         }
+    }
+
+    /**
+     * NEU: Debug-Modus umschalten
+     */
+    toggleDebug() {
+        window.ExamCalc.DEBUG = !window.ExamCalc.DEBUG;
+        console.log(`[ExamCalc] Debug ${window.ExamCalc.DEBUG ? 'aktiviert' : 'deaktiviert'}`);
+        return window.ExamCalc.DEBUG;
     }
 
     /**
