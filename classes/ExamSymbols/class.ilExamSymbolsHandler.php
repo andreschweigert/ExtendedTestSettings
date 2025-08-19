@@ -1,17 +1,19 @@
 <?php
-
 /**
  * ExamSymbols Handler - Komplette Logic für Sonderzeichen-Integration
  * Part of ExtendedTestSettings Plugin
+ * BEREINIGT: Templates nur noch aus Config-Klasse laden
  */
 
 class ilExamSymbolsHandler
 {
     private string $plugin_path;
+    private ilExamSymbolsConfig $config;
 
     public function __construct(string $plugin_path)
     {
         $this->plugin_path = $plugin_path;
+        $this->config = new ilExamSymbolsConfig('examsymbols');
     }
 
     /**
@@ -96,9 +98,9 @@ class ilExamSymbolsHandler
             esLog('📝 ExamSymbols wird geladen für ref_id: $ref_id');
         ");
 
-        // Template und Symbole laden
+        // Template und Symbole laden - NUR AUS CONFIG-KLASSE
         $template = $this->getSymbolTemplate($ref_id);
-        $symbols = $this->getSymbolsForTemplate($template);
+        $symbols = $this->config->getSymbolsForTemplate($template);
 
         // CSS laden
         $css_path = $this->plugin_path . "/css/examsymbols.css";
@@ -114,7 +116,7 @@ class ilExamSymbolsHandler
         // Template-Pfad und Konfiguration als JavaScript-Variable bereitstellen
         $template_path = $this->plugin_path . "/templates/symbols_overlay.html";
         $symbols_json = json_encode($symbols);
-        $templates_json = json_encode($this->getAvailableTemplates());
+        $templates_json = json_encode($this->config->getAvailableTemplates());
 
         $tpl->addOnLoadCode("
     window.ExamSymbols = window.ExamSymbols || {};
@@ -142,6 +144,11 @@ class ilExamSymbolsHandler
             $enabled = isset($post_data['examsymbols_enabled']) ? 1 : 0;
             $template = $post_data['examsymbols_template'] ?? 'math';
 
+            // Template validieren
+            if (!$this->config->templateExists($template)) {
+                $template = 'math'; // Fallback
+            }
+
             $db->replace('examsymbols_settings', [
                 'test_id' => ['integer', $obj_id]
             ], [
@@ -165,10 +172,12 @@ class ilExamSymbolsHandler
         $current_template = $this->getSymbolTemplate($ref_id);
         $options = '';
 
-        foreach ($this->getAvailableTemplates() as $key => $data) {
+        // Templates aus Config-Klasse laden
+        foreach ($this->config->getAvailableTemplates() as $key => $data) {
             $selected = $key === $current_template ? 'selected' : '';
             $label = htmlspecialchars($data['label'], ENT_QUOTES);
-            $options .= "<option value=\"$key\" $selected>$label</option>";
+            $description = htmlspecialchars($data['description'], ENT_QUOTES);
+            $options .= "<option value=\"$key\" $selected title=\"$description\">$label</option>";
         }
 
         return <<<HTML
@@ -210,7 +219,12 @@ HTML;
             $result = $db->queryF($query, ['integer'], [$test_id]);
 
             if ($row = $db->fetchAssoc($result)) {
-                return $row['template'] ?? 'math';
+                $template = $row['template'] ?? 'math';
+                
+                // Template validieren
+                if ($this->config->templateExists($template)) {
+                    return $template;
+                }
             }
         } catch (Exception $e) {
             error_log("[ExamSymbols] Fehler beim Laden des Templates: " . $e->getMessage());
@@ -220,147 +234,29 @@ HTML;
     }
 
     /**
-     * Verfügbare Symbol-Templates
+     * ENTFERNT: getAvailableTemplates() - Verwende Config-Klasse
+     * ENTFERNT: getSymbolsForTemplate() - Verwende Config-Klasse
      */
-    public function getAvailableTemplates(): array
-    {
-        return [
-            "math" => [
-                "label" => "Mathematik/Wissenschaft",
-                "symbols" => [
-                    "π",
-                    "√",
-                    "∑",
-                    "∞",
-                    "≈",
-                    "≠",
-                    "≤",
-                    "≥",
-                    "±",
-                    "∆",
-                    "α",
-                    "β",
-                    "γ",
-                    "δ",
-                    "ε",
-                    "θ",
-                    "λ",
-                    "μ",
-                    "σ",
-                    "ω",
-                    "²",
-                    "³",
-                    "°",
-                    "∫",
-                    "∂",
-                    "→",
-                    "↔",
-                    "∈",
-                    "∉",
-                    "∅"
-                ]
-            ],
-            "spanish" => [
-                "label" => "Spanisch",
-                "symbols" => [
-                    // Reihe 1: Vokale groß mit Akzent (5 Tasten)
-                    "Á",
-                    "É",
-                    "Í",
-                    "Ó",
-                    "Ú",
-
-                    // Reihe 2: Vokale klein mit Akzent (5 Tasten)  
-                    "á",
-                    "é",
-                    "í",
-                    "ó",
-                    "ú",
-
-                    // Reihe 3: Ñ ñ ¿ ¡ (4 Tasten)
-                    "Ñ",
-                    "ñ",
-                    "¿",
-                    "¡"
-                ]
-            ],
-            "italian" => [
-                "label" => "Italienisch",
-                "symbols" => [
-                    "à",
-                    "è",
-                    "ì",
-                    "ò",
-                    "ù",
-                    "é",
-                    "í",
-                    "ó",
-                    "À",
-                    "È",
-                    "Ì",
-                    "Ò",
-                    "Ù",
-                    "É",
-                    "Í",
-                    "Ó"
-                ]
-            ],
-            "german" => [
-                "label" => "Deutsch",
-                "symbols" => ["ä", "ö", "ü", "ß", "Ä", "Ö", "Ü"]
-            ],
-            "greek" => [
-                "label" => "Griechisch",
-                "symbols" => [
-                    "α",
-                    "β",
-                    "γ",
-                    "δ",
-                    "ε",
-                    "θ",
-                    "λ",
-                    "μ",
-                    "σ",
-                    "ω",
-                    "Α",
-                    "Β",
-                    "Γ",
-                    "Δ",
-                    "Ε",
-                    "Θ",
-                    "Λ",
-                    "Μ",
-                    "Σ",
-                    "Ω"
-                ]
-            ]
-        ];
-    }
-
-    /**
-     * Symbole für ein bestimmtes Template laden
-     */
-    private function getSymbolsForTemplate(string $template): array
-    {
-        $templates = $this->getAvailableTemplates();
-        return $templates[$template]["symbols"] ?? [];
-    }
 
     /**
      * Gibt Plugin-Info zurück
      */
     public function getInfo(): array
     {
+        $stats = $this->config->getTemplateStats();
+        $template_count = count($stats);
+        $total_symbols = array_sum(array_column($stats, 'symbol_count'));
+
         return [
             'name' => 'ExamSymbols',
             'title' => 'Sonderzeichen-Palette',
             'icon' => '📝',
-            'description' => 'Palette mit Sonderzeichen für verschiedene Fachbereiche (Mathematik, Sprachen, etc.)',
-            'version' => '0.0.3',
+            'description' => "Palette mit Sonderzeichen für verschiedene Fachbereiche ($template_count Templates, $total_symbols Symbole)",
+            'version' => '0.0.4',
             'features' => [
                 'Floating Button (Alt + S)',
-                'Multiple Templates (Math, Sprachen)',
-                'Rich-Text-Editor Support',
+                "Multiple Templates ($template_count verfügbar)",
+                'Rich-Text-Editor Support (TinyMCE, CKEditor)',
                 'Focus-Tracking System',
                 'Mobile Responsive'
             ]

@@ -302,7 +302,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
         return false;
     }
 
-    /**
+/**
      * Direkte ExamSymbols Datenbankprüfung
      */
     private function getExamSymbolsConfigDirect(int $ref_id): array
@@ -393,155 +393,22 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
     }
 
     /**
-     * Symbole für Template holen (inline)
+     * Symbole für Template holen - VEREINFACHT: Nutzt Config-Klasse
      */
     private function getSymbolsForTemplate(string $template): array
     {
-        $templates = [
-            "math" => [
-                "π",
-                "√",
-                "∑",
-                "∞",
-                "≈",
-                "≠",
-                "≤",
-                "≥",
-                "±",
-                "∆",
-                "∫",
-                "∂",
-                "→",
-                "↔",
-                "∈",
-                "∉",
-                "∅",
-                "²",
-                "³",
-                "°",
-                "α",
-                "β",
-                "γ",
-                "δ",
-                "ε",
-                "θ",
-                "λ",
-                "μ",
-                "σ",
-                "ω"
-            ],
-"spanish" => [
-    // Reihe 1: Vokale groß mit Akzent (5 Tasten)
-    "Á", "É", "Í", "Ó", "Ú",
-    
-    // Reihe 2: Vokale klein mit Akzent (5 Tasten)  
-    "á", "é", "í", "ó", "ú",
-    
-    // Reihe 3: Ñ ñ ¿ ¡ (4 Tasten)
-    "Ñ", "ñ", "¿", "¡"
-],
-            "german" => ["ä", "ö", "ü", "ß", "Ä", "Ö", "Ü"],
-            "italian" => [
-                "à",
-                "è",
-                "ì",
-                "ò",
-                "ù",
-                "é",
-                "í",
-                "ó",
-                "À",
-                "È",
-                "Ì",
-                "Ò",
-                "Ù",
-                "É",
-                "Í",
-                "Ó"
-            ],
-            "greek" => [
-                "α",
-                "β",
-                "γ",
-                "δ",
-                "ε",
-                "ζ",
-                "η",
-                "θ",
-                "ι",
-                "κ",
-                "λ",
-                "μ",
-                "ν",
-                "ξ",
-                "ο",
-                "π",
-                "ρ",
-                "σ",
-                "τ",
-                "υ",
-                "φ",
-                "χ",
-                "ψ",
-                "ω",
-                "Α",
-                "Β",
-                "Γ",
-                "Δ",
-                "Ε",
-                "Θ",
-                "Λ",
-                "Μ",
-                "Ν",
-                "Ξ",
-                "Ο",
-                "Π",
-                "Ρ",
-                "Σ",
-                "Τ",
-                "Υ",
-                "Φ",
-                "Χ",
-                "Ψ",
-                "Ω"
-            ],
-            "french" => [
-                "à",
-                "â",
-                "é",
-                "è",
-                "ê",
-                "ë",
-                "î",
-                "ï",
-                "ô",
-                "ù",
-                "û",
-                "ü",
-                "ÿ",
-                "ç",
-                "À",
-                "Â",
-                "É",
-                "È",
-                "Ê",
-                "Ë",
-                "Î",
-                "Ï",
-                "Ô",
-                "Ù",
-                "Û",
-                "Ü",
-                "Ÿ",
-                "Ç",
-                "æ",
-                "œ",
-                "Æ",
-                "Œ"
-            ]
-        ];
-
-        return $templates[$template] ?? $templates['math'];
+        // Config-Klasse laden
+        $config = new ilExamSymbolsConfig('examsymbols');
+        
+        // Symbole aus Config-Klasse holen
+        $symbols = $config->getSymbolsForTemplate($template);
+        
+        // Fallback falls Template nicht existiert
+        if (empty($symbols)) {
+            $symbols = $config->getSymbolsForTemplate('math');
+        }
+        
+        return $symbols;
     }
 
     /**

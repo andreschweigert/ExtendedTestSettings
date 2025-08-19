@@ -1,6 +1,7 @@
 /**
  * symbols-manager.js - Symbol-Management für ExtendedTestSettings
- * Saubere Trennung von Loader und Symbol-Funktionalität
+ * BEREINIGT: Fallback-Templates entfernt, nutzt nur noch PHP-Config
+ * KOMPLETT: Alle Funktionen für Multi-Editor-Support
  */
 
 window.ExamSymbols = window.ExamSymbols || {};
@@ -17,34 +18,7 @@ window.ExamSymbols.Manager = class {
         this.lastFocusedElement = null;
         this.isInitialized = false;
 
-        // Standard Templates als Fallback
-        this.fallbackTemplates = {
-            math: [
-                "π", "√", "∑", "∞", "≈", "≠", "≤", "≥", "±", "∆",
-                "∫", "∂", "→", "↔", "∈", "∉", "∅", "²", "³", "°"
-            ],
-            spanish: [
-                // Reihe 1: Vokale groß mit Akzent (5 Tasten)
-                "Á", "É", "Í", "Ó", "Ú",
-
-                // Reihe 2: Vokale klein mit Akzent (5 Tasten)  
-                "á", "é", "í", "ó", "ú",
-
-                // Reihe 3: Ñ ñ ¿ ¡ (4 Tasten)
-                "Ñ", "ñ", "¿", "¡"
-            ],
-            italian: [
-                "à", "è", "ì", "ò", "ù", "é", "í", "ó",
-                "À", "È", "Ì", "Ò", "Ù", "É", "Í", "Ó"
-            ],
-            german: [
-                "ä", "ö", "ü", "ß", "Ä", "Ö", "Ü"
-            ],
-            greek: [
-                "α", "β", "γ", "δ", "ε", "θ", "λ", "μ", "σ", "ω",
-                "Α", "Β", "Γ", "Δ", "Ε", "Θ", "Λ", "Μ", "Σ", "Ω"
-            ]
-        };
+        // ENTFERNT: fallbackTemplates - Nutze nur noch PHP-Config
     }
 
     /**
@@ -122,29 +96,28 @@ window.ExamSymbols.Manager = class {
     }
 
     /**
-     * Lädt Konfiguration aus PHP
+     * Lädt Konfiguration aus PHP - VEREINFACHT
      */
     loadConfiguration() {
         if (window.ExamSymbols && window.ExamSymbols.config) {
             this.currentTemplate = window.ExamSymbols.config.template || 'math';
 
-            // Symbole aus PHP verwenden (falls vorhanden)
+            // Symbole IMMER aus PHP-Config verwenden
             if (window.ExamSymbols.config.symbols && window.ExamSymbols.config.symbols.length > 0) {
                 this.currentSymbols = window.ExamSymbols.config.symbols;
                 if (window.esLog) {
-                    window.esLog('Symbole aus PHP geladen: ' + this.currentSymbols.length);
+                    window.esLog('Symbole aus PHP-Config geladen: ' + this.currentSymbols.length);
                 }
             } else {
-                // Fallback: JavaScript-Templates
-                this.currentSymbols = this.fallbackTemplates[this.currentTemplate] || this.fallbackTemplates.math;
-                if (window.esLog) {
-                    window.esLog('Symbole aus Fallback-Templates geladen');
-                }
+                // Fehler: Keine Symbole von PHP erhalten
+                console.error("[ExamSymbols] Keine Symbole von PHP-Config erhalten");
+                this.currentSymbols = [];
             }
         } else {
-            // Komplett-Fallback
+            // Fehler: Keine PHP-Config vorhanden
+            console.error("[ExamSymbols] Keine PHP-Konfiguration verfügbar");
             this.currentTemplate = 'math';
-            this.currentSymbols = this.fallbackTemplates.math;
+            this.currentSymbols = [];
         }
 
         this.renderSymbols();
@@ -252,24 +225,24 @@ window.ExamSymbols.Manager = class {
     }
 
     /**
-     * Template wechseln
+     * Template wechseln - VEREINFACHT: Nur aus PHP-Config
      */
     switchTemplate(templateName) {
         this.currentTemplate = templateName;
 
-        // Symbole aus verfügbaren Templates laden
-        if (window.ExamSymbols?.config?.availableTemplates?.[templateName]) {
+        // Symbole aus PHP-Config laden
+        if (window.ExamSymbols?.config?.availableTemplates?.[templateName]?.symbols) {
             this.currentSymbols = window.ExamSymbols.config.availableTemplates[templateName].symbols;
+            if (window.esLog) {
+                window.esLog(`🔄 Template gewechselt zu: ${templateName} (${this.currentSymbols.length} Symbole)`);
+            }
         } else {
-            // Fallback
-            this.currentSymbols = this.fallbackTemplates[templateName] || this.fallbackTemplates.math;
+            // Fehler: Template nicht gefunden
+            console.error(`[ExamSymbols] Template '${templateName}' nicht in PHP-Config gefunden`);
+            this.currentSymbols = [];
         }
 
         this.renderSymbols();
-
-        if (window.esLog) {
-            window.esLog(`🔄 Template gewechselt zu: ${templateName} (${this.currentSymbols.length} Symbole)`);
-        }
     }
 
     /**
@@ -278,7 +251,7 @@ window.ExamSymbols.Manager = class {
     updateTemplateSelector() {
         if (!this.templateSelect) return;
 
-        // Optionen aus Konfiguration laden
+        // Optionen aus PHP-Konfiguration laden
         if (window.ExamSymbols?.config?.availableTemplates) {
             this.templateSelect.innerHTML = '';
             for (const [key, data] of Object.entries(window.ExamSymbols.config.availableTemplates)) {
@@ -290,7 +263,7 @@ window.ExamSymbols.Manager = class {
             }
             this.templateSelect.style.display = 'block';
         } else {
-            // Template-Selector verstecken wenn nur ein Template
+            // Template-Selector verstecken wenn keine Templates
             this.templateSelect.style.display = 'none';
         }
     }
@@ -302,7 +275,16 @@ window.ExamSymbols.Manager = class {
         if (!this.symbolsGrid) return;
 
         this.symbolsGrid.innerHTML = '';
-        this.symbolsGrid.style.gridTemplateColumns = 'repeat(5, 1fr)';
+
+        if (this.currentSymbols.length === 0) {
+            this.symbolsGrid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #666; padding: 20px;">Keine Symbole verfügbar</div>';
+            return;
+        }
+
+        // Grid-Spalten je nach Symbol-Anzahl anpassen
+        const columns = this.currentSymbols.length <= 14 ? 
+            Math.min(5, this.currentSymbols.length) : 5;
+        this.symbolsGrid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
 
         this.currentSymbols.forEach(symbol => {
             const symbolBtn = document.createElement('button');
@@ -349,6 +331,7 @@ window.ExamSymbols.Manager = class {
         // 1. Gespeichertes Element (für normale Textfelder)
         if (this.lastFocusedElement && this.isTextElement(this.lastFocusedElement)) {
             if (this.insertIntoNormalField(this.lastFocusedElement, symbol)) {
+                this.showInsertFeedback();
                 return;
             }
         }
@@ -357,27 +340,31 @@ window.ExamSymbols.Manager = class {
         const activeElement = document.activeElement;
         if (activeElement && this.isTextElement(activeElement)) {
             if (this.insertIntoNormalField(activeElement, symbol)) {
+                this.showInsertFeedback();
                 return;
             }
         }
 
         // 3. TinyMCE Editor
         if (this.insertIntoTinyMCE(symbol)) {
+            this.showInsertFeedback();
             return;
         }
 
         // 4. CKEditor
         if (this.insertIntoCKEditor(symbol)) {
+            this.showInsertFeedback();
             return;
         }
 
         // 5. Iframe-basierte Editoren
         if (this.insertIntoIframe(symbol)) {
+            this.showInsertFeedback();
             return;
         }
 
         // Fallback: Fehlermeldung
-        alert('Bitte zuerst in ein Textfeld klicken, dann das Symbol auswählen.');
+        this.showErrorFeedback();
     }
 
     /**
@@ -439,7 +426,6 @@ window.ExamSymbols.Manager = class {
                     if (window.esLog) {
                         window.esLog('Symbol in TinyMCE eingefügt');
                     }
-
                     return true;
                 }
             }
@@ -453,7 +439,6 @@ window.ExamSymbols.Manager = class {
                         if (window.esLog) {
                             window.esLog('Symbol in TinyMCE Editor eingefügt');
                         }
-
                         return true;
                     }
                 }
@@ -479,7 +464,6 @@ window.ExamSymbols.Manager = class {
                         if (window.esLog) {
                             window.esLog('Symbol in CKEditor eingefügt');
                         }
-
                         return true;
                     }
                 }
@@ -495,7 +479,6 @@ window.ExamSymbols.Manager = class {
                         if (window.esLog) {
                             window.esLog('Symbol in CKEditor 5 eingefügt');
                         }
-
                         return true;
                     }
                 }
@@ -532,7 +515,6 @@ window.ExamSymbols.Manager = class {
                         if (window.esLog) {
                             window.esLog('Symbol in Iframe eingefügt');
                         }
-
                         return true;
                     }
                 } catch (crossOriginError) {
@@ -552,12 +534,14 @@ window.ExamSymbols.Manager = class {
      */
     insertTextAtCursor(element, text) {
         const selection = window.getSelection();
-        const range = selection.getRangeAt(0);
-        range.deleteContents();
-        range.insertNode(document.createTextNode(text));
-        range.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(range);
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            range.insertNode(document.createTextNode(text));
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
     }
 
     /**
@@ -569,5 +553,88 @@ window.ExamSymbols.Manager = class {
             const event = new Event(eventType, { bubbles: true });
             element.dispatchEvent(event);
         });
+    }
+
+    /**
+     * Visuelles Feedback für erfolgreiches Einfügen
+     */
+    showInsertFeedback() {
+        // Symbol-Button hervorheben (wenn vorhanden)
+        const lastClickedBtn = this.symbolsGrid.querySelector('.symbol-btn:hover');
+        if (lastClickedBtn) {
+            lastClickedBtn.classList.add('inserted');
+            setTimeout(() => {
+                lastClickedBtn.classList.remove('inserted');
+            }, 400);
+        }
+
+        // Kurzes Feedback im Panel-Header
+        const header = this.panel.querySelector('.header h3');
+        if (header) {
+            const originalText = header.textContent;
+            header.textContent = '✓ Symbol eingefügt';
+            header.style.color = '#28a745';
+            
+            setTimeout(() => {
+                header.textContent = originalText;
+                header.style.color = '';
+            }, 1000);
+        }
+    }
+
+    /**
+     * Fehlerfeedback anzeigen
+     */
+    showErrorFeedback() {
+        // Fehlermeldung im Panel-Header
+        const header = this.panel.querySelector('.header h3');
+        if (header) {
+            const originalText = header.textContent;
+            header.textContent = '⚠ Erst in Textfeld klicken';
+            header.style.color = '#dc3545';
+            
+            setTimeout(() => {
+                header.textContent = originalText;
+                header.style.color = '';
+            }, 2000);
+        }
+
+        // Alternativer Alert (nur als Fallback)
+        if (!header) {
+            alert('Bitte zuerst in ein Textfeld klicken, dann das Symbol auswählen.');
+        }
+    }
+
+    /**
+     * Panel zurücksetzen
+     */
+    reset() {
+        this.hide();
+        this.currentTemplate = 'math';
+        this.currentSymbols = [];
+        this.lastFocusedElement = null;
+        
+        if (window.esLog) {
+            window.esLog('Symbol-Manager zurückgesetzt');
+        }
+    }
+
+    /**
+     * Debug-Informationen
+     */
+    getDebugInfo() {
+        return {
+            isInitialized: this.isInitialized,
+            currentTemplate: this.currentTemplate,
+            symbolCount: this.currentSymbols.length,
+            panelVisible: this.panel?.style.display === 'block',
+            lastFocusedElement: this.lastFocusedElement?.tagName || 'none',
+            availableTemplates: Object.keys(window.ExamSymbols?.config?.availableTemplates || {}),
+            editorDetection: {
+                tinymce: typeof tinymce !== 'undefined',
+                ckeditor: typeof CKEDITOR !== 'undefined',
+                ckeditor5: typeof ClassicEditor !== 'undefined'
+            }
+        };
     }
 };
