@@ -870,7 +870,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 'title' => 'Besten Testdurchlauf bewerten',
                 'description' => 'Beste Leistung zählt',
                 'relevant_for' => ['praesenz', 'fern']
-            ]
+            ],
+            'keine_vorbedingungen' => [
+            'title' => 'Keine Vorbedingungen gesetzt',
+            'description' => 'Test ist ohne Vorbedingungen frei zugänglich', 
+            'relevant_for' => ['praesenz', 'fern']
+        ]
         ];
     }
 
