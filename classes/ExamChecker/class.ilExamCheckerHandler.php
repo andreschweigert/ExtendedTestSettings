@@ -370,7 +370,9 @@ class ilExamCheckerHandler
             'bewertungssystem',
             'negative_punkte',
             'besten_durchlauf_bewerten',
-            'keine_vorbedingungen'
+            'keine_vorbedingungen',
+            'direkte_notenuebermittlung',
+            'zeitlich_begrenzte_verfuegbarkeit'
         ];
 
         if ($exam_type === 'fern') {
@@ -420,6 +422,12 @@ class ilExamCheckerHandler
         // Check ob Vorbedingungen aktiv
         $checks['keine_vorbedingungen'] = $this->checkKeineVorbedingungen($test_data);
 
+        // Direkte Notenübermittlung sollte AUS sein (0)
+        $checks['direkte_notenuebermittlung'] = (int)$test_data['score_reporting'] === 0;
+
+        // Zeitlich begrenzte Verfügbarkeit prüfen
+        $checks['zeitlich_begrenzte_verfuegbarkeit'] = $this->checkZeitlichBegrenzteVerfuegbarkeit($test_data);
+
         // Spezifische Checks je nach Prüfungstyp
         if ($exam_type === 'fern') {
             // Für Fernprüfungen
@@ -440,6 +448,65 @@ class ilExamCheckerHandler
         $checks['besten_durchlauf_bewerten'] = (int)$test_data['pass_scoring'] === 1;
 
         return $checks;
+    }
+
+    /**
+     * Prüft ob zeitlich begrenzte Verfügbarkeit DEAKTIVIERT ist
+     */
+    private function checkZeitlichBegrenzteVerfuegbarkeit(array $test_data): bool
+    {
+        try {
+            global $DIC;
+            $db = $DIC->database();
+
+            // obj_id des Tests aus den Testdaten
+            $obj_id = $test_data['obj_fi'];
+
+            // ref_id des Tests ermitteln
+            $ref_query = "SELECT ref_id FROM object_reference WHERE obj_id = %s AND deleted IS NULL LIMIT 1";
+            $ref_result = $db->queryF($ref_query, ['integer'], [$obj_id]);
+            $ref_id = 0;
+            if ($ref_row = $db->fetchAssoc($ref_result)) {
+                $ref_id = (int)$ref_row['ref_id'];
+            }
+
+            if ($ref_id <= 0) {
+                if (self::DEBUG_ENABLED) {
+                    error_log("[ExamChecker] Keine ref_id für obj_id $obj_id gefunden");
+                }
+                return true; // Bei Fehler als "OK" bewerten
+            }
+
+            // Prüfe crs_items Tabelle für zeitliche Begrenzung
+            $timing_query = "SELECT timing_start, timing_end FROM crs_items WHERE obj_id = %s";
+            $timing_result = $db->queryF($timing_query, ['integer'], [$ref_id]);
+
+            if ($timing_row = $db->fetchAssoc($timing_result)) {
+                $timing_start = (int)($timing_row['timing_start'] ?? 0);
+                $timing_end = (int)($timing_row['timing_end'] ?? 0);
+
+                // Beide Werte sollten 0 sein (keine zeitliche Begrenzung)
+                $timing_disabled = ($timing_start === 0) && ($timing_end === 0);
+
+                if (self::DEBUG_ENABLED) {
+                    error_log("[ExamChecker] Test ref_id $ref_id - timing_start: $timing_start, timing_end: $timing_end");
+                    error_log("[ExamChecker] Zeitlich begrenzte Verfügbarkeit: " .
+                        ($timing_disabled ? "DEAKTIVIERT (✅)" : "AKTIVIERT (❌)"));
+                }
+
+                return $timing_disabled;
+            } else {
+                if (self::DEBUG_ENABLED) {
+                    error_log("[ExamChecker] Kein crs_items Eintrag für ref_id $ref_id gefunden");
+                }
+                return true; // Kein Eintrag = keine Begrenzung = OK
+            }
+        } catch (Exception $e) {
+            if (self::DEBUG_ENABLED) {
+                error_log("[ExamChecker] Zeitlich begrenzte Verfügbarkeit Check Fehler: " . $e->getMessage());
+            }
+            return true; // Bei Fehler als "OK" bewerten
+        }
     }
 
 
@@ -599,29 +666,32 @@ class ilExamCheckerHandler
     }
 
     /**
- * Generiert HTML für Check-Ergebnisse mit Vorbedingungen-Warnung
- */
-private function generateCheckResultsHTML(array $results, string $exam_type): string
-{
-    $settings_descriptions = $this->getSettingDescriptions();
-    
-    // *** GEÄNDERT: Nur noch Einstellungen zählen (Auswertung ist integriert) ***
-    $total = count($results['einstellungen']);
-    $passed = count(array_filter($results['einstellungen']));
-    $failed = $total - $passed;
-    $percentage = $total > 0 ? round(($passed / $total) * 100) : 0;
-    
-    // Farbschema basierend auf Prozentsatz
-    if ($percentage >= 90) {
-        $summary_color = '#28a745'; $summary_icon = '🎉';
-    } elseif ($percentage >= 70) {
-        $summary_color = '#fd7e14'; $summary_icon = '⚠️';
-    } else {
-        $summary_color = '#dc3545'; $summary_icon = '❌';
-    }
+     * Generiert HTML für Check-Ergebnisse mit Vorbedingungen-Warnung
+     */
+    private function generateCheckResultsHTML(array $results, string $exam_type): string
+    {
+        $settings_descriptions = $this->getSettingDescriptions();
 
-    // *** NEU: Hinweis auf konfigurierbare Standards ***
-    $config_hint = $total > 0 ? '' : '
+        // *** GEÄNDERT: Nur noch Einstellungen zählen (Auswertung ist integriert) ***
+        $total = count($results['einstellungen']);
+        $passed = count(array_filter($results['einstellungen']));
+        $failed = $total - $passed;
+        $percentage = $total > 0 ? round(($passed / $total) * 100) : 0;
+
+        // Farbschema basierend auf Prozentsatz
+        if ($percentage >= 90) {
+            $summary_color = '#28a745';
+            $summary_icon = '🎉';
+        } elseif ($percentage >= 70) {
+            $summary_color = '#fd7e14';
+            $summary_icon = '⚠️';
+        } else {
+            $summary_color = '#dc3545';
+            $summary_icon = '❌';
+        }
+
+        // *** NEU: Hinweis auf konfigurierbare Standards ***
+        $config_hint = $total > 0 ? '' : '
     <div style="background: #fff3cd; border: 1px solid #ffeeba; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem;">
         <div style="color: #856404; display: flex; align-items: center; gap: 0.5rem;">
             <span>⚙️</span>
@@ -633,63 +703,63 @@ private function generateCheckResultsHTML(array $results, string $exam_type): st
         </p>
     </div>';
 
-    // HTML zusammenbauen
-    $html = '<div class="check-results-container" style="margin-top: 1rem;">';
-    
-    $html .= $config_hint;
-    
-    if ($total > 0) {
-        // Zusammenfassung
-        $html .= '<div style="background: ' . $summary_color . '15; border: 2px solid ' . $summary_color . '; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem; text-align: center;">';
-        $html .= '<div style="font-size: 3rem; margin-bottom: 0.5rem;">' . $summary_icon . '</div>';
-        $html .= '<h3 style="color: ' . $summary_color . '; margin: 0 0 0.5rem 0;">Check abgeschlossen: ' . $percentage . '%</h3>';
-        $html .= '<p style="margin: 0; color: #6c757d;">';
-        $html .= '<strong>' . $passed . '</strong> korrekt • <strong>' . $failed . '</strong> zu überprüfen • <strong>' . count($results['manuell_check']) . '</strong> manuell';
-        $html .= '</p></div>';
+        // HTML zusammenbauen
+        $html = '<div class="check-results-container" style="margin-top: 1rem;">';
 
-        // Erfolgreich geprüfte Einstellungen
-        $passed_items = array();
-        foreach ($results['einstellungen'] as $key => $passed_check) {
-            if ($passed_check) $passed_items[] = $settings_descriptions[$key] ?? $key;
-        }
+        $html .= $config_hint;
 
-        if (!empty($passed_items)) {
-            $html .= '<div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem;">';
-            $html .= '<h4 style="color: #155724; margin: 0 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem;">';
-            $html .= '<span>✅</span> Korrekte Einstellungen (' . count($passed_items) . ')';
-            $html .= '</h4>';
-            $html .= '<ul style="margin: 0; padding-left: 1.5rem; color: #155724;">';
-            foreach ($passed_items as $item) {
-                $html .= '<li style="margin-bottom: 0.25rem;">' . htmlspecialchars($item) . '</li>';
+        if ($total > 0) {
+            // Zusammenfassung
+            $html .= '<div style="background: ' . $summary_color . '15; border: 2px solid ' . $summary_color . '; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem; text-align: center;">';
+            $html .= '<div style="font-size: 3rem; margin-bottom: 0.5rem;">' . $summary_icon . '</div>';
+            $html .= '<h3 style="color: ' . $summary_color . '; margin: 0 0 0.5rem 0;">Check abgeschlossen: ' . $percentage . '%</h3>';
+            $html .= '<p style="margin: 0; color: #6c757d;">';
+            $html .= '<strong>' . $passed . '</strong> korrekt • <strong>' . $failed . '</strong> zu überprüfen • <strong>' . count($results['manuell_check']) . '</strong> manuell';
+            $html .= '</p></div>';
+
+            // Erfolgreich geprüfte Einstellungen
+            $passed_items = array();
+            foreach ($results['einstellungen'] as $key => $passed_check) {
+                if ($passed_check) $passed_items[] = $settings_descriptions[$key] ?? $key;
             }
-            $html .= '</ul></div>';
-        }
 
-        // Fehlerhafte Einstellungen
-        $failed_items = array();
-        foreach ($results['einstellungen'] as $key => $passed_check) {
-            if (!$passed_check) $failed_items[] = $settings_descriptions[$key] ?? $key;
-        }
-
-        if (!empty($failed_items)) {
-            $html .= '<div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem;">';
-            $html .= '<h4 style="color: #721c24; margin: 0 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem;">';
-            $html .= '<span>❌</span> Zu überprüfende Einstellungen (' . count($failed_items) . ')';
-            $html .= '</h4>';
-            $html .= '<ul style="margin: 0; padding-left: 1.5rem; color: #721c24;">';
-            foreach ($failed_items as $item) {
-                $html .= '<li style="margin-bottom: 0.25rem;"><strong>' . htmlspecialchars($item) . '</strong></li>';
+            if (!empty($passed_items)) {
+                $html .= '<div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem;">';
+                $html .= '<h4 style="color: #155724; margin: 0 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem;">';
+                $html .= '<span>✅</span> Korrekte Einstellungen (' . count($passed_items) . ')';
+                $html .= '</h4>';
+                $html .= '<ul style="margin: 0; padding-left: 1.5rem; color: #155724;">';
+                foreach ($passed_items as $item) {
+                    $html .= '<li style="margin-bottom: 0.25rem;">' . htmlspecialchars($item) . '</li>';
+                }
+                $html .= '</ul></div>';
             }
-            $html .= '</ul></div>';
-        }
-    }
 
-    // === NEU: Vorbedingungen-Warnung ===
-    global $examchecker_conditions_details;
-    if (isset($examchecker_conditions_details) && $examchecker_conditions_details['has_conditions']) {
-        $details = $examchecker_conditions_details;
-        
-        $html .= '<div style="
+            // Fehlerhafte Einstellungen
+            $failed_items = array();
+            foreach ($results['einstellungen'] as $key => $passed_check) {
+                if (!$passed_check) $failed_items[] = $settings_descriptions[$key] ?? $key;
+            }
+
+            if (!empty($failed_items)) {
+                $html .= '<div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem;">';
+                $html .= '<h4 style="color: #721c24; margin: 0 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem;">';
+                $html .= '<span>❌</span> Zu überprüfende Einstellungen (' . count($failed_items) . ')';
+                $html .= '</h4>';
+                $html .= '<ul style="margin: 0; padding-left: 1.5rem; color: #721c24;">';
+                foreach ($failed_items as $item) {
+                    $html .= '<li style="margin-bottom: 0.25rem;"><strong>' . htmlspecialchars($item) . '</strong></li>';
+                }
+                $html .= '</ul></div>';
+            }
+        }
+
+        // === NEU: Vorbedingungen-Warnung ===
+        global $examchecker_conditions_details;
+        if (isset($examchecker_conditions_details) && $examchecker_conditions_details['has_conditions']) {
+            $details = $examchecker_conditions_details;
+
+            $html .= '<div style="
             background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); 
             border: 2px solid #fd7e14; 
             border-radius: 0.75rem; 
@@ -699,98 +769,98 @@ private function generateCheckResultsHTML(array $results, string $exam_type): st
             position: relative;
             overflow: hidden;
         ">';
-        
-        // Warnung-Header mit Animation
-        $html .= '<div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">';
-        $html .= '<div style="
+
+            // Warnung-Header mit Animation
+            $html .= '<div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">';
+            $html .= '<div style="
             font-size: 2.5rem; 
             animation: pulse 2s infinite;
             filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.1));
         ">⚠️</div>';
-        $html .= '<div>';
-        $html .= '<h3 style="color: #dc6545; margin: 0; font-size: 1.3rem; font-weight: 700;">
+            $html .= '<div>';
+            $html .= '<h3 style="color: #dc6545; margin: 0; font-size: 1.3rem; font-weight: 700;">
                     VORBEDINGUNGEN GEFUNDEN!
                   </h3>';
-        $html .= '<p style="color: #dc6545; margin: 0.25rem 0 0 0; font-weight: 500;">
+            $html .= '<p style="color: #dc6545; margin: 0.25rem 0 0 0; font-weight: 500;">
                     Dieser Test hat ' . $details['count'] . ' Vorbedingung(en) - das kann bei Prüfungen problematisch sein!
                   </p>';
-        $html .= '</div></div>';
-        
-        // Details der Vorbedingungen
-        $html .= '<div style="
+            $html .= '</div></div>';
+
+            // Details der Vorbedingungen
+            $html .= '<div style="
             background: rgba(255, 255, 255, 0.7); 
             border-radius: 0.5rem; 
             padding: 1rem; 
             margin-bottom: 1rem;
             backdrop-filter: blur(5px);
         ">';
-        $html .= '<h4 style="color: #dc6545; margin: 0 0 0.75rem 0; font-size: 1rem;">
+            $html .= '<h4 style="color: #dc6545; margin: 0 0 0.75rem 0; font-size: 1rem;">
                     📋 Konfigurierte Vorbedingungen:
                   </h4>';
-        
-        $html .= '<ul style="margin: 0; padding-left: 1.5rem; color: #dc6545; font-weight: 500;">';
-        foreach ($details['details'] as $condition) {
-            $html .= '<li style="margin-bottom: 0.5rem; line-height: 1.4;">
+
+            $html .= '<ul style="margin: 0; padding-left: 1.5rem; color: #dc6545; font-weight: 500;">';
+            foreach ($details['details'] as $condition) {
+                $html .= '<li style="margin-bottom: 0.5rem; line-height: 1.4;">
                         🔗 ' . htmlspecialchars($condition['description']) . '
                       </li>';
-        }
-        $html .= '</ul></div>';
-        
-        // Handlungsempfehlung
-        $html .= '<div style="
+            }
+            $html .= '</ul></div>';
+
+            // Handlungsempfehlung
+            $html .= '<div style="
             background: rgba(220, 101, 69, 0.1); 
             border-left: 4px solid #dc6545; 
             padding: 1rem; 
             border-radius: 0 0.375rem 0.375rem 0;
         ">';
-        $html .= '<h4 style="color: #dc6545; margin: 0 0 0.5rem 0; font-size: 0.95rem;">
+            $html .= '<h4 style="color: #dc6545; margin: 0 0 0.5rem 0; font-size: 0.95rem;">
                     💡 ACHTUNG:
                   </h4>';
-        $html .= '<p style="color: #dc6545; margin: 0; font-size: 0.9rem; line-height: 1.4;">
+            $html .= '<p style="color: #dc6545; margin: 0; font-size: 0.9rem; line-height: 1.4;">
                     Entfernen Sie alle Vorbedingungen für Prüfungs-Tests, um sicherzustellen, 
                     dass alle Teilnehmer gleichzeitig Zugang haben.!
                   </p>';
-        $html .= '</div>';
-        
-        $html .= '</div>';
-        
-        // CSS für Animation hinzufügen
-        $html .= '<style>
+            $html .= '</div>';
+
+            $html .= '</div>';
+
+            // CSS für Animation hinzufügen
+            $html .= '<style>
             @keyframes pulse {
                 0% { transform: scale(1); }
                 50% { transform: scale(1.1); }
                 100% { transform: scale(1); }
             }
         </style>';
-    }
-
-    // Manuelle Checks (bleiben unverändert)
-    if (!empty($results['manuell_check'])) {
-        $html .= '<div style="background: #fff3cd; border: 1px solid #ffeeba; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem;">';
-        $html .= '<h4 style="color: #856404; margin: 0 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem;">';
-        $html .= '<span>⚠️</span> Manuelle Überprüfung erforderlich';
-        $html .= '</h4>';
-        
-        foreach ($results['manuell_check'] as $key => $data) {
-            $name = $settings_descriptions[$key] ?? $key;
-            $status_icon = $data['status'] ? '✅' : '⚠️';
-            $status_text = $data['status'] ? 'OK' : 'Zu prüfen';
-            
-            $html .= '<div style="margin-bottom: 0.75rem; padding: 0.5rem; background: white; border-radius: 0.25rem;">';
-            $html .= '<div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">';
-            $html .= '<span>' . $status_icon . '</span>';
-            $html .= '<strong style="color: #856404;">' . htmlspecialchars($name) . ': ' . $status_text . '</strong>';
-            $html .= '</div>';
-            $html .= '<p style="margin: 0; color: #6c757d; font-size: 0.9rem; padding-left: 1.5rem;">';
-            $html .= htmlspecialchars($data['message']);
-            $html .= '</p></div>';
         }
-        $html .= '</div>';
-    }
 
-    $html .= '</div>';
-    return $html;
-}
+        // Manuelle Checks (bleiben unverändert)
+        if (!empty($results['manuell_check'])) {
+            $html .= '<div style="background: #fff3cd; border: 1px solid #ffeeba; border-radius: 0.375rem; padding: 1rem; margin-bottom: 1rem;">';
+            $html .= '<h4 style="color: #856404; margin: 0 0 0.75rem 0; display: flex; align-items: center; gap: 0.5rem;">';
+            $html .= '<span>⚠️</span> Manuelle Überprüfung erforderlich';
+            $html .= '</h4>';
+
+            foreach ($results['manuell_check'] as $key => $data) {
+                $name = $settings_descriptions[$key] ?? $key;
+                $status_icon = $data['status'] ? '✅' : '⚠️';
+                $status_text = $data['status'] ? 'OK' : 'Zu prüfen';
+
+                $html .= '<div style="margin-bottom: 0.75rem; padding: 0.5rem; background: white; border-radius: 0.25rem;">';
+                $html .= '<div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">';
+                $html .= '<span>' . $status_icon . '</span>';
+                $html .= '<strong style="color: #856404;">' . htmlspecialchars($name) . ': ' . $status_text . '</strong>';
+                $html .= '</div>';
+                $html .= '<p style="margin: 0; color: #6c757d; font-size: 0.9rem; padding-left: 1.5rem;">';
+                $html .= htmlspecialchars($data['message']);
+                $html .= '</p></div>';
+            }
+            $html .= '</div>';
+        }
+
+        $html .= '</div>';
+        return $html;
+    }
 
     /**
      * Deutsche Beschreibungen für Settings
@@ -817,6 +887,8 @@ private function generateCheckResultsHTML(array $results, string $exam_type): st
             'besten_durchlauf_bewerten' => 'Besten Testdurchlauf bewerten aktiviert',
             'start_und_ende' => 'Start- und Endzeiten korrekt gesetzt',
             'keine_vorbedingungen' => 'Keine Vorbedingungen für Testzugang gesetzt',
+            'direkte_notenuebermittlung' => 'Direkte Notenübermittlung deaktiviert',
+            'zeitlich_begrenzte_verfuegbarkeit' => 'Zeitlich begrenzte Verfügbarkeit muss deaktiviert sein'
         );
     }
 
@@ -844,7 +916,7 @@ private function generateCheckResultsHTML(array $results, string $exam_type): st
             'title' => 'Prüfungs-Einstellungen Checker',
             'icon' => '🔍',
             'description' => 'Überprüft Test-Einstellungen gegen definierte Standards für Präsenz- und Fernprüfungen.',
-            'version' => '0.0.2',
+            'version' => '0.0.3',
             'features' => array()
         );
     }

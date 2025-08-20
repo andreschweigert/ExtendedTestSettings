@@ -12,7 +12,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     protected ilLanguage $lng;
     protected ilTabsGUI $tabs;
     protected ilSetting $settings;
-    
+
     public function __construct()
     {
         global $DIC;
@@ -20,7 +20,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $this->tpl = $DIC->ui()->mainTemplate();
         $this->lng = $DIC->language();
         $this->tabs = $DIC->tabs();
-        
+
         // Plugin-spezifische Settings
         $this->settings = new ilSetting('extendedtestsettings');
     }
@@ -28,33 +28,33 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     public function performCommand(string $cmd): void
     {
         $this->setTabs();
-        
+
         switch ($cmd) {
             case 'configure':
             case 'showGeneral':
                 $this->showGeneral();
                 break;
-                
-            case 'showStatistics': 
+
+            case 'showStatistics':
                 $this->showStatistics();
                 break;
-                
+
             case 'showExamChecker':
                 $this->showExamChecker();
                 break;
-                
+
             case 'saveExamChecker':
                 $this->saveExamChecker();
                 break;
-                
+
             case 'cleanupOrphanedEntries':
                 $this->cleanupOrphanedEntries();
                 break;
-                
+
             case 'previewCleanup':
                 $this->previewCleanup();
                 break;
-                
+
             default:
                 $this->showGeneral();
                 break;
@@ -71,13 +71,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             'Allgemein',
             $this->ctrl->getLinkTarget($this, 'showGeneral')
         );
-        
+
         $this->tabs->addTab(
-            'statistics', 
+            'statistics',
             'Statistiken',
             $this->ctrl->getLinkTarget($this, 'showStatistics')
         );
-        
+
         $this->tabs->addTab(
             'examchecker',
             'ExamChecker',
@@ -124,7 +124,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         // Modulstatus prüfen
         $module_status = $this->getModuleStatus();
-        
+
         $stats_html = $this->renderStatisticsCards($stats);
         $modules_html = $this->renderModuleStatusCards($module_status);
         $cleanup_html = $this->renderCleanupSection();
@@ -273,7 +273,6 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                     $stats['total_configured_tests'] = (int) $row['cnt'];
                 }
             }
-
         } catch (Exception $e) {
             error_log("[ExtendedTestSettings] Fehler bei Statistik-Abfrage: " . $e->getMessage());
         }
@@ -314,12 +313,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function renderModuleStatusCards(array $module_status): string
     {
         $cards = '';
-        
+
         foreach ($module_status as $module => $data) {
             $status_icon = $data['exists'] ? '✅' : '❌';
             $status_text = $data['exists'] ? 'Verfügbar' : 'Nicht gefunden';
             $status_color = $data['exists'] ? '#28a745' : '#dc3545';
-            
+
             // Detaillierte Statistiken laden wenn Modul verfügbar
             $details_html = '';
             if ($data['exists']) {
@@ -331,7 +330,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $click_cursor = '';
                 $expand_icon = '';
             }
-            
+
             $cards .= "
             <div class='module-card' data-module='$module' style='background: white; border: 1px solid #e9ecef; border-radius: 0.5rem; overflow: hidden;'>
                 <div class='module-header' style='padding: 1rem; display: flex; align-items: center; gap: 1rem; $click_cursor transition: background-color 0.15s;' " . ($data['exists'] ? "onclick='toggleModuleDetails(\"$module\")'" : "") . ">
@@ -365,20 +364,20 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         global $DIC;
         $db = $DIC->database();
-        
+
         $table_map = [
             'examcalc' => 'examcalc_settings',
-            'examsymbols' => 'examsymbols_settings', 
+            'examsymbols' => 'examsymbols_settings',
             'examguard' => 'examguard_settings',
             'examalert' => 'examalert_settings',
             'examchecker' => null // ExamChecker hat keine Settings-Tabelle
         ];
-        
+
         $table = $table_map[$module] ?? null;
         if (!$table || !$db->tableExists($table)) {
             return [];
         }
-        
+
         try {
             // Query für Test-Details mit Eigentümer-Info
             $query = "
@@ -398,16 +397,16 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 WHERE s.enabled = 1
                 ORDER BY od.title ASC
             ";
-            
+
             $result = $db->query($query);
             $tests = [];
-            
+
             while ($row = $db->fetchAssoc($result)) {
                 $owner_name = trim($row['firstname'] . ' ' . $row['lastname']);
                 if (empty($owner_name)) {
                     $owner_name = $row['owner_login'] ?? 'Unbekannt';
                 }
-                
+
                 $tests[] = [
                     'test_id' => $row['test_id'],
                     'ref_id' => $row['ref_id'],
@@ -418,9 +417,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                     'updated' => $this->formatDateTime($row['last_update'])
                 ];
             }
-            
+
             return $tests;
-            
         } catch (Exception $e) {
             error_log("[ExtendedTestSettings] Fehler bei Modul-Details für $module: " . $e->getMessage());
             return [];
@@ -435,12 +433,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         if (empty($date_value)) {
             return '';
         }
-        
+
         // Wenn es bereits ein Unix-Timestamp (Integer) ist
         if (is_numeric($date_value) && (int)$date_value == $date_value) {
             return date('d.m.Y', (int)$date_value);
         }
-        
+
         // Wenn es ein Datums-String ist (DATETIME, DATE etc.)
         try {
             $timestamp = strtotime($date_value);
@@ -450,7 +448,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         } catch (Exception $e) {
             error_log("[ExtendedTestSettings] Fehler beim Formatieren des Datums: " . $e->getMessage());
         }
-        
+
         return '';
     }
 
@@ -462,12 +460,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         if (empty($datetime_value)) {
             return '';
         }
-        
+
         // Wenn es bereits ein Unix-Timestamp (Integer) ist
         if (is_numeric($datetime_value) && (int)$datetime_value == $datetime_value) {
             return date('d.m.Y H:i', (int)$datetime_value);
         }
-        
+
         // Wenn es ein Datums-String ist (DATETIME, DATE etc.)
         try {
             $timestamp = strtotime($datetime_value);
@@ -477,7 +475,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         } catch (Exception $e) {
             error_log("[ExtendedTestSettings] Fehler beim Formatieren der DateTime: " . $e->getMessage());
         }
-        
+
         return '';
     }
 
@@ -489,17 +487,17 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         if (empty($tests)) {
             return '<p style="color: #6c757d; font-style: italic; margin: 1rem 0;">Keine aktiven Tests gefunden.</p>';
         }
-        
+
         $module_names = [
             'examcalc' => 'Taschenrechner',
-            'examsymbols' => 'Sonderzeichen', 
+            'examsymbols' => 'Sonderzeichen',
             'examguard' => 'Prüfungsschutz',
             'examalert' => 'Zeit-Warnung'
         ];
-        
+
         $module_name = $module_names[$module] ?? ucfirst($module);
         $count = count($tests);
-        
+
         $html = "
         <div style='margin: 1rem 0 0.5rem 0;'>
             <strong style='color: #495057;'>$count Tests verwenden $module_name:</strong>
@@ -515,14 +513,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                     </tr>
                 </thead>
                 <tbody>";
-        
+
         foreach ($tests as $test) {
             $test_url = "ilias.php?ref_id={$test['ref_id']}&baseClass=ilRepositoryGUI";
             $test_title = htmlspecialchars($test['title']);
             $owner_name = htmlspecialchars($test['owner_name']);
             $owner_login = htmlspecialchars($test['owner_login']);
             $created = htmlspecialchars($test['created']);
-            
+
             $html .= "
                 <tr style='border-bottom: 1px solid #e9ecef;'>
                     <td style='padding: 0.5rem; border-right: 1px solid #e9ecef;'>
@@ -540,12 +538,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                     </td>
                 </tr>";
         }
-        
+
         $html .= "
                 </tbody>
             </table>
         </div>";
-        
+
         return $html;
     }
 
@@ -609,7 +607,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         $cleanup_url = $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries');
         $preview_url = $this->ctrl->getLinkTarget($this, 'previewCleanup');
-        
+
         return "
         <div style='background: #fff3cd; border: 1px solid #ffeeba; border-radius: 0.5rem; padding: 1.5rem;'>
             <div style='display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;'>
@@ -643,7 +641,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             ],
             'examsymbols' => [
                 'title' => 'Sonderzeichen-Palette',
-                'icon' => '📝', 
+                'icon' => '📝',
                 'class' => 'ilExamSymbolsHandler'
             ],
             'examguard' => [
@@ -664,7 +662,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         ];
 
         $plugin_dir = "./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/classes";
-        
+
         foreach ($modules as $key => &$module) {
             $subdir = ucfirst($key);
             if ($key === 'examchecker') $subdir = 'ExamChecker';
@@ -672,7 +670,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             if ($key === 'examsymbols') $subdir = 'ExamSymbols';
             if ($key === 'examguard') $subdir = 'ExamGuard';
             if ($key === 'examalert') $subdir = 'ExamAlert';
-            
+
             $handler_file = "$plugin_dir/$subdir/class.{$module['class']}.php";
             $module['exists'] = file_exists($handler_file);
         }
@@ -692,11 +690,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function renderExamCheckerTab(): string
     {
         $form_action = $this->ctrl->getLinkTarget($this, 'saveExamChecker');
-        
+
         // Aktuelle Einstellungen laden
         $praesenz_settings = $this->getExamCheckerSettings('praesenz');
         $fern_settings = $this->getExamCheckerSettings('fern');
-        
+
         $praesenz_html = $this->renderCheckboxGroup('praesenz', $praesenz_settings);
         $fern_html = $this->renderCheckboxGroup('fern', $fern_settings);
 
@@ -757,15 +755,15 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         $checkboxes = '';
         $check_definitions = $this->getCheckDefinitions();
-        
+
         foreach ($check_definitions as $key => $definition) {
             // Prüfen ob dieser Check für den Prüfungstyp relevant ist
             $relevant_for_type = in_array($exam_type, $definition['relevant_for']);
             if (!$relevant_for_type) continue;
-            
+
             $checked = in_array($key, $current_settings) ? 'checked' : '';
             $name = "checks_{$exam_type}[]";
-            
+
             $checkboxes .= "
             <div style='margin-bottom: 0.75rem;'>
                 <label style='display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; padding: 0.5rem; border-radius: 0.25rem; transition: background-color 0.15s;' 
@@ -792,7 +790,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'datenschutz' => [
-                'title' => 'Datenschutz (Testergebnisse mit Namen)', 
+                'title' => 'Datenschutz (Testergebnisse mit Namen)',
                 'description' => 'Anonymität muss deaktiviert sein',
                 'relevant_for' => ['praesenz', 'fern']
             ],
@@ -872,10 +870,20 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'keine_vorbedingungen' => [
-            'title' => 'Keine Vorbedingungen gesetzt',
-            'description' => 'Test ist ohne Vorbedingungen frei zugänglich', 
-            'relevant_for' => ['praesenz', 'fern']
-        ]
+                'title' => 'Keine Vorbedingungen gesetzt',
+                'description' => 'Test ist ohne Vorbedingungen frei zugänglich',
+                'relevant_for' => ['praesenz', 'fern']
+            ],
+            'direkte_notenuebermittlung' => [
+                'title' => 'Direkte Notenübermittlung (deaktiviert)',
+                'description' => 'Noten werden nicht sofort an Teilnehmer übermittelt',
+                'relevant_for' => ['praesenz', 'fern']
+            ],
+            'zeitlich_begrenzte_verfuegbarkeit' => [
+                'title' => 'Zeitlich begrenzte Verfügbarkeit (deaktiviert)',
+                'description' => 'Test hat keine zusätzliche Kurs-Verfügbarkeitsbegrenzung',
+                'relevant_for' => ['praesenz', 'fern']
+            ]
         ];
     }
 
@@ -890,7 +898,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         // Standard-Aktivierungen basierend auf deinem ExamChecker-Code
         $defaults = [
             'fragenpools_verwenden',
-            'datenschutz', 
+            'datenschutz',
             'online',
             'passwort',
             'nur_ausgewaehlte_teilnehmer',
@@ -924,21 +932,20 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         try {
             $post = $_POST;
-            
+
             // Präsenz-Einstellungen
             $praesenz_checks = $post['checks_praesenz'] ?? [];
             $this->settings->set('examchecker_standards_praesenz', implode(',', $praesenz_checks));
-            
+
             // Fernprüfungs-Einstellungen  
             $fern_checks = $post['checks_fern'] ?? [];
             $this->settings->set('examchecker_standards_fern', implode(',', $fern_checks));
-            
+
             $this->tpl->setOnScreenMessage('success', '✅ ExamChecker-Vorgaben erfolgreich gespeichert.');
-            
         } catch (Exception $e) {
             $this->tpl->setOnScreenMessage('failure', '❌ Fehler beim Speichern: ' . $e->getMessage());
         }
-        
+
         $this->showExamChecker();
     }
 
@@ -948,12 +955,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     protected function previewCleanup(): void
     {
         $this->tabs->activateTab('statistics');
-        
+
         try {
             $orphaned_entries = $this->getOrphanedEntries();
             $preview_html = $this->renderCleanupPreview($orphaned_entries);
             $this->tpl->setContent($preview_html);
-            
         } catch (Exception $e) {
             $this->tpl->setOnScreenMessage('failure', '❌ Fehler bei der Vorschau: ' . $e->getMessage());
             $this->showStatistics();
@@ -1004,7 +1010,6 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 if (!empty($entries)) {
                     $orphaned[$table] = $entries;
                 }
-
             } catch (Exception $e) {
                 error_log("[ExtendedTestSettings] Fehler bei Vorschau für $table: " . $e->getMessage());
             }
@@ -1020,9 +1025,9 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         $back_url = $this->ctrl->getLinkTarget($this, 'showStatistics');
         $cleanup_url = $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries');
-        
+
         $total_count = array_sum(array_map('count', $orphaned_entries));
-        
+
         if (empty($orphaned_entries)) {
             return "
             <div style='padding: 2rem;'>
@@ -1051,7 +1056,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         foreach ($orphaned_entries as $table => $entries) {
             $table_name = $table_names[$table] ?? $table;
             $count = count($entries);
-            
+
             $details_html .= "
             <div style='margin-bottom: 2rem; background: white; border: 1px solid #e9ecef; border-radius: 0.5rem; overflow: hidden;'>
                 <div style='background: #f8d7da; padding: 1rem; border-bottom: 1px solid #f5c6cb;'>
@@ -1067,7 +1072,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                             </tr>
                         </thead>
                         <tbody>";
-            
+
             foreach ($entries as $entry) {
                 $status_color = $entry['status'] === 'Gelöscht' ? '#dc3545' : '#6c757d';
                 $details_html .= "
@@ -1077,7 +1082,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                         <td style='padding: 0.5rem; color: $status_color; font-weight: 500;'>{$entry['status']}</td>
                     </tr>";
             }
-            
+
             $details_html .= "
                         </tbody>
                     </table>
@@ -1121,20 +1126,19 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             // Erst Vorschau sammeln für Meldung
             $orphaned_before = $this->getOrphanedEntries();
             $total_before = array_sum(array_map('count', $orphaned_before));
-            
+
             // Bereinigung durchführen
             $cleaned = $this->performCleanup();
-            
+
             if ($cleaned > 0) {
                 $this->tpl->setOnScreenMessage('success', "✅ $cleaned verwaiste Einträge wurden erfolgreich bereinigt.");
             } else {
                 $this->tpl->setOnScreenMessage('info', "ℹ️ Keine verwaisten Einträge gefunden - alles sauber!");
             }
-            
         } catch (Exception $e) {
             $this->tpl->setOnScreenMessage('failure', '❌ Fehler bei der Bereinigung: ' . $e->getMessage());
         }
-        
+
         $this->showStatistics();
     }
 
@@ -1172,7 +1176,6 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                     error_log("[ExtendedTestSettings] $affected verwaiste Einträge aus $table entfernt");
                 }
             }
-
         } catch (Exception $e) {
             error_log("[ExtendedTestSettings] Fehler bei Cleanup: " . $e->getMessage());
             throw $e;
