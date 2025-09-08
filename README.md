@@ -28,7 +28,6 @@ Aktiviert einen wissenschaftlichen Taschenrechner während der Prüfung mit erwe
 - Mathematische Konstanten (π, e)
 - Bruchdarstellung
 - Berechnungsverlauf mit Wiederverwendung
-- Tastenkürzel: Alt + R
 - Verschiebbare Oberfläche
 - Automatische Bereinigung bei Prüfungsende
 
@@ -49,7 +48,6 @@ Blendet eine kontextsensitive Tastatur mit Sonderzeichen ein, die während der P
 - **Physik**: Mathematische Symbole, Vektoren (→, ⃗, ∙, ×), Differentiale (∇, ∆), Konstanten (ℏ, ħ)
 
 **Aktivierung:** Pro Test mit Auswahl der gewünschten Symbol-Vorlage
-**Tastenkürzel:** Alt + S
 
 ### ExamGuard - Eingabeeinschränkungen
 
