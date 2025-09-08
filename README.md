@@ -38,13 +38,6 @@ Aktiviert einen wissenschaftlichen Taschenrechner während der Prüfung mit erwe
 
 Blendet eine kontextsensitive Tastatur mit Sonderzeichen ein, die während der Prüfung genutzt werden kann.
 
-**Unterstützte Editoren:**
-- Standard-Eingabefelder (input, textarea)
-- TinyMCE (alle Versionen)
-- CKEditor 4/5
-- contentEditable-Felder
-- Iframe-basierte Editoren
-
 **Verfügbare Symbol-Vorlagen:**
 - **Mathematik/Wissenschaft**: π, √, ∑, ∞, ≈, ≠, ≤, ≥, ±, ∆, ∫, ∂, →, ↔, ∈, ∉, ∅, ², ³, °, griechische Buchstaben (α-ω, Α-Ω)
 - **Spanisch**: Vokale mit Akzent (Á, É, Í, Ó, Ú, á, é, í, ó, ú), Ñ, ñ, ¿, ¡
@@ -66,14 +59,8 @@ Sichert den Prüfungsmodus durch Einschränkung von Interaktionen, die die Prüf
 - Rechtsklick-Kontextmenü
 - Copy/Paste/Cut (Strg+C/V/X)
 - Alles markieren (Strg+A)
-- Speichern (Strg+S)
 - Entwickler-Tools öffnen (F12, Strg+Shift+I/J/C)
 - Textauswahl (mit Ausnahmen für Eingabefelder)
-
-**Besonderheiten:**
-- Läuft unsichtbar im Hintergrund
-- Eingabefelder bleiben funktionsfähig
-- Cross-Browser-Kompatibilität
 
 **Aktivierung:** Pro Test über Einstellungstab
 
@@ -86,8 +73,6 @@ Zeigt zeitbasierte Warnungen mit benutzerdefinierten Nachrichten während des Te
 - Benutzerdefinierte Nachrichten pro Test
 - Diskrete Toast-Benachrichtigung von oben
 - Live-Countdown mit verbleibender Zeit
-- Automatische Erkennung des ILIAS-Timer-Systems
-- Mobile responsive Design
 - Automatisches Schließen nach 20 Sekunden
 
 **Konfiguration:**
@@ -128,13 +113,6 @@ Analysiert Test-Einstellungen und prüft diese gegen definierte Standards für P
 
 Dort können die Features testbezogen aktiviert oder deaktiviert werden.
 
-## Systemanforderungen
-
-- **ILIAS**: Version 9.0 bis 9.999
-- **PHP**: Version 8.0 oder höher
-- **Browser**: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
-- **JavaScript**: Muss aktiviert sein
-
 ## Datenbankstruktur
 
 Das Plugin erstellt folgende Tabellen:
@@ -169,14 +147,6 @@ private const DEBUG_ENABLED = true;
 ```
 
 Dies aktiviert ausführliche Console-Logs für die Fehlerdiagnose.
-
-## Sicherheit und Datenschutz
-
-- Keine Datenübertragung an externe Server
-- Lokale Verarbeitung aller Eingaben
-- Automatische Bereinigung bei Seitenwechsel/Testende
-- Schutz vor unerlaubten Eingabemethoden
-- Speicherung nur während der aktiven Testsitzung
 
 ## Support
 
