@@ -8,7 +8,7 @@ window.ExamCalc = window.ExamCalc || {};
 window.ExamCalc.DEBUG = false; // Debug ein/aus
 
 // Zentrale Log-Funktion
-window.ecLog = function(message) {
+window.ecLog = function (message) {
     if (window.ExamCalc.DEBUG) {
         console.log(`[ExamCalc] ${message}`);
     }
@@ -20,13 +20,13 @@ window.ExamCalc.Calculator = class {
         this.lastResult = null;
         this.lastOperator = null;
         this.lastOperand = null;
-        
+
         this.btn = null;
         this.calc = null;
         this.display = null;
-        
+
         this.isInitialized = false;
-        
+
         // NEU: Verlauf und Bruch-Features
         this.history = [];
         this.maxHistoryItems = 10;
@@ -49,11 +49,11 @@ window.ExamCalc.Calculator = class {
 
         this.setupEventListeners();
         this.isInitialized = true;
-        
+
         if (window.ecLog) {
             window.ecLog('✅ Calculator initialisiert');
         }
-        
+
         return true;
     }
 
@@ -96,7 +96,7 @@ window.ExamCalc.Calculator = class {
         this.calc.querySelectorAll('.buttons button').forEach(button => {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
-                
+
                 // SPEZIAL-BEHANDLUNG: Fraction Toggle Button
                 if (button.classList.contains('fraction-toggle')) {
                     if (window.ecLog) {
@@ -105,12 +105,12 @@ window.ExamCalc.Calculator = class {
                     this.toggleFractionMode();
                     return;
                 }
-                
+
                 // DEBUG: Welcher Button wurde geklickt?
                 if (window.ecLog) {
                     window.ecLog(`🔘 Button geklickt: "${button.textContent}" | Klassen: ${button.className}`);
                 }
-                
+
                 this.handleButtonClick(button.textContent, button.classList);
             });
         });
@@ -145,7 +145,8 @@ window.ExamCalc.Calculator = class {
      */
     show() {
         this.calc.style.display = 'block';
-        
+        this.calc.classList.remove('with-history');
+
         if (window.ecLog) {
             window.ecLog('🔄 Calculator angezeigt');
         }
@@ -156,7 +157,7 @@ window.ExamCalc.Calculator = class {
      */
     hide() {
         this.calc.style.display = 'none';
-        
+
         if (window.ecLog) {
             window.ecLog('🔄 Calculator versteckt');
         }
@@ -211,7 +212,7 @@ window.ExamCalc.Calculator = class {
             this.current = this.current.slice(0, -1);
             // Display mit Formatierung aktualisieren
             this.display.value = this.formatDisplayExpression(this.current) || '';
-            
+
             if (window.ecLog) {
                 window.ecLog('🗑️ Letztes Zeichen gelöscht');
             }
@@ -233,24 +234,24 @@ window.ExamCalc.Calculator = class {
             // Expression für eval() vorbereiten
             const parsed = this.parseExpression(expression);
             const result = eval(parsed);
-            
+
             // NEU: In Verlauf hinzufügen (nur wenn gültiges Ergebnis)
             if (!isNaN(result) && isFinite(result)) {
                 this.addToHistory(expression, result);
             }
-            
+
             this.lastResult = result;
             this.updateDisplay(result);
             this.current = '';
-            
+
             if (window.ecLog) {
                 window.ecLog(`🔢 Berechnung: ${expression} = ${result}`);
             }
-            
+
         } catch (error) {
             this.current = 'Fehler';
             this.display.value = this.current;
-            
+
             if (window.ecLog) {
                 window.ecLog(`❌ Berechnungsfehler: ${error.message}`);
             }
@@ -290,7 +291,7 @@ window.ExamCalc.Calculator = class {
         // Konstanten nur als eigenständige Tokens ersetzen (verhindert 1e5 -> 1Math.E5)
         parsed = parsed
             .replace(/(^|[^A-Za-z0-9_.])π(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.PI)
-            .replace(/(^|[^A-Za-z0-9_.])e(?![A-Za-z0-9_])/g,  (_, pre) => pre + Math.E);
+            .replace(/(^|[^A-Za-z0-9_.])e(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.E);
 
         // NEU: Natürlicher Logarithmus ln() 
         parsed = parsed.replace(
@@ -333,7 +334,7 @@ window.ExamCalc.Calculator = class {
         this.lastOperator = null;
         this.lastOperand = null;
         this.display.value = '';
-        
+
         if (window.ecLog) {
             window.ecLog('🧹 Calculator cleared');
         }
@@ -359,7 +360,7 @@ window.ExamCalc.Calculator = class {
             if (this.lastResult !== null) {
                 this.current = this.lastResult.toString();
             }
-        } 
+        }
         // Operand merken
         else if (!isNaN(parseFloat(value)) || value === '.') {
             this.lastOperand = value;
@@ -389,11 +390,11 @@ window.ExamCalc.Calculator = class {
         for (const pattern of patterns) {
             if (pattern.regex.test(currentExpression)) {
                 const newExpression = currentExpression.replace(pattern.regex, pattern.replacement);
-                
+
                 if (window.ecLog) {
                     window.ecLog(`🔤 Smart Exponent: "${currentExpression}" + "${newDigit}" → "${newExpression}"`);
                 }
-                
+
                 return newExpression;
             }
         }
@@ -410,7 +411,7 @@ window.ExamCalc.Calculator = class {
             const reciprocal = 1 / this.lastResult;
             this.lastResult = reciprocal;
             this.updateDisplay(reciprocal);
-            
+
             if (window.ecLog) {
                 window.ecLog(`🔄 Kehrwert von Ergebnis: 1/${this.lastResult} = ${reciprocal}`);
             }
@@ -418,7 +419,7 @@ window.ExamCalc.Calculator = class {
             // Aktuelle Expression in Kehrwert umwandeln
             this.current = `1/(${this.current})`;
             this.display.value = this.formatDisplayExpression(this.current);
-            
+
             if (window.ecLog) {
                 window.ecLog(`🔄 Kehrwert von Expression: ${this.current}`);
             }
@@ -426,7 +427,7 @@ window.ExamCalc.Calculator = class {
             // Nichts vorhanden - "1/x" als Eingabe starten
             this.current = '1/x';
             this.display.value = '1/x';
-            
+
             if (window.ecLog) {
                 window.ecLog('🔄 1/x Eingabe gestartet');
             }
@@ -443,7 +444,7 @@ window.ExamCalc.Calculator = class {
                 const factorial = window.factorialFunction(Math.floor(this.lastResult));
                 this.lastResult = factorial;
                 this.updateDisplay(factorial);
-                
+
                 if (window.ecLog) {
                     window.ecLog(`❗ Fakultät von Ergebnis: ${Math.floor(this.lastResult)}! = ${factorial}`);
                 }
@@ -457,7 +458,7 @@ window.ExamCalc.Calculator = class {
             // Fakultät zur aktuellen Expression hinzufügen
             this.current += '!';
             this.display.value = this.formatDisplayExpression(this.current);
-            
+
             if (window.ecLog) {
                 window.ecLog(`❗ Fakultät hinzugefügt: ${this.current}`);
             }
@@ -473,7 +474,7 @@ window.ExamCalc.Calculator = class {
             const percent = this.lastResult / 100;
             this.lastResult = percent;
             this.updateDisplay(percent);
-            
+
             if (window.ecLog) {
                 window.ecLog(`📊 Prozent von Ergebnis: ${this.lastResult}% = ${percent}`);
             }
@@ -481,7 +482,7 @@ window.ExamCalc.Calculator = class {
             // Prozent zur aktuellen Expression hinzufügen
             this.current += '%';
             this.display.value = this.formatDisplayExpression(this.current);
-            
+
             if (window.ecLog) {
                 window.ecLog(`📊 Prozent hinzugefügt: ${this.current}`);
             }
@@ -497,7 +498,7 @@ window.ExamCalc.Calculator = class {
             const square = Math.pow(this.lastResult, 2);
             this.lastResult = square;
             this.updateDisplay(square);
-            
+
             if (window.ecLog) {
                 window.ecLog(`⏹️ Quadrat von Ergebnis: ${this.lastResult}² = ${square}`);
             }
@@ -511,7 +512,7 @@ window.ExamCalc.Calculator = class {
                 this.current = `(${this.current})^2`;
             }
             this.display.value = this.formatDisplayExpression(this.current);
-            
+
             if (window.ecLog) {
                 window.ecLog(`⏹️ Quadrat hinzugefügt: ${this.current}`);
             }
@@ -519,7 +520,7 @@ window.ExamCalc.Calculator = class {
             // Nichts vorhanden - "x²" als Platzhalter
             this.current = 'x^2';
             this.display.value = this.formatDisplayExpression(this.current);
-            
+
             if (window.ecLog) {
                 window.ecLog('⏹️ x² Eingabe gestartet');
             }
@@ -531,7 +532,7 @@ window.ExamCalc.Calculator = class {
      */
     extractLastToken(expression) {
         if (!expression) return null;
-        
+
         // Patterns für verschiedene Token-Typen (von komplexen zu einfachen)
         const patterns = [
             // Funktionen mit Klammern: sin(30), cos(45), log(10), etc.
@@ -545,21 +546,21 @@ window.ExamCalc.Calculator = class {
             // Einzelne Ziffer
             /(\d)$/
         ];
-        
+
         for (const pattern of patterns) {
             const match = expression.match(pattern);
             if (match) {
                 const token = match[1];
                 const remaining = expression.slice(0, -token.length);
-                
+
                 if (window.ecLog) {
                     window.ecLog(`🔍 Token für x² gefunden: "${token}" | Rest: "${remaining}"`);
                 }
-                
+
                 return { token, remaining };
             }
         }
-        
+
         return null;
     }
 
@@ -598,13 +599,13 @@ window.ExamCalc.Calculator = class {
         };
 
         this.history.unshift(historyItem);
-        
+
         if (this.history.length > this.maxHistoryItems) {
             this.history = this.history.slice(0, this.maxHistoryItems);
         }
 
         this.updateHistoryDisplay();
-        
+
         if (window.ecLog) {
             window.ecLog(`📜 Verlauf hinzugefügt: ${expression} = ${result}`);
         }
@@ -615,10 +616,16 @@ window.ExamCalc.Calculator = class {
      */
     toggleHistory() {
         this.historyVisible = !this.historyVisible;
-        
+
         const historyPanel = document.getElementById('history-panel');
         const historyToggle = document.getElementById('history-toggle');
-        
+
+        if (this.historyVisible) {
+            this.calc.classList.add('with-history');
+        } else {
+            this.calc.classList.remove('with-history');
+        }
+
         if (historyPanel && historyToggle) {
             if (this.historyVisible) {
                 historyPanel.classList.remove('hidden');
@@ -630,7 +637,7 @@ window.ExamCalc.Calculator = class {
                 this.calc.classList.remove('with-history');
             }
         }
-        
+
         if (window.ecLog) {
             window.ecLog(`📜 Verlauf ${this.historyVisible ? 'angezeigt' : 'versteckt'}`);
         }
@@ -642,7 +649,7 @@ window.ExamCalc.Calculator = class {
     clearHistory() {
         this.history = [];
         this.updateHistoryDisplay();
-        
+
         if (window.ecLog) {
             window.ecLog('🗑️ Verlauf geleert');
         }
@@ -662,7 +669,7 @@ window.ExamCalc.Calculator = class {
 
         let historyHTML = '';
         this.history.forEach((item, index) => {
-            const resultDisplay = this.showingFraction && !isNaN(item.result) 
+            const resultDisplay = this.showingFraction && !isNaN(item.result)
                 ? this.formatAsFraction(parseFloat(item.result))
                 : item.result;
 
@@ -682,25 +689,25 @@ window.ExamCalc.Calculator = class {
      */
     toggleFractionMode() {
         this.showingFraction = !this.showingFraction;
-        
+
         if (window.ecLog) {
             window.ecLog(`⅓ toggleFractionMode() aufgerufen - showingFraction: ${this.showingFraction}`);
         }
-        
+
         const fractionToggle = document.getElementById('fraction-toggle');
         if (fractionToggle) {
             fractionToggle.classList.toggle('active', this.showingFraction);
-            fractionToggle.title = this.showingFraction 
-                ? "Zur Dezimaldarstellung wechseln" 
+            fractionToggle.title = this.showingFraction
+                ? "Zur Dezimaldarstellung wechseln"
                 : "Zur Bruchdarstellung wechseln";
         }
-        
+
         if (this.lastResult !== null && this.current === '') {
             this.updateDisplay(this.lastResult);
         }
-        
+
         this.updateHistoryDisplay();
-        
+
         if (window.ecLog) {
             window.ecLog(`⅓ Bruch-Modus ${this.showingFraction ? 'aktiviert' : 'deaktiviert'}`);
         }
@@ -713,7 +720,7 @@ window.ExamCalc.Calculator = class {
         if (window.ecLog) {
             window.ecLog(`🖥️ updateDisplay aufgerufen mit: ${value}, showingFraction: ${this.showingFraction}`);
         }
-        
+
         if (this.showingFraction && !isNaN(value) && value !== 0) {
             const fractionText = this.formatAsFraction(parseFloat(value));
             this.display.value = fractionText;
@@ -731,7 +738,7 @@ window.ExamCalc.Calculator = class {
         }
 
         const fraction = this.decimalToFraction(decimal);
-        
+
         if (fraction.whole !== 0) {
             return `${fraction.whole} ${fraction.numerator}/${fraction.denominator}`;
         } else {
@@ -748,7 +755,7 @@ window.ExamCalc.Calculator = class {
         let denominator = 1;
         let h1 = 1, h2 = 0, k1 = 0, k2 = 1;
         let b = Math.abs(decimal);
-        
+
         do {
             const a = Math.floor(b);
             let aux = h1;
@@ -769,17 +776,17 @@ window.ExamCalc.Calculator = class {
             if (numerator === 0) {
                 return { whole: decimal < 0 ? -whole : whole, numerator: 0, denominator: 1 };
             }
-            return { 
-                whole: decimal < 0 ? -whole : whole, 
-                numerator: numerator, 
-                denominator: denominator 
+            return {
+                whole: decimal < 0 ? -whole : whole,
+                numerator: numerator,
+                denominator: denominator
             };
         }
 
-        return { 
-            whole: 0, 
-            numerator: decimal < 0 ? -numerator : numerator, 
-            denominator: denominator 
+        return {
+            whole: 0,
+            numerator: decimal < 0 ? -numerator : numerator,
+            denominator: denominator
         };
     }
 
@@ -791,7 +798,7 @@ window.ExamCalc.Calculator = class {
         this.current = cleanResult;
         this.display.value = cleanResult;
         this.lastResult = parseFloat(cleanResult);
-        
+
         if (window.ecLog) {
             window.ecLog(`📜 Verlauf-Ergebnis verwendet: ${cleanResult}`);
         }
@@ -814,13 +821,13 @@ window.ExamCalc.Calculator = class {
         this.clearHistory();
         this.showingFraction = false;
         this.historyVisible = false;
-        
+
         const fractionToggle = document.getElementById('fraction-toggle');
         if (fractionToggle) {
             fractionToggle.classList.remove('active');
             fractionToggle.title = "Zur Bruchdarstellung wechseln";
         }
-        
+
         const historyPanel = document.getElementById('history-panel');
         const historyToggle = document.getElementById('history-toggle');
         if (historyPanel && historyToggle) {
@@ -828,7 +835,7 @@ window.ExamCalc.Calculator = class {
             historyToggle.classList.remove('active');
             this.calc.classList.remove('with-history');
         }
-        
+
         if (window.ecLog) {
             window.ecLog('🔄 Calculator komplett zurückgesetzt');
         }
@@ -857,30 +864,30 @@ window.ExamCalc.Calculator = class {
             if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') {
                 return;
             }
-            
-            if (e.target.classList.contains('close-btn') || 
+
+            if (e.target.classList.contains('close-btn') ||
                 e.target.classList.contains('history-btn') ||
                 e.target.closest('.history-panel')) {
                 return;
             }
-            
+
             isDragging = true;
             startX = e.clientX;
             startY = e.clientY;
-            
+
             const rect = this.calc.getBoundingClientRect();
             startLeft = rect.left;
             startTop = rect.top;
-            
+
             this.calc.style.cursor = 'grabbing';
         });
 
         document.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
-            
+
             const deltaX = e.clientX - startX;
             const deltaY = e.clientY - startY;
-            
+
             this.calc.style.left = (startLeft + deltaX) + 'px';
             this.calc.style.top = (startTop + deltaY) + 'px';
             this.calc.style.right = 'auto';
