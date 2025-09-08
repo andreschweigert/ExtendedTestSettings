@@ -112,7 +112,7 @@ window.ExamCalc.Calculator = class {
             });
         });
 
-        // NEU: History Item Clicks
+        //  History Item Clicks
         document.addEventListener('click', (e) => {
             if (e.target.closest('.history-item')) {
                 const item = e.target.closest('.history-item');
@@ -243,7 +243,7 @@ window.ExamCalc.Calculator = class {
             const parsed = this.parseExpression(expression);
             const result = eval(parsed);
 
-            // NEU: In Verlauf hinzufügen (nur wenn gültiges Ergebnis)
+            //  In Verlauf hinzufügen (nur wenn gültiges Ergebnis)
             if (!isNaN(result) && isFinite(result)) {
                 this.addToHistory(expression, result);
             }
@@ -273,7 +273,7 @@ window.ExamCalc.Calculator = class {
         let parsed = expression;
         if (window.ecLog) window.ecLog(`🔧 Parse Input: "${expression}"`);
 
-        // NEU: Fakultät-Funktion definieren (muss vor anderen Ersetzungen stehen)
+        //  Fakultät-Funktion definieren (muss vor anderen Ersetzungen stehen)
         if (!window.factorialFunction) {
             window.factorialFunction = (n) => {
                 if (n < 0) return NaN;
@@ -286,14 +286,14 @@ window.ExamCalc.Calculator = class {
             };
         }
 
-        // NEU: Fakultät-Operator (!) verarbeiten - ZUERST
+        //  Fakultät-Operator (!) verarbeiten - ZUERST
         parsed = parsed.replace(/(\d+(?:\.\d+)?)!/g, 'factorialFunction($1)');
 
-        // NEU: Prozent-Operator (%) verarbeiten
+        //  Prozent-Operator (%) verarbeiten
         // Pattern: Zahl% wird zu (Zahl/100)
         parsed = parsed.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
 
-        // NEU: Kehrwert 1/x - wenn 1/x als Token gefunden wird
+        //  Kehrwert 1/x - wenn 1/x als Token gefunden wird
         parsed = parsed.replace(/1\/x/g, '(1/x)');
 
         // Konstanten nur als eigenständige Tokens ersetzen (verhindert 1e5 -> 1Math.E5)
@@ -301,7 +301,7 @@ window.ExamCalc.Calculator = class {
             .replace(/(^|[^A-Za-z0-9_.])π(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.PI)
             .replace(/(^|[^A-Za-z0-9_.])e(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.E);
 
-        // NEU: Natürlicher Logarithmus ln() 
+        //  Natürlicher Logarithmus ln() 
         parsed = parsed.replace(
             /(^|[^A-Za-z0-9_.])ln\s*\(([^)]+)\)/g,
             (m, pre, arg) => `${pre}Math.log(${arg})`
@@ -352,34 +352,42 @@ window.ExamCalc.Calculator = class {
      * Zu Expression hinzufügen (erweitert mit Smart Exponents)
      */
     addToExpression(value) {
-        // Smart Exponenten-Verarbeitung
-        if (!isNaN(value) && value !== '.') {
-            const smartExpression = this.processSmartExponent(this.current, value);
-            if (smartExpression !== this.current + value) {
-                this.current = smartExpression;
-                this.display.value = this.formatDisplayExpression(this.current);
-                return;
-            }
-        }
-
-        // Operator merken
-        if (/[\+\-\*\/]/.test(value)) {
-            this.lastOperator = value;
-            if (this.lastResult !== null) {
-                this.current = this.lastResult.toString();
-            }
-        }
-        // Operand merken
-        else if (!isNaN(parseFloat(value)) || value === '.') {
-            this.lastOperand = value;
-        }
-
-        this.current += value;
-        this.display.value = this.formatDisplayExpression(this.current);
+    // Nach einem Ergebnis bei Ziffer-Eingabe neu starten
+    if (this.lastResult !== null && this.current === '' && !isNaN(value) && value !== '.') {
+        this.lastResult = null;
+        this.lastOperator = null;
+        this.lastOperand = null;
     }
 
+    // Smart Exponenten-Verarbeitung
+    if (!isNaN(value) && value !== '.') {
+        const smartExpression = this.processSmartExponent(this.current, value);
+        if (smartExpression !== this.current + value) {
+            this.current = smartExpression;
+            this.display.value = this.formatDisplayExpression(this.current);
+            return;
+        }
+    }
+
+    // Operator merken
+    if (/[\+\-\*\/]/.test(value)) {
+        this.lastOperator = value;
+        if (this.lastResult !== null && this.current === '') {
+            // Nur bei leerem current das letzte Ergebnis verwenden
+            this.current = this.lastResult.toString();
+        }
+    }
+    // Operand merken
+    else if (!isNaN(parseFloat(value)) || value === '.') {
+        this.lastOperand = value;
+    }
+
+    this.current += value;
+    this.display.value = this.formatDisplayExpression(this.current);
+}
+
     /**
-     * NEU: Smart Exponenten-Verarbeitung (erweitert)
+     *  Smart Exponenten-Verarbeitung (erweitert)
      */
     processSmartExponent(currentExpression, newDigit) {
         // Pattern für automatische Exponenten
@@ -411,7 +419,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Kehrwert hinzufügen (1/x)
+     *  Kehrwert hinzufügen (1/x)
      */
     addReciprocal() {
         if (this.lastResult !== null && this.current === '') {
@@ -443,7 +451,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Fakultät hinzufügen (!)
+     *  Fakultät hinzufügen (!)
      */
     addFactorial() {
         if (this.lastResult !== null && this.current === '') {
@@ -474,7 +482,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Prozent hinzufügen (%)
+     *  Prozent hinzufügen (%)
      */
     addPercent() {
         if (this.lastResult !== null && this.current === '') {
@@ -498,7 +506,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Quadrat hinzufügen (x²)
+     *  Quadrat hinzufügen (x²)
      */
     addSquare() {
         if (this.lastResult !== null && this.current === '') {
@@ -536,7 +544,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Letzten Token aus Expression extrahieren (für x² Funktion)
+     *  Letzten Token aus Expression extrahieren (für x² Funktion)
      */
     extractLastToken(expression) {
         if (!expression) return null;
@@ -573,7 +581,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Expression für Display formatieren (mit Superscript)
+     *  Expression für Display formatieren (mit Superscript)
      */
     formatDisplayExpression(expression) {
         const superscriptMap = {
@@ -597,7 +605,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Verlauf hinzufügen
+     *  Verlauf hinzufügen
      */
     addToHistory(expression, result) {
         const historyItem = {
@@ -620,7 +628,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Verlauf anzeigen/verstecken
+     *  Verlauf anzeigen/verstecken
      */
     toggleHistory() {
         this.historyVisible = !this.historyVisible;
@@ -652,7 +660,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Verlauf löschen
+     *  Verlauf löschen
      */
     clearHistory() {
         this.history = [];
@@ -664,7 +672,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Verlauf-Anzeige aktualisieren
+     *  Verlauf-Anzeige aktualisieren
      */
     updateHistoryDisplay() {
         const historyList = document.getElementById('history-list');
@@ -693,7 +701,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Bruch-Modus umschalten
+     *  Bruch-Modus umschalten
      */
     toggleFractionMode() {
         this.showingFraction = !this.showingFraction;
@@ -722,7 +730,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Display aktualisieren (mit Bruch-Support)
+     *  Display aktualisieren (mit Bruch-Support)
      */
     updateDisplay(value) {
         if (window.ecLog) {
@@ -738,7 +746,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Dezimalzahl als Bruch formatieren
+     *  Dezimalzahl als Bruch formatieren
      */
     formatAsFraction(decimal) {
         if (Number.isInteger(decimal)) {
@@ -755,7 +763,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Dezimalzahl in Bruch umwandeln
+     *  Dezimalzahl in Bruch umwandeln
      */
     decimalToFraction(decimal) {
         const tolerance = 1.0E-6;
@@ -799,7 +807,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Verlauf-Ergebnis verwenden
+     *  Verlauf-Ergebnis verwenden
      */
     useHistoryResult(result) {
         const cleanResult = result.replace(/\s+\d+\/\d+/, '').trim();
@@ -813,7 +821,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: HTML escapen für Sicherheit
+     *  HTML escapen für Sicherheit
      */
     escapeHtml(text) {
         const div = document.createElement('div');
@@ -822,7 +830,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Reset-Funktion (wichtig für Prüfungen!)
+     *  Reset-Funktion (wichtig für Prüfungen!)
      */
     reset() {
         this.clear();
@@ -850,7 +858,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Debug-Modus umschalten
+     *  Debug-Modus umschalten
      */
     toggleDebug() {
         window.ExamCalc.DEBUG = !window.ExamCalc.DEBUG;
