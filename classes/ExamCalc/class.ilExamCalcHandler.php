@@ -169,7 +169,7 @@ HTML;
             'title' => 'Wissenschaftlicher Taschenrechner',
             'icon' => '🧮',
             'description' => 'Wissenschaftlicher Taschenrechner für Prüfungen mit Trigonometrie, Wurzeln, Potenzen etc.',
-            'version' => '0.0.5',
+            'version' => '0.0.6',
             'features' => [
                 'Floating Button (Alt + R)',
                 'Wissenschaftliche Funktionen',

@@ -4,10 +4,8 @@
 
 window.ExamCalc = window.ExamCalc || {};
 
-// NEU: Debug-Steuerung
 window.ExamCalc.DEBUG = false; // Debug ein/aus
 
-// Zentrale Log-Funktion
 window.ecLog = function (message) {
     if (window.ExamCalc.DEBUG) {
         console.log(`[ExamCalc] ${message}`);
@@ -27,7 +25,6 @@ window.ExamCalc.Calculator = class {
 
         this.isInitialized = false;
 
-        // NEU: Verlauf und Bruch-Features
         this.history = [];
         this.maxHistoryItems = 10;
         this.showingFraction = false;
@@ -74,19 +71,19 @@ window.ExamCalc.Calculator = class {
             }
         });
 
-        // Close Button (NEU - im Header)
+        // Close Button 
         const closeBtn = this.calc.querySelector('.close-btn');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => this.hide());
         }
 
-        // NEU: History Toggle Button
+        // History Toggle Button
         const historyToggle = document.getElementById('history-toggle');
         if (historyToggle) {
             historyToggle.addEventListener('click', () => this.toggleHistory());
         }
 
-        // NEU: Clear History Button
+        // Clear History Button
         const clearHistory = document.getElementById('clear-history');
         if (clearHistory) {
             clearHistory.addEventListener('click', () => this.clearHistory());
@@ -108,7 +105,7 @@ window.ExamCalc.Calculator = class {
 
                 // DEBUG: Welcher Button wurde geklickt?
                 if (window.ecLog) {
-                    window.ecLog(`🔘 Button geklickt: "${button.textContent}" | Klassen: ${button.className}`);
+                    window.ecLog(`Button geklickt: "${button.textContent}" | Klassen: ${button.className}`);
                 }
 
                 this.handleButtonClick(button.textContent, button.classList);
@@ -178,13 +175,13 @@ window.ExamCalc.Calculator = class {
      * Button-Klicks verarbeiten (erweitert mit neuen Funktionen)
      */
     handleButtonClick(value, classList) {
-        // NEU: DEL Button
+        // DEL Button
         if (classList.contains('del-btn')) {
             this.deleteLastChar();
             return;
         }
 
-        // NEU: Spezielle Funktions-Buttons
+        // Spezielle Funktions-Buttons
         if (value === '1/x') {
             this.addReciprocal();
             return;
@@ -216,7 +213,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * NEU: Letztes Zeichen löschen (DEL-Funktion) - erweitert
+     * Letztes Zeichen löschen (DEL-Funktion) - erweitert
      */
     deleteLastChar() {
         if (this.current.length > 0) {
@@ -331,7 +328,7 @@ window.ExamCalc.Calculator = class {
         // Exponenten-Operator zuletzt
         parsed = parsed.replace(/\^/g, '**');
 
-        if (window.ecLog) window.ecLog(`🔧 Parse Output: "${parsed}"`);
+        if (window.ecLog) window.ecLog(`Parse Output: "${parsed}"`);
         return parsed;
     }
 
@@ -347,7 +344,7 @@ window.ExamCalc.Calculator = class {
         this.display.value = '';
 
         if (window.ecLog) {
-            window.ecLog('🧹 Calculator cleared');
+            window.ecLog('Calculator cleared');
         }
     }
 
