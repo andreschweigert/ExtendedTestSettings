@@ -158,6 +158,17 @@ window.ExamCalc.Calculator = class {
     hide() {
         this.calc.style.display = 'none';
 
+        this.historyVisible = false;
+        this.calc.classList.remove('with-history');
+
+        const historyPanel = document.getElementById('history-panel');
+        const historyToggle = document.getElementById('history-toggle');
+
+        if (historyPanel && historyToggle) {
+            historyPanel.classList.add('hidden');
+            historyToggle.classList.remove('active');
+        }
+
         if (window.ecLog) {
             window.ecLog('🔄 Calculator versteckt');
         }
