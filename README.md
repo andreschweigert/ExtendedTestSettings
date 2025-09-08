@@ -1,3 +1,5 @@
+Achtung - WIP - Benutzen auf eigene Gefahr.
+
 # ExtendedTestSettings Plugin für ILIAS
 
 Das **ExtendedTestSettings** Plugin erweitert den ILIAS-Testkontext um zusätzliche Funktionen für Online-Prüfungen. Es dient als zentrales Verwaltungssystem für optionale Prüfungs-Features, die modular integriert und pro Test konfiguriert werden können.
