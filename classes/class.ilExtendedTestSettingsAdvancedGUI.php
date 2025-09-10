@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @ilCtrl_isCalledBy ilExtendedTestSettingsAdvancedGUI: ilUIPluginRouterGUI
  */
@@ -26,6 +27,41 @@ class ilExtendedTestSettingsAdvancedGUI
 
     public function performCommand(string $cmd): void
     {
+        // SICHERHEITSPRÜFUNG MIT KURS-ADMIN-BERECHTIGUNG
+        global $DIC, $rbacsystem, $tree;
+
+        // Hole ref_id
+        $ref_id = (int) ($_GET["ref_id"] ?? 0);
+
+        // Prüfe ob Benutzer eingeloggt ist
+        if (!$DIC->user()->getId() || $DIC->user()->isAnonymous()) {
+            $this->tpl->setOnScreenMessage(
+                'failure',
+                'Zugriff verweigert: Sie müssen angemeldet sein.'
+            );
+            $DIC->ctrl()->redirectToURL('./login.php');
+            return;
+        }
+
+        // Prüfe ob ref_id vorhanden
+        if ($ref_id <= 0) {
+            $this->tpl->setOnScreenMessage(
+                'failure',
+                'Kein gültiger Test ausgewählt.'
+            );
+            $this->tpl->printToStdout();
+            return;
+        }
+
+        // Prüfe Berechtigung: Test-Schreibrechte ODER Kurs-Admin
+        if (!$this->hasTestSettingsAccess($ref_id)) {
+            $this->tpl->setOnScreenMessage(
+                'failure',
+                'Zugriff verweigert: Sie haben keine Berechtigung, diese Test-Einstellungen zu ändern.'
+            );
+            $DIC->ctrl()->redirectToURL("ilias.php?ref_id=$ref_id&baseClass=ilRepositoryGUI");
+            return;
+        }
         switch ($cmd) {
             case "show":
                 $this->show();
@@ -70,6 +106,84 @@ class ilExtendedTestSettingsAdvancedGUI
         $this->tpl->setDescription("Konfiguration für alle verfügbaren Prüfungs-Features");
         $this->tpl->setContent($html);
     }
+
+
+/**
+ * Prüft ob der Benutzer Zugriff auf die Test-Einstellungen hat
+ * MAXIMALE KOMPATIBILITÄT - funktioniert mit verschiedenen ILIAS-Versionen
+ * @param int $test_ref_id Die Referenz-ID des Tests
+ * @return bool True wenn Zugriff erlaubt
+ */
+private function hasTestSettingsAccess(int $test_ref_id): bool 
+{
+    global $DIC, $rbacsystem;
+    
+    // 1. Check: Direkte Schreibrechte auf den Test
+    if ($rbacsystem->checkAccess("write", $test_ref_id)) {
+        return true;
+    }
+    
+    // 2. Check: Ist System-Admin?
+    if ($rbacsystem->checkAccess("write", SYSTEM_FOLDER_ID)) {
+        return true;
+    }
+    
+    // 3. Check: Vereinfachte Prüfung über Parent-Objekte
+    try {
+        // Verschiedene Tree-Methoden probieren
+        $tree = $DIC->repositoryTree();
+        if (!$tree) {
+            $tree = $GLOBALS['tree'] ?? null;
+        }
+        
+        if ($tree) {
+            $parent_ref_id = null;
+            
+            // Versuche verschiedene Methoden
+            if (method_exists($tree, 'getParentId')) {
+                $parent_ref_id = $tree->getParentId($test_ref_id);
+            } elseif (method_exists($tree, 'getParentNodeData')) {
+                $parent_data = $tree->getParentNodeData($test_ref_id);
+                $parent_ref_id = $parent_data['ref_id'] ?? null;
+            } elseif (method_exists($tree, 'getNodeData')) {
+                $node_data = $tree->getNodeData($test_ref_id);
+                $parent_ref_id = $node_data['parent'] ?? null;
+            }
+            
+            // Falls wir einen Parent gefunden haben
+            if ($parent_ref_id && $parent_ref_id > 0) {
+                // Prüfe bis zu 5 Ebenen nach oben
+                $levels_checked = 0;
+                $current_ref_id = $parent_ref_id;
+                
+                while ($current_ref_id > 0 && $levels_checked < 5) {
+                    $parent_type = ilObject::_lookupType($current_ref_id, true);
+                    
+                    // Ist es ein Kurs oder eine Gruppe?
+                    if (in_array($parent_type, ['crs', 'grp'])) {
+                        // Hat der User Schreibrechte?
+                        if ($rbacsystem->checkAccess("write", $current_ref_id)) {
+                            return true;
+                        }
+                    }
+                    
+                    // Nächste Ebene
+                    if (method_exists($tree, 'getParentId')) {
+                        $current_ref_id = $tree->getParentId($current_ref_id);
+                    } else {
+                        break; // Keine weitere Navigation möglich
+                    }
+                    
+                    $levels_checked++;
+                }
+            }
+        }
+    } catch (Exception $e) {
+        error_log("[ExtendedTestSettings] Tree-Navigation fehlgeschlagen: " . $e->getMessage());
+    }
+    
+    return false;
+}
 
     /**
      * Generiert Debug-Informationen
@@ -231,7 +345,6 @@ HTML;
                 error_log("[ExtendedTestSettings] Navigation-Setup Fehler: " . $e->getMessage());
             }
         }
-
     }
 
     /**
@@ -389,7 +502,6 @@ HTML;
 
                 $html_sections .= $this->generateModuleSection($info, $settings_html);
             }
-
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Fehler beim Generieren der Module: " . $e->getMessage());
@@ -697,7 +809,26 @@ HTML;
      */
     public function saveSettings(): void
     {
+        global $DIC;
+
         $ref_id = (int) ($_POST["ref_id"] ?? $_GET["ref_id"] ?? 0);
+
+        // Prüfe nochmals die Berechtigung beim Speichern
+        if (!$DIC->user()->getId() || $DIC->user()->isAnonymous()) {
+            $this->tpl->setOnScreenMessage('failure', 'Nicht autorisiert.');
+            $DIC->ctrl()->redirectToURL('./login.php');
+            return;
+        }
+
+        if (!$this->hasTestSettingsAccess($ref_id)) {
+            $this->tpl->setOnScreenMessage(
+                'failure',
+                'Zugriff verweigert: Keine Berechtigung zum Speichern.'
+            );
+            $this->ctrl->redirect($this, "show");
+            return;
+        }
+
 
         if ($ref_id <= 0) {
             $this->tpl->setOnScreenMessage('failure', '❌ Kein gültiger Test ausgewählt.');
@@ -751,7 +882,6 @@ HTML;
             if (empty($results)) {
                 $this->tpl->setOnScreenMessage('info', 'ℹ️ Keine Module zum Speichern gefunden.');
             }
-
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Fehler beim Speichern: " . $e->getMessage());

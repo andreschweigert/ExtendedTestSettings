@@ -27,6 +27,30 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
     public function performCommand(string $cmd): void
     {
+        
+        global $DIC, $rbacsystem;
+
+        // Prüfe ob Benutzer eingeloggt ist
+        if (!$DIC->user()->getId() || $DIC->user()->isAnonymous()) {
+            $DIC->ui()->mainTemplate()->setOnScreenMessage(
+                'failure',
+                'Zugriff verweigert: Sie müssen angemeldet sein.'
+            );
+            $DIC->ctrl()->redirectToURL('./login.php');
+            return;
+        }
+
+        // Prüfe System-Admin-Berechtigung
+        if (!$rbacsystem->checkAccess("write", SYSTEM_FOLDER_ID)) {
+            $DIC->ui()->mainTemplate()->setOnScreenMessage(
+                'failure',
+                'Zugriff verweigert: Administrator-Rechte erforderlich.'
+            );
+            $DIC->ctrl()->redirectToURL('./ilias.php?baseClass=ilDashboardGUI');
+            return;
+        }
+
+
         $this->setTabs();
 
         switch ($cmd) {
