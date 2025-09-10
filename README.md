@@ -88,7 +88,6 @@ Analysiert Test-Einstellungen und prüft diese gegen definierte Standards für P
 
 **Funktionen:**
 - Auswahl zwischen Präsenz- und Fernprüfung
-- Automatische Überprüfung der Testeinstellungen via AJAX
 - Detaillierter Report mit Ampel-System
 - Prozentuale Bewertung der Konfiguration
 - Hinweise auf zu überprüfende Einstellungen
