@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ExtendedTestSettings UI Hook GUI 
  * 
@@ -30,7 +31,6 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
             if ($DIC->offsetExists('tpl') && $DIC['tpl'] instanceof ilGlobalTemplateInterface) {
                 $this->injectModuleAssets($DIC['tpl']);
             }
-
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] modifyGUI Fehler: " . $e->getMessage());
@@ -59,6 +59,14 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                 return;
             }
 
+            // NEUE SICHTBARKEITSPRÜFUNG
+            if (!$this->shouldShowTab($ref_id)) {
+                if (self::DEBUG_ENABLED) {
+                    error_log("[ExtendedTestSettings] Tab ausgeblendet für ref_id: $ref_id (Sichtbarkeitseinstellung)");
+                }
+                return;
+            }
+
             // Tab-Link generieren
             $ilCtrl->setParameterByClass('ilUIPluginRouterGUI', 'ref_id', $ref_id);
             $ilCtrl->setParameterByClass('ilExtendedTestSettingsAdvancedGUI', 'ref_id', $ref_id);
@@ -70,14 +78,13 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
             $ilTabs->addSubTab(
                 'extended_test_settings',
-                'Erweiterte Test-Einstellungen', // Direkt als Text statt Sprachschlüssel
+                'Erweiterte Test-Einstellungen',
                 $link
             );
 
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] ✅ Tab hinzugefügt für ref_id: $ref_id");
             }
-
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Tab-Fehler: " . $e->getMessage());
@@ -85,6 +92,71 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
         }
     }
 
+    /**
+     * Prüft ob der Tab angezeigt werden soll basierend auf Sichtbarkeitseinstellungen
+     */
+    private function shouldShowTab(int $ref_id): bool
+    {
+        global $DIC, $rbacsystem;
+
+        // System-Admin sieht immer den Tab
+        if ($rbacsystem->checkAccess("write", SYSTEM_FOLDER_ID)) {
+            return true;
+        }
+
+        // Lade Sichtbarkeitseinstellung
+        $settings = new ilSetting('extendedtestsettings');
+        $visibility = $settings->get('tab_visibility', 'course_admins');
+
+        // Nur System-Admins?
+        if ($visibility === 'admins_only') {
+            return false; // Nicht-Admins sehen den Tab nicht
+        }
+
+        // Standard: Kurs-Admins + System-Admins
+        // Prüfe ob User Schreibrechte auf den Test hat
+        if ($rbacsystem->checkAccess('write', $ref_id)) {
+            return true;
+        }
+
+        // Zusätzlich: Prüfe ob User Kurs-Admin ist
+        return $this->isUserCourseAdmin($ref_id);
+    }
+
+    /**
+     * Prüft ob der Benutzer Kurs-Administrator des übergeordneten Kurses ist
+     */
+    private function isUserCourseAdmin(int $test_ref_id): bool
+    {
+        global $DIC;
+
+        try {
+            $tree = $DIC->repositoryTree();
+            $user_id = $DIC->user()->getId();
+
+            // Finde übergeordneten Kurs
+            $path = $tree->getNodePath($test_ref_id);
+
+            foreach ($path as $node) {
+                if ($node['type'] === 'crs') {
+                    // Prüfe ob User Kurs-Admin ist
+                    include_once './Modules/Course/classes/class.ilCourseParticipants.php';
+                    $obj_id = ilObject::_lookupObjectId($node['ref_id']);
+                    $participants = ilCourseParticipants::_getInstanceByObjId($obj_id);
+
+                    if ($participants->isAdmin($user_id) || $participants->isTutor($user_id)) {
+                        return true;
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            if (self::DEBUG_ENABLED) {
+                error_log("[ExtendedTestSettings] Fehler bei Kurs-Admin-Prüfung: " . $e->getMessage());
+            }
+        }
+
+        return false;
+    }
     /**
      * Injiziert Assets von aktiven Modulen
      */
@@ -268,7 +340,6 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                     }, 3000);
                 ");
             }
-
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Asset-Injection Fehler: " . $e->getMessage());
@@ -302,7 +373,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
         return false;
     }
 
-/**
+    /**
      * Direkte ExamSymbols Datenbankprüfung
      */
     private function getExamSymbolsConfigDirect(int $ref_id): array
@@ -399,15 +470,15 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
     {
         // Config-Klasse laden
         $config = new ilExamSymbolsConfig('examsymbols');
-        
+
         // Symbole aus Config-Klasse holen
         $symbols = $config->getSymbolsForTemplate($template);
-        
+
         // Fallback falls Template nicht existiert
         if (empty($symbols)) {
             $symbols = $config->getSymbolsForTemplate('math');
         }
-        
+
         return $symbols;
     }
 
@@ -562,7 +633,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
             global $DIC;
             $db = $DIC->database();
             $obj_id = ilObject::_lookupObjectId($ref_id);
-            
+
             $enabled = isset($post_data['examalert_enabled']) ? 1 : 0;
             $alert_time = (int) ($post_data['examalert_time'] ?? 30);
             $alert_message = trim($post_data['examalert_message'] ?? '');

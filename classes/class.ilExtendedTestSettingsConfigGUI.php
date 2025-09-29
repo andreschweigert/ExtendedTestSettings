@@ -27,7 +27,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
     public function performCommand(string $cmd): void
     {
-        
+
         global $DIC, $rbacsystem;
 
         // Prüfe ob Benutzer eingeloggt ist
@@ -79,6 +79,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $this->previewCleanup();
                 break;
 
+            case 'saveGeneralSettings':
+                $this->saveGeneralSettings();
+                break;
+
             default:
                 $this->showGeneral();
                 break;
@@ -120,16 +124,89 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
     private function renderGeneralTab(): string
     {
+        $form_action = $this->ctrl->getLinkTarget($this, 'saveGeneralSettings');
+
+        // Aktuelle Einstellungen laden
+        $visibility = $this->settings->get('tab_visibility', 'course_admins');
+
+        $admins_only = ($visibility === 'admins_only') ? 'checked' : '';
+        $course_admins = ($visibility === 'course_admins') ? 'checked' : '';
+
         return '
-        <div style="padding: 2rem;">
-            <div style="text-align: center; padding: 3rem; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 0.5rem;">
-                <div style="font-size: 3rem; margin-bottom: 1rem; color: #6c757d;">⚙️</div>
-                <h3 style="color: #495057; margin-bottom: 1rem;">Allgemeine Einstellungen</h3>
-                <p style="color: #6c757d; margin: 0;">
-                    Dieser Bereich ist für zukünftige globale Plugin-Einstellungen reserviert.
+    <div style="padding: 2rem;">
+        <form method="post" action="' . $form_action . '">
+            <div style="background: white; border: 1px solid #e9ecef; border-radius: 0.5rem; padding: 2rem;">
+                <h3 style="margin-top: 0; color: #495057;">🔒 Tab-Sichtbarkeit in Test-Einstellungen</h3>
+                <p style="color: #6c757d; margin-bottom: 1.5rem;">
+                    Bestimmen Sie, wer den Tab "Erweiterte Test-Einstellungen" in Tests sehen kann.
                 </p>
+                
+                <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 0.375rem;">
+                    <div style="margin-bottom: 1rem;">
+                        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; margin-bottom: 0.75rem;">
+                            <input type="radio" name="tab_visibility" value="admins_only" ' . $admins_only . ' style="margin-top: 0.25rem;">
+                            <div>
+                                <strong>🔴 Nur System-Administratoren</strong>
+                                <div style="color: #6c757d; font-size: 0.85rem;">
+                                    Nur ILIAS System-Administratoren können den Tab sehen und verwenden
+                                </div>
+                            </div>
+                        </label>
+                        
+                        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+                            <input type="radio" name="tab_visibility" value="course_admins" ' . $course_admins . ' style="margin-top: 0.25rem;">
+                            <div>
+                                <strong>🟢 Kurs-Administratoren + System-Administratoren</strong>
+                                <div style="color: #6c757d; font-size: 0.85rem;">
+                                    Kurs-Administratoren, Test-Besitzer und System-Administratoren können den Tab sehen
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e9ecef;">
+                    <button type="submit" style="background: #007bff; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.375rem; font-weight: 500; cursor: pointer;">
+                        💾 Einstellungen speichern
+                    </button>
+                </div>
             </div>
-        </div>';
+        </form>
+    </div>';
+    }
+
+    /**
+     * Speichert die allgemeinen Einstellungen
+     */
+    protected function saveGeneralSettings(): void
+    {
+        try {
+            $tab_visibility = $_POST['tab_visibility'] ?? 'course_admins';
+
+            // Validierung
+            if (!in_array($tab_visibility, ['admins_only', 'course_admins'])) {
+                $tab_visibility = 'course_admins';
+            }
+
+            $this->settings->set('tab_visibility', $tab_visibility);
+
+            $visibility_text = [
+                'admins_only' => 'Nur System-Administratoren',
+                'course_admins' => 'Kurs-Administratoren + System-Administratoren'
+            ];
+
+            $this->tpl->setOnScreenMessage(
+                'success',
+                '✅ Einstellungen gespeichert. Tab-Sichtbarkeit: ' . $visibility_text[$tab_visibility]
+            );
+        } catch (Exception $e) {
+            $this->tpl->setOnScreenMessage(
+                'failure',
+                '❌ Fehler beim Speichern: ' . $e->getMessage()
+            );
+        }
+
+        $this->showGeneral();
     }
 
     /**
