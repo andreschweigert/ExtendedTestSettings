@@ -39,23 +39,17 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
      * Wird beim Deinstallieren ausgeführt
      */
     protected function beforeUninstall(): bool
-    {
-        // Sicherheitsabfrage - nur wenn explizit gewünscht
-        if (!isset($_POST['confirm_uninstall']) || $_POST['confirm_uninstall'] !== '1') {
-            // Warnung anzeigen
-            global $DIC;
-            $tpl = $DIC->ui()->mainTemplate();
-            $tpl->setOnScreenMessage(
-                'info',
-                'WARNUNG: Das Deinstallieren löscht alle gespeicherten Einstellungen für alle Tests! ' .
-                'Um fortzufahren, aktivieren Sie die Checkbox "Daten löschen" im Deinstallations-Dialog.'
-            );
-            return false;
-        }
-
-        $this->dropTables();
-        return true;
-    }
+    {   
+    // Logging für Transparenz
+    global $DIC;
+    $user_login = $DIC->user()->getLogin();
+    error_log("[ExtendedTestSettings] Deinstallation gestartet von: $user_login");
+    
+    $this->dropTables();
+    
+    error_log("[ExtendedTestSettings] Alle Tabellen erfolgreich gelöscht");
+    return true;
+    }   
 
     /**
      * Erstellt die Plugin-Tabellen für alle Module
