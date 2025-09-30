@@ -1,0 +1,160 @@
+<#1>
+<?php
+/**
+ * ExtendedTestSettings Plugin Database Installation
+ * Creates tables for exam modules
+ */
+global $DIC;
+$db = $DIC->database();
+
+// ExamCalc Settings Table
+if (!$db->tableExists('examcalc_settings')) {
+    $fields = array(
+        'test_id' => array(
+            'type' => 'integer',
+            'length' => 4,
+            'notnull' => true
+        ),
+        'enabled' => array(
+            'type' => 'integer',
+            'length' => 1,
+            'notnull' => true,
+            'default' => 0
+        ),
+        'created_at' => array(
+            'type' => 'timestamp',
+            'notnull' => false
+        ),
+        'updated_at' => array(
+            'type' => 'timestamp',
+            'notnull' => false
+        )
+    );
+    
+    $db->createTable('examcalc_settings', $fields);
+    $db->addPrimaryKey('examcalc_settings', array('test_id'));
+}
+?>
+<#2>
+<?php
+global $DIC;
+$db = $DIC->database();
+
+// ExamGuard Settings Table
+if (!$db->tableExists('examguard_settings')) {
+    $fields = array(
+        'test_id' => array(
+            'type' => 'integer',
+            'length' => 4,
+            'notnull' => true
+        ),
+        'enabled' => array(
+            'type' => 'integer',
+            'length' => 1,
+            'notnull' => true,
+            'default' => 0
+        ),
+        'exit_prevention' => array(
+            'type' => 'integer',
+            'length' => 1,
+            'notnull' => true,
+            'default' => 1
+        ),
+        'created_at' => array(
+            'type' => 'timestamp',
+            'notnull' => false
+        ),
+        'updated_at' => array(
+            'type' => 'timestamp',
+            'notnull' => false
+        )
+    );
+    
+    $db->createTable('examguard_settings', $fields);
+    $db->addPrimaryKey('examguard_settings', array('test_id'));
+}
+?>
+<#3>
+<?php
+global $DIC;
+$db = $DIC->database();
+
+// ExamSymbols Settings Table
+if (!$db->tableExists('examsymbols_settings')) {
+    $fields = array(
+        'test_id' => array(
+            'type' => 'integer',
+            'length' => 4,
+            'notnull' => true
+        ),
+        'enabled' => array(
+            'type' => 'integer',
+            'length' => 1,
+            'notnull' => true,
+            'default' => 0
+        ),
+        'template' => array(
+            'type' => 'text',
+            'length' => 255,
+            'notnull' => false,
+            'default' => 'math'
+        ),
+        'created_at' => array(
+            'type' => 'timestamp',
+            'notnull' => false
+        ),
+        'updated_at' => array(
+            'type' => 'timestamp',
+            'notnull' => false
+        )
+    );
+    
+    $db->createTable('examsymbols_settings', $fields);
+    $db->addPrimaryKey('examsymbols_settings', array('test_id'));
+}
+?>
+<#4>
+<?php
+global $DIC;
+$db = $DIC->database();
+
+// ExamAlert Settings Table
+if (!$db->tableExists('examalert_settings')) {
+    $fields = array(
+        'test_id' => array(
+            'type' => 'integer',
+            'length' => 4,
+            'notnull' => true
+        ),
+        'enabled' => array(
+            'type' => 'integer',
+            'length' => 1,
+            'notnull' => true,
+            'default' => 0
+        ),
+        'alert_time' => array(
+            'type' => 'integer',
+            'length' => 4,
+            'notnull' => true,
+            'default' => 30
+        ),
+        'alert_message' => array(
+            'type' => 'text',
+            'length' => 1000,
+            'notnull' => false,
+            'default' => 'Achtung: Der Test endet bald!'
+        ),
+        'created_at' => array(
+            'type' => 'timestamp',
+            'notnull' => false
+        ),
+        'updated_at' => array(
+            'type' => 'timestamp',
+            'notnull' => false
+        )
+    );
+    
+    $db->createTable('examalert_settings', $fields);
+    $db->addPrimaryKey('examalert_settings', array('test_id'));
+}
+?>

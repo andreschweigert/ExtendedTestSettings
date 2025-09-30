@@ -7,13 +7,17 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
         return "ExtendedTestSettings";
     }
 
-    // *** GEÄNDERT: Konfiguration aktivieren ***
+    /**
+     * Konfiguration aktivieren
+     */
     public function hasConfiguration(): bool
     {
-        return true; // Konfigurationsseite aktivieren
+        return true;
     }
 
-    // *** NEU: Konfigurationsgui zurückgeben ***
+    /**
+     * Konfigurationsgui zurückgeben
+     */
     public function getConfigurationClass(): string
     {
         return ilExtendedTestSettingsConfigGUI::class;
@@ -24,15 +28,23 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
         return ilExtendedTestSettingsUIHookGUI::class;
     }
 
-    // *** REST DER KLASSE BLEIBT UNVERÄNDERT ***
-
     /**
      * Wird beim Aktivieren des Plugins ausgeführt
+     * Tabellen werden automatisch über sql/dbupdate.php erstellt
      */
     protected function afterActivation(): void
     {
-        $this->createTables();
         $this->logActivation();
+    }
+
+    /**
+     * Wird beim Update des Plugins ausgeführt
+     * ILIAS führt automatisch die sql/dbupdate.php aus
+     */
+    protected function afterUpdate(): void
+    {
+        // Nichts zu tun - ILIAS handled DB-Updates automatisch
+        error_log("[ExtendedTestSettings] Plugin erfolgreich aktualisiert");
     }
 
     /**
@@ -40,174 +52,36 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
      */
     protected function beforeUninstall(): bool
     {   
-    // Logging für Transparenz
-    global $DIC;
-    $user_login = $DIC->user()->getLogin();
-    error_log("[ExtendedTestSettings] Deinstallation gestartet von: $user_login");
-    
-    $this->dropTables();
-    
-    error_log("[ExtendedTestSettings] Alle Tabellen erfolgreich gelöscht");
-    return true;
-    }   
-
-    /**
-     * Erstellt die Plugin-Tabellen für alle Module
-     */
-    private function createTables(): void
-    {
         global $DIC;
-        $db = $DIC->database();
-
-        // ExamCalc Tabelle
-        if (!$db->tableExists('examcalc_settings')) {
-            $fields = [
-                'test_id' => [
-                    'type' => 'integer',
-                    'length' => 4,
-                    'notnull' => true
-                ],
-                'enabled' => [
-                    'type' => 'integer',
-                    'length' => 1,
-                    'notnull' => true,
-                    'default' => 0
-                ],
-                'created_at' => [
-                    'type' => 'timestamp',
-                    'notnull' => false
-                ],
-                'updated_at' => [
-                    'type' => 'timestamp',
-                    'notnull' => false
-                ]
-            ];
-
-            $db->createTable('examcalc_settings', $fields);
-            $db->addPrimaryKey('examcalc_settings', ['test_id']);
-        }
-
-        // ExamGuard Tabelle
-        if (!$db->tableExists('examguard_settings')) {
-            $fields = [
-                'test_id' => [
-                    'type' => 'integer',
-                    'length' => 4,
-                    'notnull' => true
-                ],
-                'enabled' => [
-                    'type' => 'integer',
-                    'length' => 1,
-                    'notnull' => true,
-                    'default' => 0
-                ],
-                'exit_prevention' => [
-                    'type' => 'integer',
-                    'length' => 1,
-                    'notnull' => true,
-                    'default' => 1
-                ],
-                'created_at' => [
-                    'type' => 'timestamp',
-                    'notnull' => false
-                ],
-                'updated_at' => [
-                    'type' => 'timestamp',
-                    'notnull' => false
-                ]
-            ];
-
-            $db->createTable('examguard_settings', $fields);
-            $db->addPrimaryKey('examguard_settings', ['test_id']);
-        }
-
-        // ExamSymbols Tabelle
-        if (!$db->tableExists('examsymbols_settings')) {
-            $fields = [
-                'test_id' => [
-                    'type' => 'integer',
-                    'length' => 4,
-                    'notnull' => true
-                ],
-                'enabled' => [
-                    'type' => 'integer',
-                    'length' => 1,
-                    'notnull' => true,
-                    'default' => 0
-                ],
-                'template' => [
-                    'type' => 'text',
-                    'length' => 255,
-                    'notnull' => false,
-                    'default' => 'math'
-                ],
-                'created_at' => [
-                    'type' => 'timestamp',
-                    'notnull' => false
-                ],
-                'updated_at' => [
-                    'type' => 'timestamp',
-                    'notnull' => false
-                ]
-            ];
-
-            $db->createTable('examsymbols_settings', $fields);
-            $db->addPrimaryKey('examsymbols_settings', ['test_id']);
-        }
-        // ExamAlert Tabelle
-        if (!$db->tableExists('examalert_settings')) {
-            $fields = [
-                'test_id' => [
-                    'type' => 'integer',
-                    'length' => 4,
-                    'notnull' => true
-                ],
-                'enabled' => [
-                    'type' => 'integer',
-                    'length' => 1,
-                    'notnull' => true,
-                    'default' => 0
-                ],
-                'alert_time' => [
-                    'type' => 'integer',
-                    'length' => 4,
-                    'notnull' => true,
-                    'default' => 30
-                ],
-                'alert_message' => [
-                    'type' => 'text',
-                    'length' => 1000,
-                    'notnull' => false,
-                    'default' => 'Achtung: Der Test endet bald!'
-                ],
-                'created_at' => [
-                    'type' => 'timestamp',
-                    'notnull' => false
-                ],
-                'updated_at' => [
-                    'type' => 'timestamp',
-                    'notnull' => false
-                ]
-            ];
-
-            $db->createTable('examalert_settings', $fields);
-            $db->addPrimaryKey('examalert_settings', ['test_id']);
-        }
+        $user_login = $DIC->user()->getLogin();
+        error_log("[ExtendedTestSettings] Deinstallation gestartet von: $user_login");
+        
+        // Tabellen löschen
+        $this->dropTables();
+        
+        error_log("[ExtendedTestSettings] Alle Tabellen erfolgreich gelöscht");
+        return true;
     }
 
     /**
-     * Löscht die Plugin-Tabellen
+     * Löscht die Plugin-Tabellen bei Deinstallation
      */
     private function dropTables(): void
     {
         global $DIC;
         $db = $DIC->database();
 
-        $tables = ['examcalc_settings', 'examguard_settings', 'examsymbols_settings', 'examalert_settings'];
+        $tables = [
+            'examcalc_settings', 
+            'examguard_settings', 
+            'examsymbols_settings', 
+            'examalert_settings'
+        ];
 
         foreach ($tables as $table) {
             if ($db->tableExists($table)) {
                 $db->dropTable($table);
+                error_log("[ExtendedTestSettings] Tabelle '$table' gelöscht");
             }
         }
     }
@@ -217,9 +91,8 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
      */
     private function logActivation(): void
     {
-        error_log("[ExtendedTestSettings] Plugin erfolgreich aktiviert - Tabellen erstellt");
+        error_log("[ExtendedTestSettings] Plugin erfolgreich aktiviert");
 
-        // Optional: Statistik sammeln
         global $DIC;
         if ($DIC->offsetExists('user')) {
             $user_login = $DIC->user()->getLogin();
@@ -239,9 +112,14 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
             'examcalc_title' => 'Wissenschaftlicher Taschenrechner',
             'examsymbols_title' => 'Sonderzeichen-Palette',
             'examguard_title' => 'Prüfungsschutz',
+            'examalert_title' => 'Zeit-Warnung',
             'save_settings' => 'Einstellungen speichern',
             'settings_saved' => 'Einstellungen gespeichert',
-            'error_occurred' => 'Ein Fehler ist aufgetreten'
+            'error_occurred' => 'Ein Fehler ist aufgetreten',
+            'tab_visibility' => 'Tab-Sichtbarkeit',
+            'statistics' => 'Statistiken',
+            'general' => 'Allgemein',
+            'examchecker' => 'ExamChecker'
         ];
 
         // Zuerst versuchen, echte Sprachdatei zu laden
@@ -330,6 +208,7 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
 
     /**
      * Bereinigt verwaiste Einträge (Tests die nicht mehr existieren)
+     * Kann von der ConfigGUI aufgerufen werden
      */
     public function cleanupOrphanedEntries(): int
     {
@@ -341,14 +220,18 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
             $tables = ['examcalc_settings', 'examsymbols_settings', 'examguard_settings', 'examalert_settings'];
 
             foreach ($tables as $table) {
-                if (!$db->tableExists($table))
+                if (!$db->tableExists($table)) {
                     continue;
+                }
 
                 // Finde verwaiste Einträge
                 $query = "
                     DELETE FROM $table 
                     WHERE test_id NOT IN (
-                        SELECT obj_id FROM object_data WHERE type = 'tst'
+                        SELECT DISTINCT od.obj_id 
+                        FROM object_data od
+                        JOIN object_reference ref ON od.obj_id = ref.obj_id 
+                        WHERE od.type = 'tst' AND ref.deleted IS NULL
                     )
                 ";
 
@@ -365,5 +248,30 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
         }
 
         return $cleaned;
+    }
+
+    /**
+     * Prüft ob alle benötigten Tabellen existieren
+     * Hilfsmethode für Debugging
+     */
+    public function checkDatabaseTables(): array
+    {
+        global $DIC;
+        $db = $DIC->database();
+        
+        $tables = [
+            'examcalc_settings', 
+            'examguard_settings', 
+            'examsymbols_settings', 
+            'examalert_settings'
+        ];
+        
+        $status = [];
+        
+        foreach ($tables as $table) {
+            $status[$table] = $db->tableExists($table);
+        }
+        
+        return $status;
     }
 }
