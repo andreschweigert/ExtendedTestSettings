@@ -23,6 +23,15 @@
         init() {
             log('Initialisiere ExamAlert...');
 
+            // Prüfe ob "Test beenden" bereits geklickt wurde
+            const currentUrl = window.location.href;
+            if (currentUrl.includes('cmd=finishTest') || 
+                currentUrl.includes('cmd=confirmFinish') ||
+                currentUrl.includes('cmd=outUserPassedQuestionSetFinish')) {
+                log('Test wird gerade beendet - keine Warnung mehr anzeigen');
+                return false;
+            }
+
             // Konfiguration prüfen
             if (!window.ExamAlert?.config?.enabled) {
                 log('ExamAlert nicht aktiviert oder konfiguriert');
@@ -156,6 +165,9 @@
             const timeRemaining = this.testEndTime - now;
             const secondsRemaining = Math.floor(timeRemaining / 1000);
 
+            // Nachricht NICHT escapen - direkt einfügen für HTML-Support
+            const messageHtml = this.config.alert_message || 'Achtung: Der Test endet bald!';
+
             // Diskrete Toast-Benachrichtigung von oben
             const toastHTML = `
                 <div id="exam-alert-toast" style="
@@ -184,7 +196,7 @@
                         <div style="text-align: left;">
                             <div style="font-weight: 600; margin-bottom: 8px;">Zeit-Warnung</div>
                             <div style="font-size: 14px; opacity: 0.9; white-space: pre-line; line-height: 1.5;">
-${this.escapeHtml(this.config.alert_message)}</div>
+${messageHtml}</div>
                             <div style="font-size: 13px; margin-top: 12px; padding: 6px 12px; background: rgba(255,255,255,0.2); border-radius: 20px; display: inline-block;">
                                 <strong id="exam-alert-countdown">Noch ${secondsRemaining} Sekunden</strong>
                             </div>
@@ -255,7 +267,7 @@ ${this.escapeHtml(this.config.alert_message)}</div>
             // Live-Countdown starten
             this.startCountdown();
 
-            // Kein Auto-Close - Benachrichtigung bleibt bis manuelles Schließen
+            // KEIN AUTO-CLOSE - bleibt permanent sichtbar!
         }
 
         startCountdown() {
