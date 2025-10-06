@@ -1,5 +1,5 @@
 /**
- * examalert.js - KORRIGIERTE VERSION - Syntax-Fehler behoben + Live-Countdown
+ * examalert.js - KORRIGIERTE VERSION - Mit korrekten Zeilenumbrüchen
  * Diskrete Toast-Benachrichtigung ohne Ton
  */
 
@@ -181,12 +181,11 @@
                 ">
                     <div style="display: flex; align-items: center; justify-content: center; gap: 12px;">
                         <span style="font-size: 24px;">⏰</span>
-                        <div>
-                            <div style="font-weight: 600; margin-bottom: 4px;">Zeit-Warnung</div>
-                            <div style="font-size: 14px; opacity: 0.9;">
-                                ${this.escapeHtml(this.config.alert_message)}
-                            </div>
-                            <div style="font-size: 13px; margin-top: 8px; padding: 6px 12px; background: rgba(255,255,255,0.2); border-radius: 20px; display: inline-block;">
+                        <div style="text-align: left;">
+                            <div style="font-weight: 600; margin-bottom: 8px;">Zeit-Warnung</div>
+                            <div style="font-size: 14px; opacity: 0.9; white-space: pre-line; line-height: 1.5;">
+${this.escapeHtml(this.config.alert_message)}</div>
+                            <div style="font-size: 13px; margin-top: 12px; padding: 6px 12px; background: rgba(255,255,255,0.2); border-radius: 20px; display: inline-block;">
                                 <strong id="exam-alert-countdown">Noch ${secondsRemaining} Sekunden</strong>
                             </div>
                         </div>
@@ -256,10 +255,7 @@
             // Live-Countdown starten
             this.startCountdown();
 
-            // Auto-close nach 20 Sekunden
-            setTimeout(() => {
-                this.closeToast();
-            }, 20000);
+            // Kein Auto-Close - Benachrichtigung bleibt bis manuelles Schließen
         }
 
         startCountdown() {
