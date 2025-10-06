@@ -318,9 +318,25 @@ ${this.escapeHtml(this.config.alert_message)}</div>
         }
 
         escapeHtml(text) {
+            // Erlaube sichere HTML-Tags: <strong>, <b>, <u>, <i>, <br>
             const div = document.createElement('div');
             div.textContent = text;
-            return div.innerHTML;
+            let escaped = div.innerHTML;
+            
+            // Ersetze escaped Tags zurück zu echten Tags (nur sichere!)
+            escaped = escaped.replace(/&lt;strong&gt;/gi, '<strong>');
+            escaped = escaped.replace(/&lt;\/strong&gt;/gi, '</strong>');
+            escaped = escaped.replace(/&lt;b&gt;/gi, '<b>');
+            escaped = escaped.replace(/&lt;\/b&gt;/gi, '</b>');
+            escaped = escaped.replace(/&lt;u&gt;/gi, '<u>');
+            escaped = escaped.replace(/&lt;\/u&gt;/gi, '</u>');
+            escaped = escaped.replace(/&lt;i&gt;/gi, '<i>');
+            escaped = escaped.replace(/&lt;\/i&gt;/gi, '</i>');
+            escaped = escaped.replace(/&lt;br&gt;/gi, '<br>');
+            escaped = escaped.replace(/&lt;br\/&gt;/gi, '<br/>');
+            escaped = escaped.replace(/&lt;br \/&gt;/gi, '<br />');
+            
+            return escaped;
         }
     }
 

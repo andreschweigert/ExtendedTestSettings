@@ -8,6 +8,11 @@ class ilExamAlertHandler
 {
     private string $plugin_path;
     
+    // Standardnachricht mit Formatierung
+    private const DEFAULT_MESSAGE = '<strong><u>Achtung:</u></strong> Ihr Test endet bald! Klicken Sie auf „Test beenden", bevor die Zeit abläuft. Sonst kann nicht gewährleistet werden, dass die letzte Eingabe gespeichert und bewertet wird.
+
+<strong><u>Attention:</u></strong> Your test will end soon! Click on "Finish test" before the time runs out. Otherwise, we cannot guarantee that your last entry will be saved and evaluated.';
+    
     public function __construct(string $plugin_path)
     {
         $this->plugin_path = $plugin_path;
@@ -15,6 +20,7 @@ class ilExamAlertHandler
 
     /**
      * Prüft ob ExamAlert für den Test aktiviert ist
+     * Standardmäßig aktiviert für alle Tests
      */
     public function isEnabled(int $ref_id): bool
     {
@@ -35,7 +41,10 @@ class ilExamAlertHandler
                 return (bool) $row['enabled'];
             }
 
-            return false;
+            // Keine Einstellungen vorhanden = Standard: AKTIVIERT
+            // Erstelle automatisch Default-Einstellungen
+            $this->ensureDefaultSettings($test_id);
+            return true;
 
         } catch (Exception $e) {
             error_log("[ExamAlert] Fehler beim Prüfen der Aktivierung: " . $e->getMessage());
@@ -61,15 +70,60 @@ class ilExamAlertHandler
                 return [
                     'enabled' => true,
                     'alert_time' => (int) $row['alert_time'],
-                    'alert_message' => $row['alert_message'] ?? 'Achtung: Der Test endet bald!'
+                    'alert_message' => $row['alert_message'] ?? self::DEFAULT_MESSAGE
                 ];
             }
+
+            // Prüfe ob Test existiert aber deaktiviert ist
+            $query2 = "SELECT enabled FROM examalert_settings WHERE test_id = %s";
+            $result2 = $db->queryF($query2, ['integer'], [$test_id]);
+            if ($db->fetchAssoc($result2)) {
+                return ['enabled' => false, 'alert_time' => 30, 'alert_message' => ''];
+            }
+
+            // Keine Einstellungen vorhanden = erstelle Defaults und gebe sie zurück
+            $this->ensureDefaultSettings($test_id);
+            return [
+                'enabled' => true,
+                'alert_time' => 45,
+                'alert_message' => self::DEFAULT_MESSAGE
+            ];
 
         } catch (Exception $e) {
             error_log("[ExamAlert] Fehler beim Laden der Konfiguration: " . $e->getMessage());
         }
 
-        return ['enabled' => false, 'alert_time' => 30, 'alert_message' => ''];
+        return ['enabled' => false, 'alert_time' => 45, 'alert_message' => ''];
+    }
+
+    /**
+     * Stellt sicher, dass Default-Einstellungen für einen Test existieren
+     */
+    private function ensureDefaultSettings(int $test_id): void
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        try {
+            // Prüfe ob bereits Einstellungen existieren
+            $query = "SELECT test_id FROM examalert_settings WHERE test_id = %s";
+            $result = $db->queryF($query, ['integer'], [$test_id]);
+            
+            if (!$db->fetchAssoc($result)) {
+                // Erstelle Default-Einstellungen
+                $db->insert('examalert_settings', [
+                    'test_id' => ['integer', $test_id],
+                    'enabled' => ['integer', 1], // Standardmäßig AKTIVIERT
+                    'alert_time' => ['integer', 45], // Standard: 45 Sekunden
+                    'alert_message' => ['text', self::DEFAULT_MESSAGE],
+                    'updated_at' => ['timestamp', date('Y-m-d H:i:s')]
+                ]);
+                
+                error_log("[ExamAlert] Default-Einstellungen erstellt für Test-ID: $test_id");
+            }
+        } catch (Exception $e) {
+            error_log("[ExamAlert] Fehler beim Erstellen der Default-Einstellungen: " . $e->getMessage());
+        }
     }
 
     /**
@@ -160,7 +214,7 @@ class ilExamAlertHandler
         try {
             $obj_id = ilObject::_lookupObjectId($ref_id);
             $enabled = isset($post_data['examalert_enabled']) ? 1 : 0;
-            $alert_time = (int) ($post_data['examalert_time'] ?? 30);
+            $alert_time = (int) ($post_data['examalert_time'] ?? 45);
             $alert_message = trim($post_data['examalert_message'] ?? '');
 
             // Validierung
@@ -172,7 +226,7 @@ class ilExamAlertHandler
             }
             
             if (empty($alert_message)) {
-                $alert_message = 'Achtung: Der Test endet bald!';
+                $alert_message = self::DEFAULT_MESSAGE;
             }
 
             $db->replace('examalert_settings', [
@@ -200,7 +254,7 @@ class ilExamAlertHandler
         $enabled = $this->isEnabled($ref_id) ? 'checked' : '';
         $config = $this->getAlertConfig($ref_id);
         $alert_time = $config['alert_time'] ?? 30;
-        $alert_message = htmlspecialchars($config['alert_message'] ?? 'Achtung: Der Test endet bald!', ENT_QUOTES);
+        $alert_message = htmlspecialchars($config['alert_message'] ?? self::DEFAULT_MESSAGE, ENT_QUOTES);
         
         return <<<HTML
             <div class="form-group">
@@ -232,11 +286,11 @@ class ilExamAlertHandler
                     </label>
                     <textarea name="examalert_message" 
                               id="examalert_message" 
-                              rows="3"
-                              placeholder="Achtung: Der Test endet bald!"
-                              style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; resize: vertical;">$alert_message</textarea>
+                              rows="6"
+                              placeholder="Nachricht..."
+                              style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; resize: vertical; font-family: monospace;">$alert_message</textarea>
                     <p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">
-                        Diese Nachricht wird den Teilnehmern zur eingestellten Zeit angezeigt.
+                        Diese Nachricht wird den Teilnehmern zur eingestellten Zeit angezeigt. HTML-Formatierung erlaubt: &lt;strong&gt;, &lt;u&gt;, &lt;br&gt;
                     </p>
                 </div>
             </div>
@@ -253,12 +307,15 @@ HTML;
             'title' => 'Zeit-Warnung',
             'icon' => '⏰',
             'description' => 'Zeigt zeitbasierte Warnungen mit benutzerdefinierten Nachrichten während des Tests an',
-            'version' => '0.0.4',
+            'version' => '0.1.1',
             'features' => [
-                'Einstellbare Warnzeit (5 Sekunden bis 1 Stunde)',
-                'Benutzerdefinierte Warnnachrichten', 
+                'Standardmäßig für alle Tests aktiviert',
+                'Einstellbare Warnzeit (5 Sekunden bis 1 Stunde, Default: 45s)',
+                'Benutzerdefinierte Warnnachrichten mit HTML-Formatierung', 
+                'Zweisprachige Standardnachricht (Deutsch/Englisch)',
                 'Automatische Zeitmessung im Test',
-                'Elegante Popup-Anzeige',
+                'Elegante Popup-Anzeige mit Live-Countdown',
+                'Persistente Anzeige bis manuelles Schließen',
                 'Responsive Design'
             ]
         ];
