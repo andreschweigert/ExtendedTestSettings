@@ -433,6 +433,9 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
     /**
      * Direkte ExamAlert Datenbankprüfung - NEU
      */
+    /**
+     * Direkte ExamAlert Datenbankprüfung mit Auto-Aktivierung
+     */
     private function getExamAlertConfigDirect(int $ref_id): array
     {
         try {
@@ -441,18 +444,47 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
             $test_id = ilObject::_lookupObjectId($ref_id);
 
             if ($test_id <= 0) {
-                return ['enabled' => false, 'alert_time' => 30, 'alert_message' => ''];
+                return ['enabled' => false, 'alert_time' => 45, 'alert_message' => ''];
             }
 
             $query = "SELECT enabled, alert_time, alert_message FROM examalert_settings WHERE test_id = %s";
             $result = $db->queryF($query, ['integer'], [$test_id]);
 
             if ($row = $db->fetchAssoc($result)) {
+                // Eintrag existiert - gib ihn zurück
                 return [
                     'enabled' => (bool) $row['enabled'],
-                    'alert_time' => (int) ($row['alert_time'] ?? 30),
-                    'alert_message' => $row['alert_message'] ?? 'Achtung: Der Test endet bald!'
+                    'alert_time' => (int) ($row['alert_time'] ?? 45),
+                    'alert_message' => $row['alert_message'] ?? $this->getDefaultExamAlertMessage()
                 ];
+            }
+
+            // KEIN EINTRAG VORHANDEN - erstelle Default-Einstellungen
+            $default_message = $this->getDefaultExamAlertMessage();
+
+            try {
+                $db->insert('examalert_settings', [
+                    'test_id' => ['integer', $test_id],
+                    'enabled' => ['integer', 1], // Standardmäßig AKTIVIERT
+                    'alert_time' => ['integer', 45],
+                    'alert_message' => ['text', $default_message],
+                    'updated_at' => ['timestamp', date('Y-m-d H:i:s')]
+                ]);
+
+                if (self::DEBUG_ENABLED) {
+                    error_log("[ExtendedTestSettings] ExamAlert automatisch aktiviert für Test-ID: $test_id");
+                }
+
+                // Gib die neu erstellten Einstellungen zurück
+                return [
+                    'enabled' => true,
+                    'alert_time' => 45,
+                    'alert_message' => $default_message
+                ];
+            } catch (Exception $insert_error) {
+                error_log("[ExtendedTestSettings] Fehler beim Auto-Erstellen von ExamAlert-Einstellungen: " . $insert_error->getMessage());
+                // Fallback wenn INSERT fehlschlägt
+                return ['enabled' => false, 'alert_time' => 45, 'alert_message' => ''];
             }
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
@@ -460,7 +492,17 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
             }
         }
 
-        return ['enabled' => false, 'alert_time' => 30, 'alert_message' => 'Achtung: Der Test endet bald!'];
+        return ['enabled' => false, 'alert_time' => 45, 'alert_message' => ''];
+    }
+
+    /**
+     * Standard-Nachricht für ExamAlert
+     */
+    private function getDefaultExamAlertMessage(): string
+    {
+        return '<strong><u>Achtung:</u></strong> Ihr Test endet bald! Klicken Sie auf „Test beenden", bevor die Zeit abläuft. Sonst kann nicht gewährleistet werden, dass die letzte Eingabe gespeichert und bewertet wird.
+
+<strong><u>Attention:</u></strong> Your test will end soon! Click on "Finish test" before the time runs out. Otherwise, we cannot guarantee that your last entry will be saved and evaluated.';
     }
 
     /**

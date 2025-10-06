@@ -9,9 +9,9 @@ class ilExamAlertHandler
     private string $plugin_path;
     
     // Standardnachricht mit Formatierung
-    private const DEFAULT_MESSAGE = '<strong><u>Achtung:</u></strong> Ihr Test endet bald! Klicken Sie auf „Test beenden", bevor die Zeit abläuft. Sonst kann nicht gewährleistet werden, dass die letzte Eingabe gespeichert und bewertet wird.
+    private const DEFAULT_MESSAGE = '<strong><u>Achtung:</u></strong> Ihr Test endet bald! Klicken Sie auf „Speichern und Test beenden", bevor die Zeit abläuft. Sonst kann nicht gewährleistet werden, dass die letzte Eingabe gespeichert und bewertet wird.
 
-<strong><u>Attention:</u></strong> Your test will end soon! Click on "Finish test" before the time runs out. Otherwise, we cannot guarantee that your last entry will be saved and evaluated.';
+<strong><u>Attention:</u></strong> Your test will end soon! Click on "Save Answers and Finish the test" before the time runs out. Otherwise, we cannot guarantee that your last entry will be saved and evaluated.';
     
     public function __construct(string $plugin_path)
     {
