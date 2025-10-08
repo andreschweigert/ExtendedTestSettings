@@ -660,8 +660,12 @@ HTML;
     private function generateFallbackModules(int $ref_id): string
     {
         // ExamCalc Fallback
-        $examcalc_enabled = $this->getFallbackExamCalcStatus($ref_id);
-        $examcalc_checked = $examcalc_enabled ? 'checked' : '';
+        $examcalc_data = $this->getFallbackExamCalcStatus($ref_id);
+        $examcalc_checked = $examcalc_data['enabled'] ? 'checked' : '';
+        $examcalc_mode = $examcalc_data['mode'];
+
+        $simple_selected = ($examcalc_mode === 'simple') ? 'selected' : '';
+        $advanced_selected = ($examcalc_mode === 'advanced') ? 'selected' : '';
 
         // ExamSymbols Fallback
         $examsymbols_data = $this->getFallbackExamSymbolsStatus($ref_id);
@@ -681,14 +685,28 @@ HTML;
 
         return <<<HTML
         <div class="plugin-section">
-            <h3 style="margin-top: 0; color: #495057; font-size: 1.1rem; font-weight: 600;">🧮 Wissenschaftlicher Taschenrechner</h3>
-            <p style="color: #6c757d; margin-bottom: 1rem; font-size: 0.9rem;">Wissenschaftlicher Taschenrechner für Prüfungen mit Trigonometrie, Wurzeln, Potenzen etc.</p>
+            <h3 style="margin-top: 0; color: #495057; font-size: 1.1rem; font-weight: 600;">🧮 Taschenrechner</h3>
+            <p style="color: #6c757d; margin-bottom: 1rem; font-size: 0.9rem;">Taschenrechner für Prüfungen</p>
             <div style="background: #f8f9fa; padding: 1.25rem; border-radius: 0.375rem;">
-                <div class="form-group">
+                <div class="form-group" style="margin-bottom: 1rem;">
                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                         <input type="checkbox" name="examcalc_enabled" value="1" $examcalc_checked style="transform: scale(1.1);">
                         <strong>Taschenrechner aktivieren</strong>
                     </label>
+                </div>
+                <div class="form-group">
+                    <label for="examcalc_mode" style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #495057;">Taschenrechner-Typ:</label>
+                    <select name="examcalc_mode" id="examcalc_mode" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.375rem;">
+                        <option value="simple" $simple_selected>🔢 Einfach (Grundrechenarten) - Standard</option>
+                        <option value="advanced" $advanced_selected>🧮 Wissenschaftlich (🚧 WIP)</option>
+                    </select>
+                    <p style="margin: 0.5rem 0 0 0; color: #6c757d; font-size: 0.85rem;">
+                        <strong>Einfach:</strong> Nur + − × ÷<br>
+                        <strong>Wissenschaftlich:</strong> 
+                        <span style="background: #fff3cd; padding: 0.15rem 0.4rem; border-radius: 3px; color: #856404;">
+                            ⚠️ Noch in Entwicklung
+                        </span>
+                    </p>
                 </div>
             </div>
         </div>
@@ -743,18 +761,21 @@ HTML;
     /**
      * Fallback ExamCalc Status
      */
-    private function getFallbackExamCalcStatus(int $ref_id): bool
+    private function getFallbackExamCalcStatus(int $ref_id): array
     {
         global $DIC;
         $db = $DIC->database();
 
         try {
             $test_id = ilObject::_lookupObjectId($ref_id);
-            $query = "SELECT enabled FROM examcalc_settings WHERE test_id = %s";
+            $query = "SELECT enabled, calculator_mode FROM examcalc_settings WHERE test_id = %s";
             $result = $db->queryF($query, ['integer'], [$test_id]);
 
             if ($row = $db->fetchAssoc($result)) {
-                return (bool) $row['enabled'];
+                return [
+                    'enabled' => (bool) $row['enabled'],
+                    'mode' => $row['calculator_mode'] ?? 'simple'
+                ];
             }
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
@@ -762,7 +783,7 @@ HTML;
             }
         }
 
-        return false;
+        return ['enabled' => false, 'mode' => 'simple'];
     }
 
     /**

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * ExamCalc Handler - Komplette Logic für Taschenrechner-Integration
  * Part of ExtendedTestSettings Plugin
@@ -7,7 +8,7 @@
 class ilExamCalcHandler
 {
     private string $plugin_path;
-    
+
     public function __construct(string $plugin_path)
     {
         $this->plugin_path = $plugin_path;
@@ -23,7 +24,7 @@ class ilExamCalcHandler
 
         try {
             $test_id = ilObject::_lookupObjectId($ref_id);
-            
+
             if ($test_id <= 0) {
                 return false;
             }
@@ -36,7 +37,6 @@ class ilExamCalcHandler
             }
 
             return false;
-
         } catch (Exception $e) {
             error_log("[ExamCalc] Fehler beim Prüfen der Aktivierung: " . $e->getMessage());
             return false;
@@ -49,11 +49,11 @@ class ilExamCalcHandler
     public function isTestPlayerContext(): bool
     {
         $cmd_class = strtolower($_GET["cmdClass"] ?? "");
-        
+
         // Testplayer-Klassen
         $test_player_classes = [
             'iltestplayer',
-            'iltestplayergui', 
+            'iltestplayergui',
             'iltestplayercommandsgui',
             'iltestoutputgui'
         ];
@@ -66,9 +66,11 @@ class ilExamCalcHandler
 
         // URL-Pattern prüfen
         $request_uri = $_SERVER['REQUEST_URI'] ?? '';
-        if (str_contains($request_uri, 'cmd=startPlayer') || 
+        if (
+            str_contains($request_uri, 'cmd=startPlayer') ||
             str_contains($request_uri, 'cmd=resumePlayer') ||
-            str_contains($request_uri, 'cmdClass=ilTestPlayer')) {
+            str_contains($request_uri, 'cmdClass=ilTestPlayer')
+        ) {
             return true;
         }
 
@@ -79,38 +81,83 @@ class ilExamCalcHandler
      * Injiziert alle nötigen Assets (CSS, JS, HTML) in Template
      */
     public function injectAssets(ilGlobalTemplateInterface $tpl, int $ref_id): void
-{
-    if (!$this->isEnabled($ref_id) || !$this->isTestPlayerContext()) {
-        return;
+    {
+        if (!$this->isEnabled($ref_id) || !$this->isTestPlayerContext()) {
+            return;
+        }
+
+        // Debug-Logging (ANALOG ZU EXAMSYMBOLS)
+        $tpl->addOnLoadCode("
+            if (typeof window.ecLog === 'undefined') {
+                window.ecLog = function(msg) { 
+                    console.log('[ExamCalc] ' + msg); 
+                };
+            }
+            ecLog('🧮 ExamCalc wird geladen für ref_id: $ref_id');
+        ");
+
+        $calculator_mode = $this->getCalculatorMode($ref_id);
+
+        // CSS laden
+        $css_path = $this->plugin_path . "/css/examcalc.css";
+        $tpl->addCss($css_path);
+
+        // Template-Dateiname bestimmen
+        $template_filename = ($calculator_mode === 'simple')
+            ? 'calculator_simple.html'
+            : 'calculator_overlay.html';
+
+        // JavaScript laden
+        if ($calculator_mode === 'simple') {
+            $js_calc_path = $this->plugin_path . "/js/examcalc/calculator-simple.js";
+        } else {
+            $js_calc_path = $this->plugin_path . "/js/examcalc/calculator.js";
+        }
+        
+        $js_loader_path = $this->plugin_path . "/js/examcalc/examcalc-loader.js";
+
+        $tpl->addJavaScript($js_calc_path);
+        $tpl->addJavaScript($js_loader_path);
+
+        // Template-Pfad und Konfiguration als JavaScript-Variable bereitstellen
+        $template_path = $this->plugin_path . "/templates/$template_filename";
+
+        $tpl->addOnLoadCode("
+            window.ExamCalc = window.ExamCalc || {};
+            window.ExamCalc.templatePath = '$template_path';
+            window.ExamCalc.calculatorMode = '$calculator_mode';
+            ecLog('✅ ExamCalc Assets geladen - Modus: $calculator_mode');
+        ");
     }
 
-    // Debug-Logging vorbereiten
-    $tpl->addOnLoadCode("
-        if (typeof window.ecLog === 'undefined') {
-            window.ecLog = function(msg) { 
-                console.log('[ExamCalc] ' + msg); 
-            };
+    /**
+     * Prüft welcher Modus aktiv ist
+     */
+    public function getCalculatorMode(int $ref_id): string
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        try {
+            $test_id = ilObject::_lookupObjectId($ref_id);
+
+            if ($test_id <= 0) {
+                return 'simple';
+            }
+
+            $query = "SELECT calculator_mode FROM examcalc_settings WHERE test_id = %s";
+            $result = $db->queryF($query, ['integer'], [$test_id]);
+
+            if ($row = $db->fetchAssoc($result)) {
+                return $row['calculator_mode'] ?? 'simple';
+            }
+
+            return 'simple';
+        } catch (Exception $e) {
+            error_log("[ExamCalc] Fehler beim Laden des Modus: " . $e->getMessage());
+            return 'simple';
         }
-        ecLog('🧮 ExamCalc wird geladen für ref_id: $ref_id');
-    ");
-
-    // CSS einbinden
-    $tpl->addCss("./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/css/examcalc.css");
-
-    // JavaScript einbinden
-    $tpl->addJavaScript("./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/js/examcalc/calculator.js");
-    $tpl->addJavaScript("./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/js/examcalc/examcalc-loader.js");
-
-    // Template-URL bereitstellen
-    $template_path = "./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/templates/calculator_overlay.html";
-    $tpl->addOnLoadCode("
-        window.ExamCalc = window.ExamCalc || {};
-        window.ExamCalc.templatePath = '$template_path';
-        ecLog('📦 Template-Pfad gesetzt: ' + window.ExamCalc.templatePath);
-    ");
-}
-
-
+    }
 
     /**
      * Speichert ExamCalc-Einstellungen
@@ -123,15 +170,16 @@ class ilExamCalcHandler
         try {
             $obj_id = ilObject::_lookupObjectId($ref_id);
             $enabled = isset($post_data['examcalc_enabled']) ? 1 : 0;
+            $calculator_mode = $post_data['examcalc_mode'] ?? 'simple';
 
             $db->replace('examcalc_settings', [
                 'test_id' => ['integer', $obj_id]
             ], [
-                'enabled' => ['integer', $enabled]
+                'enabled' => ['integer', $enabled],
+                'calculator_mode' => ['text', $calculator_mode]
             ]);
 
             return true;
-
         } catch (Exception $e) {
             error_log("[ExamCalc] Fehler beim Speichern: " . $e->getMessage());
             return false;
@@ -144,18 +192,38 @@ class ilExamCalcHandler
     public function getSettingsHTML(int $ref_id): string
     {
         $enabled = $this->isEnabled($ref_id) ? 'checked' : '';
-        
+        $current_mode = $this->getCalculatorMode($ref_id);
+
+        $simple_selected = ($current_mode === 'simple') ? 'selected' : '';
+        $advanced_selected = ($current_mode === 'advanced') ? 'selected' : '';
+
         return <<<HTML
-            <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                    <input type="checkbox" name="examcalc_enabled" value="1" $enabled style="transform: scale(1.2);">
-                    <strong>Taschenrechner aktivieren</strong>
-                </label>
-                <p style="margin: 0.5rem 0 0 1.7rem; color: #666; font-size: 0.9rem;">
-                    Stellt einen wissenschaftlichen Taschenrechner während der Prüfung zur Verfügung.
-                    <br><em>Shortcut: Alt + R</em>
-                </p>
-            </div>
+        <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                <input type="checkbox" name="examcalc_enabled" value="1" $enabled style="transform: scale(1.2);">
+                <strong>Taschenrechner aktivieren</strong>
+            </label>
+            <p style="margin: 0.5rem 0 1rem 1.7rem; color: #666; font-size: 0.9rem;">
+                Stellt einen Taschenrechner während der Prüfung zur Verfügung.
+                <br><em>Shortcut: Alt + R</em>
+            </p>
+
+            <label for="examcalc_mode" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
+                Taschenrechner-Typ:
+            </label>
+            <select name="examcalc_mode" id="examcalc_mode"
+                    style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                <option value="simple" $simple_selected>🔢 Einfach (Grundrechenarten) - Standard</option>
+                <option value="advanced" $advanced_selected>🧮 Wissenschaftlich (🚧 Work in Progress)</option>
+            </select>
+            <p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">
+                <strong>Einfach:</strong> Nur + − × ÷ (empfohlen)<br>
+                <strong>Wissenschaftlich:</strong> sin, cos, tan, √, ^, log, ln, π, e, !, %, etc. 
+                <span style="background: #fff3cd; padding: 0.15rem 0.4rem; border-radius: 3px; color: #856404; font-size: 0.8rem;">
+                    ⚠️ Noch in Entwicklung - kann Fehler enthalten
+                </span>
+            </p>
+        </div>
 HTML;
     }
 
@@ -168,13 +236,14 @@ HTML;
             'name' => 'ExamCalc',
             'title' => 'Wissenschaftlicher Taschenrechner',
             'icon' => '🧮',
-            'description' => 'Wissenschaftlicher Taschenrechner für Prüfungen mit Trigonometrie, Wurzeln, Potenzen etc.',
-            'version' => '0.0.6',
+            'description' => 'Taschenrechner für Prüfungen mit zwei Modi: Einfach (Grundrechenarten) und Wissenschaftlich',
+            'version' => '0.0.9',
             'features' => [
                 'Floating Button (Alt + R)',
-                'Wissenschaftliche Funktionen',
-                'Drag & Drop (geplant)',
-                'Verlaufspeicher '
+                'Einfacher Modus (Grundrechenarten)',
+                'Wissenschaftlicher Modus (Beta)',
+                'Drag & Drop',
+                'Verlaufspeicher (nur wissenschaftlich)'
             ]
         ];
     }

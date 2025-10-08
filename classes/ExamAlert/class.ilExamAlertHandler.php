@@ -9,9 +9,9 @@ class ilExamAlertHandler
     private string $plugin_path;
     
     // Standardnachricht mit Formatierung
-    private const DEFAULT_MESSAGE = '<strong><u>Achtung:</u></strong> Ihr Test endet bald! Klicken Sie auf „Speichern und Test beenden", bevor die Zeit abläuft. Andernfalls besteht die Gefahr, dass Ihre letzte Eingabe nicht gespeichert wird.
+    private const DEFAULT_MESSAGE = '<strong><u>Achtung:</u></strong> Ihr Test endet bald! Klicken Sie auf „Speichern und Test beenden", <strong>bevor</strong> die Zeit abläuft. Sonst kann nicht gewährleistet werden, dass die letzte Eingabe gespeichert und bewertet wird.
 
-<strong><u>Attention:</u></strong> Your test will end soon! Click on "Save Answers and Finish the Test" before the time runs out. Otherwise, there is a risk that your last entry will not be saved.';
+<strong><u>Attention:</u></strong> Your test will end soon! Click on "Save Answers and Finish the Test" <strong>before</strong> the time runs out. Otherwise, we cannot guarantee that your last entry will be saved and evaluated.';
     
     public function __construct(string $plugin_path)
     {
@@ -41,7 +41,6 @@ class ilExamAlertHandler
                 return (bool) $row['enabled'];
             }
 
-            // Keine Einstellungen vorhanden = Standard: AKTIVIERT
             // Erstelle automatisch Default-Einstellungen
             $this->ensureDefaultSettings($test_id);
             return true;
@@ -85,7 +84,7 @@ class ilExamAlertHandler
             $this->ensureDefaultSettings($test_id);
             return [
                 'enabled' => true,
-                'alert_time' => 45,
+                'alert_time' => 30,
                 'alert_message' => self::DEFAULT_MESSAGE
             ];
 
@@ -93,7 +92,7 @@ class ilExamAlertHandler
             error_log("[ExamAlert] Fehler beim Laden der Konfiguration: " . $e->getMessage());
         }
 
-        return ['enabled' => false, 'alert_time' => 45, 'alert_message' => ''];
+        return ['enabled' => false, 'alert_time' => 30, 'alert_message' => ''];
     }
 
     /**
@@ -114,7 +113,7 @@ class ilExamAlertHandler
                 $db->insert('examalert_settings', [
                     'test_id' => ['integer', $test_id],
                     'enabled' => ['integer', 1], // Standardmäßig AKTIVIERT
-                    'alert_time' => ['integer', 45], // Standard: 45 Sekunden
+                    'alert_time' => ['integer', 30], // Standard: 30 Sekunden
                     'alert_message' => ['text', self::DEFAULT_MESSAGE],
                     'updated_at' => ['timestamp', date('Y-m-d H:i:s')]
                 ]);
@@ -214,7 +213,7 @@ class ilExamAlertHandler
         try {
             $obj_id = ilObject::_lookupObjectId($ref_id);
             $enabled = isset($post_data['examalert_enabled']) ? 1 : 0;
-            $alert_time = (int) ($post_data['examalert_time'] ?? 45);
+            $alert_time = (int) ($post_data['examalert_time'] ?? 30);
             $alert_message = trim($post_data['examalert_message'] ?? '');
 
             // Validierung
@@ -307,12 +306,13 @@ HTML;
             'title' => 'Zeit-Warnung',
             'icon' => '⏰',
             'description' => 'Zeigt zeitbasierte Warnungen mit benutzerdefinierten Nachrichten während des Tests an',
-            'version' => '0.1.1',
+            'version' => '1.0.0',
             'features' => [
                 'Standardmäßig für alle Tests aktiviert',
-                'Einstellbare Warnzeit (5 Sekunden bis 1 Stunde, Default: 45s)',
+                'Einstellbare Warnzeit (5 Sekunden bis 1 Stunde, Default: 30s)',
                 'Benutzerdefinierte Warnnachrichten mit HTML-Formatierung', 
                 'Zweisprachige Standardnachricht (Deutsch/Englisch)',
+                'Warnung wird nur einmal pro Test angezeigt',
                 'Automatische Zeitmessung im Test',
                 'Elegante Popup-Anzeige mit Live-Countdown',
                 'Persistente Anzeige bis manuelles Schließen',

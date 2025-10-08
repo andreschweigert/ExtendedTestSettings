@@ -17,7 +17,8 @@
             this.alertShown = false;
             this.checkInterval = null;
             this.isInitialized = false;
-            this.countdownInterval = null; // Für Live-Countdown
+            this.countdownInterval = null;
+            this.storageKey = null; // Für "nur einmal anzeigen"
         }
 
         init() {
@@ -32,6 +33,24 @@
                 return false;
             }
 
+            // active_id aus URL extrahieren für eindeutigen Storage-Key
+            const urlParams = new URLSearchParams(window.location.search);
+            const activeId = urlParams.get('active_id');
+            
+            if (!activeId) {
+                log('Keine active_id gefunden - kann Warnung nicht eindeutig zuordnen');
+                // Trotzdem weitermachen, aber ohne "nur einmal"-Check
+            }
+
+            // Storage-Key mit active_id bilden
+            const storageKey = activeId ? `examalert_shown_${activeId}` : `examalert_shown_${window.ExamAlert?.refId || 'unknown'}`;
+            
+            // Prüfe ob Warnung für diese active_id bereits angezeigt wurde
+            if (sessionStorage.getItem(storageKey) === 'true') {
+                log(`Warnung wurde bereits für active_id ${activeId} angezeigt - überspringe`);
+                return false;
+            }
+
             // Konfiguration prüfen
             if (!window.ExamAlert?.config?.enabled) {
                 log('ExamAlert nicht aktiviert oder konfiguriert');
@@ -39,7 +58,8 @@
             }
 
             this.config = window.ExamAlert.config;
-            log(`Konfiguration: ${this.config.alert_time}s vor Ende`);
+            this.storageKey = storageKey;
+            log(`Konfiguration: ${this.config.alert_time}s vor Ende, Storage-Key: ${storageKey}`);
 
             // ILIAS Timer-Variablen verwenden
             if (!this.detectILIASTestEnd()) {
@@ -158,28 +178,30 @@
             if (this.alertShown) return;
             this.alertShown = true;
 
+            // Markiere als "bereits angezeigt" für diese active_id
+            if (this.storageKey) {
+                sessionStorage.setItem(this.storageKey, 'true');
+                log(`Warnung für ${this.storageKey} gespeichert`);
+            }
+
             log('Zeige diskrete Zeit-Benachrichtigung');
 
-            // Aktuelle verbleibende Zeit berechnen
             const now = Date.now();
             const timeRemaining = this.testEndTime - now;
             const secondsRemaining = Math.floor(timeRemaining / 1000);
-
-            // Nachricht NICHT escapen - direkt einfügen für HTML-Support
             const messageHtml = this.config.alert_message || 'Achtung: Der Test endet bald!';
 
-            // Diskrete Toast-Benachrichtigung von oben
             const toastHTML = `
                 <div id="exam-alert-toast" style="
                     position: fixed;
                     top: -100px;
                     left: 50%;
                     transform: translateX(-50%);
-                    background: linear-gradient(135deg, #dc3545, #c82333);
-                    color: white;
+                    background: #FFD7D7;
+                    color: black;
                     padding: 1.5rem 2rem;
                     border-radius: 12px;
-                    box-shadow: 0 8px 32px rgba(220, 53, 69, 0.4);
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
                     z-index: 99999;
                     font-family: system-ui, -apple-system, sans-serif;
                     font-size: 16px;
@@ -187,24 +209,23 @@
                     text-align: center;
                     min-width: 350px;
                     max-width: 90vw;
-                    border: 2px solid rgba(255, 255, 255, 0.2);
+                    border: 2px solid #FF9999;
                     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                    backdrop-filter: blur(10px);
                 ">
                     <div style="display: flex; align-items: center; justify-content: center; gap: 12px;">
-                        <span style="font-size: 24px;">⏰</span>
+                        <span style="font-size: 24px;"></span>
                         <div style="text-align: left;">
-                            <div style="font-weight: 600; margin-bottom: 8px;">Zeit-Warnung</div>
-                            <div style="font-size: 14px; opacity: 0.9; white-space: pre-line; line-height: 1.5;">
+                            <div style="font-weight: 600; margin-bottom: 8px; color: black;">Zeit-Warnung</div>
+                            <div style="font-size: 14px; line-height: 1.5; white-space: pre-line; color: black; font-weight: normal;">
 ${messageHtml}</div>
-                            <div style="font-size: 13px; margin-top: 12px; padding: 6px 12px; background: rgba(255,255,255,0.2); border-radius: 20px; display: inline-block;">
-                                <strong id="exam-alert-countdown">Noch ${secondsRemaining} Sekunden</strong>
+                            <div style="font-size: 13px; margin-top: 12px; padding: 6px 12px; background: rgba(0,0,0,0.1); border-radius: 20px; display: inline-block;">
+                                <strong id="exam-alert-countdown" style="color: black;">Noch ${secondsRemaining} Sekunden</strong>
                             </div>
                         </div>
                         <button onclick="window.ExamAlert.instance.closeToast()" style="
-                            background: rgba(255, 255, 255, 0.2);
-                            border: 1px solid rgba(255, 255, 255, 0.3);
-                            color: white;
+                            background: rgba(0, 0, 0, 0.1);
+                            border: 1px solid rgba(0, 0, 0, 0.2);
+                            color: black;
                             width: 28px;
                             height: 28px;
                             border-radius: 50%;
@@ -216,8 +237,8 @@ ${messageHtml}</div>
                             margin-left: 8px;
                             transition: all 0.2s;
                             flex-shrink: 0;
-                        " onmouseover="this.style.background='rgba(255,255,255,0.3)'" 
-                           onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
+                        " onmouseover="this.style.background='rgba(0,0,0,0.2)'" 
+                           onmouseout="this.style.background='rgba(0,0,0,0.1)'">×</button>
                     </div>
                 </div>
 
@@ -234,8 +255,8 @@ ${messageHtml}</div>
                 }
 
                 @keyframes pulse {
-                    0%, 100% { box-shadow: 0 8px 32px rgba(220, 53, 69, 0.4); }
-                    50% { box-shadow: 0 8px 32px rgba(220, 53, 69, 0.7); }
+                    0%, 100% { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15); }
+                    50% { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25); }
                 }
 
                 #exam-alert-toast {
@@ -256,7 +277,6 @@ ${messageHtml}</div>
 
             document.body.insertAdjacentHTML('beforeend', toastHTML);
 
-            // Toast automatisch einblenden
             setTimeout(() => {
                 const toast = document.getElementById('exam-alert-toast');
                 if (toast) {
@@ -264,10 +284,7 @@ ${messageHtml}</div>
                 }
             }, 100);
 
-            // Live-Countdown starten
             this.startCountdown();
-
-            // KEIN AUTO-CLOSE - bleibt permanent sichtbar!
         }
 
         startCountdown() {

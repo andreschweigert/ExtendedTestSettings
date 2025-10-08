@@ -158,3 +158,20 @@ if (!$db->tableExists('examalert_settings')) {
     $db->addPrimaryKey('examalert_settings', array('test_id'));
 }
 ?>
+<#5>
+<?php
+global $DIC;
+$db = $DIC->database();
+
+
+if ($db->tableExists('examcalc_settings')) {
+    if (!$db->tableColumnExists('examcalc_settings', 'calculator_mode')) {
+        $db->addTableColumn('examcalc_settings', 'calculator_mode', array(
+            'type' => 'text',
+            'length' => 20,
+            'notnull' => true,
+            'default' => 'simple'
+        ));
+    }
+}
+?>

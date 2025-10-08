@@ -2,7 +2,7 @@
 
 /**
  * ExtendedTestSettings UI Hook GUI 
- * 
+ * Handler-basierte Architektur für saubere Modularität
  */
 
 class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
@@ -157,8 +157,9 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
         return false;
     }
+
     /**
-     * Injiziert Assets von aktiven Modulen
+     * Injiziert Assets von aktiven Modulen über Handler
      */
     private function injectModuleAssets(ilGlobalTemplateInterface $tpl): void
     {
@@ -181,7 +182,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
             }
 
             if (self::DEBUG_ENABLED) {
-                error_log("[ExtendedTestSettings] ✅ Testplayer-Kontext erkannt - lade Module");
+                error_log("[ExtendedTestSettings] ✅ Testplayer-Kontext erkannt - lade Module über Handler");
 
                 // Debug-Box nur im Debug-Modus
                 $tpl->addOnLoadCode("
@@ -196,135 +197,66 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                 ");
             }
 
-            // Plugin-Pfad einmal definieren
-            $plugin_path = "./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings";
-
-            // ExamCalc laden falls aktiviert
-            if ($this->isExamCalcEnabledDirect($current_ref_id)) {
+            // ExamCalc über Handler laden
+            $examcalc_handler = $this->loadExamCalcHandler();
+            if ($examcalc_handler && $examcalc_handler->isEnabled($current_ref_id)) {
                 if (self::DEBUG_ENABLED) {
-                    error_log("[ExtendedTestSettings] ✅ ExamCalc aktiviert - lade Assets");
-                    $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamCalc: Aktiviert';");
+                    error_log("[ExtendedTestSettings] ✅ ExamCalc aktiviert - delegiere an Handler");
+                    $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamCalc: Handler aufgerufen';");
                 }
-
-                // CSS und JavaScript laden
-                $tpl->addCss($plugin_path . "/css/examcalc.css");
-                $tpl->addJavaScript($plugin_path . "/js/examcalc/calculator.js");
-                $tpl->addJavaScript($plugin_path . "/js/examcalc/examcalc-loader.js");
-
-                // Template-Pfad bereitstellen
-                $template_path = $plugin_path . "/templates/calculator_overlay.html";
-                $tpl->addOnLoadCode("
-                    window.ExamCalc = window.ExamCalc || {};
-                    window.ExamCalc.templatePath = '$template_path';
-                ");
-
-                if (self::DEBUG_ENABLED) {
-                    $tpl->addOnLoadCode("
-                        console.log('[ExamCalc] Assets geladen');
-                        window.etsDebug.innerHTML += '<br>✅ ExamCalc: Assets geladen';
-                    ");
-                }
+                
+                $examcalc_handler->injectAssets($tpl, $current_ref_id);
             } else {
                 if (self::DEBUG_ENABLED) {
-                    error_log("[ExtendedTestSettings] ExamCalc nicht aktiviert");
+                    error_log("[ExtendedTestSettings] ExamCalc nicht aktiviert oder Handler fehlt");
                     $tpl->addOnLoadCode("window.etsDebug && (window.etsDebug.innerHTML += '<br>❌ ExamCalc: Nicht aktiviert');");
                 }
             }
 
-            // ExamSymbols laden falls aktiviert
-            $examsymbols_config = $this->getExamSymbolsConfigDirect($current_ref_id);
-            if ($examsymbols_config['enabled']) {
+            // ExamSymbols über Handler laden
+            $examsymbols_handler = $this->loadExamSymbolsHandler();
+            if ($examsymbols_handler && $examsymbols_handler->isEnabled($current_ref_id)) {
                 if (self::DEBUG_ENABLED) {
-                    error_log("[ExtendedTestSettings] ✅ ExamSymbols aktiviert - lade Assets");
-                    $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamSymbols: Aktiviert';");
+                    error_log("[ExtendedTestSettings] ✅ ExamSymbols aktiviert - delegiere an Handler");
+                    $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamSymbols: Handler aufgerufen';");
                 }
-
-                // CSS und JavaScript laden
-                $tpl->addCss($plugin_path . "/css/examsymbols.css");
-                $tpl->addJavaScript($plugin_path . "/js/examsymbols/symbols-manager.js");
-                $tpl->addJavaScript($plugin_path . "/js/examsymbols/examsymbols-loader.js");
-
-                // Template-Pfad und Konfiguration bereitstellen
-                $template_path = $plugin_path . "/templates/symbols_overlay.html";
-                $symbols = $this->getSymbolsForTemplate($examsymbols_config['template']);
-                $symbols_json = json_encode($symbols);
-
-                $tpl->addOnLoadCode("
-                    window.ExamSymbols = window.ExamSymbols || {};
-                    window.ExamSymbols.templatePath = '$template_path';
-                    window.ExamSymbols.config = {
-                        template: '{$examsymbols_config['template']}',
-                        refId: $current_ref_id,
-                        symbols: $symbols_json,
-                        keepOpen: true
-                    };
-                ");
-
-                if (self::DEBUG_ENABLED) {
-                    $tpl->addOnLoadCode("
-                        console.log('[ExamSymbols] Assets geladen');
-                        window.etsDebug.innerHTML += '<br>✅ ExamSymbols: Assets geladen';
-                    ");
-                }
+                
+                $examsymbols_handler->injectAssets($tpl, $current_ref_id);
             } else {
                 if (self::DEBUG_ENABLED) {
-                    error_log("[ExtendedTestSettings] ExamSymbols nicht aktiviert");
+                    error_log("[ExtendedTestSettings] ExamSymbols nicht aktiviert oder Handler fehlt");
                     $tpl->addOnLoadCode("window.etsDebug && (window.etsDebug.innerHTML += '<br>❌ ExamSymbols: Nicht aktiviert');");
                 }
             }
 
-            // ExamGuard laden falls aktiviert
-            if ($this->isExamGuardEnabledDirect($current_ref_id)) {
+            // ExamGuard über Handler laden
+            $examguard_handler = $this->loadExamGuardHandler();
+            if ($examguard_handler && $examguard_handler->isEnabled($current_ref_id)) {
                 if (self::DEBUG_ENABLED) {
-                    error_log("[ExtendedTestSettings] ✅ ExamGuard aktiviert - lade Assets");
-                    $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamGuard: Aktiviert';");
+                    error_log("[ExtendedTestSettings] ✅ ExamGuard aktiviert - delegiere an Handler");
+                    $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamGuard: Handler aufgerufen';");
                 }
-
-                // JavaScript laden (kein CSS nötig für ExamGuard)
-                $tpl->addJavaScript($plugin_path . "/js/examguard/examguard.js");
-
-                if (self::DEBUG_ENABLED) {
-                    $tpl->addOnLoadCode("
-                        console.log('[ExamGuard] Assets geladen');
-                        window.etsDebug.innerHTML += '<br>✅ ExamGuard: Assets geladen';
-                    ");
-                }
+                
+                $examguard_handler->injectAssets($tpl, $current_ref_id);
             } else {
                 if (self::DEBUG_ENABLED) {
-                    error_log("[ExtendedTestSettings] ExamGuard nicht aktiviert");
+                    error_log("[ExtendedTestSettings] ExamGuard nicht aktiviert oder Handler fehlt");
                     $tpl->addOnLoadCode("window.etsDebug && (window.etsDebug.innerHTML += '<br>❌ ExamGuard: Nicht aktiviert');");
                 }
             }
 
-            // ExamAlert laden falls aktiviert - NEU
-            $examalert_config = $this->getExamAlertConfigDirect($current_ref_id);
-            if ($examalert_config['enabled']) {
+            // ExamAlert über Handler laden
+            $examalert_handler = $this->loadExamAlertHandler();
+            if ($examalert_handler && $examalert_handler->isEnabled($current_ref_id)) {
                 if (self::DEBUG_ENABLED) {
-                    error_log("[ExtendedTestSettings] ✅ ExamAlert aktiviert - lade Assets");
-                    $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamAlert: Aktiviert';");
+                    error_log("[ExtendedTestSettings] ✅ ExamAlert aktiviert - delegiere an Handler");
+                    $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamAlert: Handler aufgerufen';");
                 }
-
-                // CSS und JavaScript laden
-                $tpl->addCss($plugin_path . "/css/examalert.css");
-                $tpl->addJavaScript($plugin_path . "/js/examalert/examalert.js");
-
-                // Konfiguration bereitstellen
-                $config_json = json_encode($examalert_config);
-                $tpl->addOnLoadCode("
-                    window.ExamAlert = window.ExamAlert || {};
-                    window.ExamAlert.config = $config_json;
-                    window.ExamAlert.refId = $current_ref_id;
-                ");
-
-                if (self::DEBUG_ENABLED) {
-                    $tpl->addOnLoadCode("
-                        console.log('[ExamAlert] Assets geladen');
-                        window.etsDebug.innerHTML += '<br>✅ ExamAlert: Assets geladen';
-                    ");
-                }
+                
+                $examalert_handler->injectAssets($tpl, $current_ref_id);
             } else {
                 if (self::DEBUG_ENABLED) {
-                    error_log("[ExtendedTestSettings] ExamAlert nicht aktiviert");
+                    error_log("[ExtendedTestSettings] ExamAlert nicht aktiviert oder Handler fehlt");
                     $tpl->addOnLoadCode("window.etsDebug && (window.etsDebug.innerHTML += '<br>❌ ExamAlert: Nicht aktiviert');");
                 }
             }
@@ -349,179 +281,77 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
     }
 
     /**
-     * Direkte ExamCalc Datenbankprüfung
+     * Lädt ExamCalc Handler
      */
-    private function isExamCalcEnabledDirect(int $ref_id): bool
+    private function loadExamCalcHandler(): ?ilExamCalcHandler
     {
-        try {
-            global $DIC;
-            $db = $DIC->database();
-            $test_id = ilObject::_lookupObjectId($ref_id);
-
-            $query = "SELECT enabled FROM examcalc_settings WHERE test_id = %s";
-            $result = $db->queryF($query, ['integer'], [$test_id]);
-
-            if ($row = $db->fetchAssoc($result)) {
-                return (bool) $row['enabled'];
-            }
-        } catch (Exception $e) {
+        $handler_path = __DIR__ . "/ExamCalc/class.ilExamCalcHandler.php";
+        
+        if (!file_exists($handler_path)) {
             if (self::DEBUG_ENABLED) {
-                error_log("[ExtendedTestSettings] ExamCalc DB-Check Fehler: " . $e->getMessage());
+                error_log("[ExtendedTestSettings] ExamCalc Handler nicht gefunden: $handler_path");
             }
+            return null;
         }
-
-        return false;
+        
+        require_once $handler_path;
+        return new ilExamCalcHandler($this->getPluginObject()->getDirectory());
     }
 
     /**
-     * Direkte ExamSymbols Datenbankprüfung
+     * Lädt ExamSymbols Handler
      */
-    private function getExamSymbolsConfigDirect(int $ref_id): array
+    private function loadExamSymbolsHandler(): ?ilExamSymbolsHandler
     {
-        try {
-            global $DIC;
-            $db = $DIC->database();
-            $test_id = ilObject::_lookupObjectId($ref_id);
-
-            $query = "SELECT enabled, template FROM examsymbols_settings WHERE test_id = %s";
-            $result = $db->queryF($query, ['integer'], [$test_id]);
-
-            if ($row = $db->fetchAssoc($result)) {
-                return [
-                    'enabled' => (bool) $row['enabled'],
-                    'template' => $row['template'] ?? 'math'
-                ];
-            }
-        } catch (Exception $e) {
+        $handler_path = __DIR__ . "/ExamSymbols/class.ilExamSymbolsHandler.php";
+        $config_path = __DIR__ . "/ExamSymbols/class.ilExamSymbolsConfig.php";
+        
+        if (!file_exists($handler_path) || !file_exists($config_path)) {
             if (self::DEBUG_ENABLED) {
-                error_log("[ExtendedTestSettings] ExamSymbols DB-Check Fehler: " . $e->getMessage());
+                error_log("[ExtendedTestSettings] ExamSymbols Handler oder Config nicht gefunden");
             }
+            return null;
         }
-
-        return ['enabled' => false, 'template' => 'math'];
+        
+        require_once $config_path;
+        require_once $handler_path;
+        return new ilExamSymbolsHandler($this->getPluginObject()->getDirectory());
     }
 
     /**
-     * Direkte ExamGuard Datenbankprüfung
+     * Lädt ExamGuard Handler
      */
-    private function isExamGuardEnabledDirect(int $ref_id): bool
+    private function loadExamGuardHandler(): ?ilExamGuardHandler
     {
-        try {
-            global $DIC;
-            $db = $DIC->database();
-            $test_id = ilObject::_lookupObjectId($ref_id);
-
-            if ($test_id <= 0) {
-                return false;
-            }
-
-            $query = "SELECT enabled FROM examguard_settings WHERE test_id = %s";
-            $result = $db->queryF($query, ['integer'], [$test_id]);
-
-            if ($row = $db->fetchAssoc($result)) {
-                return (bool) $row['enabled'];
-            }
-        } catch (Exception $e) {
+        $handler_path = __DIR__ . "/ExamGuard/class.ilExamGuardHandler.php";
+        
+        if (!file_exists($handler_path)) {
             if (self::DEBUG_ENABLED) {
-                error_log("[ExtendedTestSettings] ExamGuard DB-Check Fehler: " . $e->getMessage());
+                error_log("[ExtendedTestSettings] ExamGuard Handler nicht gefunden: $handler_path");
             }
+            return null;
         }
-
-        return false;
+        
+        require_once $handler_path;
+        return new ilExamGuardHandler($this->getPluginObject()->getDirectory());
     }
 
     /**
-     * Direkte ExamAlert Datenbankprüfung - NEU
+     * Lädt ExamAlert Handler
      */
-    /**
-     * Direkte ExamAlert Datenbankprüfung mit Auto-Aktivierung
-     */
-    private function getExamAlertConfigDirect(int $ref_id): array
+    private function loadExamAlertHandler(): ?ilExamAlertHandler
     {
-        try {
-            global $DIC;
-            $db = $DIC->database();
-            $test_id = ilObject::_lookupObjectId($ref_id);
-
-            if ($test_id <= 0) {
-                return ['enabled' => false, 'alert_time' => 45, 'alert_message' => ''];
-            }
-
-            $query = "SELECT enabled, alert_time, alert_message FROM examalert_settings WHERE test_id = %s";
-            $result = $db->queryF($query, ['integer'], [$test_id]);
-
-            if ($row = $db->fetchAssoc($result)) {
-                // Eintrag existiert - gib ihn zurück
-                return [
-                    'enabled' => (bool) $row['enabled'],
-                    'alert_time' => (int) ($row['alert_time'] ?? 45),
-                    'alert_message' => $row['alert_message'] ?? $this->getDefaultExamAlertMessage()
-                ];
-            }
-
-            // KEIN EINTRAG VORHANDEN - erstelle Default-Einstellungen
-            $default_message = $this->getDefaultExamAlertMessage();
-
-            try {
-                $db->insert('examalert_settings', [
-                    'test_id' => ['integer', $test_id],
-                    'enabled' => ['integer', 1], // Standardmäßig AKTIVIERT
-                    'alert_time' => ['integer', 45],
-                    'alert_message' => ['text', $default_message],
-                    'updated_at' => ['timestamp', date('Y-m-d H:i:s')]
-                ]);
-
-                if (self::DEBUG_ENABLED) {
-                    error_log("[ExtendedTestSettings] ExamAlert automatisch aktiviert für Test-ID: $test_id");
-                }
-
-                // Gib die neu erstellten Einstellungen zurück
-                return [
-                    'enabled' => true,
-                    'alert_time' => 45,
-                    'alert_message' => $default_message
-                ];
-            } catch (Exception $insert_error) {
-                error_log("[ExtendedTestSettings] Fehler beim Auto-Erstellen von ExamAlert-Einstellungen: " . $insert_error->getMessage());
-                // Fallback wenn INSERT fehlschlägt
-                return ['enabled' => false, 'alert_time' => 45, 'alert_message' => ''];
-            }
-        } catch (Exception $e) {
+        $handler_path = __DIR__ . "/ExamAlert/class.ilExamAlertHandler.php";
+        
+        if (!file_exists($handler_path)) {
             if (self::DEBUG_ENABLED) {
-                error_log("[ExtendedTestSettings] ExamAlert DB-Check Fehler: " . $e->getMessage());
+                error_log("[ExtendedTestSettings] ExamAlert Handler nicht gefunden: $handler_path");
             }
+            return null;
         }
-
-        return ['enabled' => false, 'alert_time' => 45, 'alert_message' => ''];
-    }
-
-    /**
-     * Standard-Nachricht für ExamAlert
-     */
-    private function getDefaultExamAlertMessage(): string
-    {
-        return '<strong><u>Achtung:</u></strong> Ihr Test endet bald! Klicken Sie auf „Test beenden", bevor die Zeit abläuft. Sonst kann nicht gewährleistet werden, dass die letzte Eingabe gespeichert und bewertet wird.
-
-<strong><u>Attention:</u></strong> Your test will end soon! Click on "Finish test" before the time runs out. Otherwise, we cannot guarantee that your last entry will be saved and evaluated.';
-    }
-
-    /**
-     * Symbole für Template holen - VEREINFACHT: Nutzt Config-Klasse
-     */
-    private function getSymbolsForTemplate(string $template): array
-    {
-        // Config-Klasse laden
-        $config = new ilExamSymbolsConfig('examsymbols');
-
-        // Symbole aus Config-Klasse holen
-        $symbols = $config->getSymbolsForTemplate($template);
-
-        // Fallback falls Template nicht existiert
-        if (empty($symbols)) {
-            $symbols = $config->getSymbolsForTemplate('math');
-        }
-
-        return $symbols;
+        
+        require_once $handler_path;
+        return new ilExamAlertHandler($this->getPluginObject()->getDirectory());
     }
 
     /**
@@ -573,139 +403,37 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
     public function getAvailableModules(): array
     {
-        return ['examcalc', 'examsymbols', 'examguard', 'examalert']; // ExamAlert hinzugefügt
+        return ['examcalc', 'examsymbols', 'examguard', 'examalert'];
     }
 
     public function saveAllModuleSettings(int $ref_id, array $post_data): array
     {
         $results = [];
 
-        // ExamCalc speichern
-        $results['examcalc'] = $this->saveExamCalcDirect($ref_id, $post_data);
+        // ExamCalc über Handler speichern
+        $examcalc_handler = $this->loadExamCalcHandler();
+        if ($examcalc_handler) {
+            $results['examcalc'] = $examcalc_handler->saveSettings($ref_id, $post_data);
+        }
 
-        // ExamSymbols speichern
-        $results['examsymbols'] = $this->saveExamSymbolsDirect($ref_id, $post_data);
+        // ExamSymbols über Handler speichern
+        $examsymbols_handler = $this->loadExamSymbolsHandler();
+        if ($examsymbols_handler) {
+            $results['examsymbols'] = $examsymbols_handler->saveSettings($ref_id, $post_data);
+        }
 
-        // ExamGuard speichern
-        $results['examguard'] = $this->saveExamGuardDirect($ref_id, $post_data);
+        // ExamGuard über Handler speichern
+        $examguard_handler = $this->loadExamGuardHandler();
+        if ($examguard_handler) {
+            $results['examguard'] = $examguard_handler->saveSettings($ref_id, $post_data);
+        }
 
-        // ExamAlert speichern - NEU
-        $results['examalert'] = $this->saveExamAlertDirect($ref_id, $post_data);
+        // ExamAlert über Handler speichern
+        $examalert_handler = $this->loadExamAlertHandler();
+        if ($examalert_handler) {
+            $results['examalert'] = $examalert_handler->saveSettings($ref_id, $post_data);
+        }
 
         return $results;
-    }
-
-    private function saveExamCalcDirect(int $ref_id, array $post_data): bool
-    {
-        try {
-            global $DIC;
-            $db = $DIC->database();
-            $obj_id = ilObject::_lookupObjectId($ref_id);
-            $enabled = isset($post_data['examcalc_enabled']) ? 1 : 0;
-
-            $db->replace('examcalc_settings', [
-                'test_id' => ['integer', $obj_id]
-            ], [
-                'enabled' => ['integer', $enabled]
-            ]);
-
-            return true;
-        } catch (Exception $e) {
-            if (self::DEBUG_ENABLED) {
-                error_log("[ExtendedTestSettings] ExamCalc Speicher-Fehler: " . $e->getMessage());
-            }
-            return false;
-        }
-    }
-
-    private function saveExamSymbolsDirect(int $ref_id, array $post_data): bool
-    {
-        try {
-            global $DIC;
-            $db = $DIC->database();
-            $obj_id = ilObject::_lookupObjectId($ref_id);
-            $enabled = isset($post_data['examsymbols_enabled']) ? 1 : 0;
-            $template = $post_data['examsymbols_template'] ?? 'math';
-
-            $db->replace('examsymbols_settings', [
-                'test_id' => ['integer', $obj_id]
-            ], [
-                'enabled' => ['integer', $enabled],
-                'template' => ['text', $template]
-            ]);
-
-            return true;
-        } catch (Exception $e) {
-            if (self::DEBUG_ENABLED) {
-                error_log("[ExtendedTestSettings] ExamSymbols Speicher-Fehler: " . $e->getMessage());
-            }
-            return false;
-        }
-    }
-
-    private function saveExamGuardDirect(int $ref_id, array $post_data): bool
-    {
-        try {
-            global $DIC;
-            $db = $DIC->database();
-            $obj_id = ilObject::_lookupObjectId($ref_id);
-            $enabled = isset($post_data['examguard_enabled']) ? 1 : 0;
-
-            $db->replace('examguard_settings', [
-                'test_id' => ['integer', $obj_id]
-            ], [
-                'enabled' => ['integer', $enabled]
-            ]);
-
-            return true;
-        } catch (Exception $e) {
-            if (self::DEBUG_ENABLED) {
-                error_log("[ExtendedTestSettings] ExamGuard Speicher-Fehler: " . $e->getMessage());
-            }
-            return false;
-        }
-    }
-
-    /**
-     * ExamAlert Speicher-Methode - NEU
-     */
-    private function saveExamAlertDirect(int $ref_id, array $post_data): bool
-    {
-        try {
-            global $DIC;
-            $db = $DIC->database();
-            $obj_id = ilObject::_lookupObjectId($ref_id);
-
-            $enabled = isset($post_data['examalert_enabled']) ? 1 : 0;
-            $alert_time = (int) ($post_data['examalert_time'] ?? 30);
-            $alert_message = trim($post_data['examalert_message'] ?? '');
-
-            // Validierung
-            if ($alert_time < 5) {
-                $alert_time = 5;
-            }
-            if ($alert_time > 3600) {
-                $alert_time = 3600;
-            }
-            if (empty($alert_message)) {
-                $alert_message = 'Achtung: Der Test endet bald!';
-            }
-
-            $db->replace('examalert_settings', [
-                'test_id' => ['integer', $obj_id]
-            ], [
-                'enabled' => ['integer', $enabled],
-                'alert_time' => ['integer', $alert_time],
-                'alert_message' => ['text', $alert_message],
-                'updated_at' => ['timestamp', date('Y-m-d H:i:s')]
-            ]);
-
-            return true;
-        } catch (Exception $e) {
-            if (self::DEBUG_ENABLED) {
-                error_log("[ExtendedTestSettings] ExamAlert Speicher-Fehler: " . $e->getMessage());
-            }
-            return false;
-        }
     }
 }
