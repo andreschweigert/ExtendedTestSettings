@@ -1,7 +1,7 @@
 <?php
 $plugin_name         = "ExtendedTestSettings";
 $id                  = "extendedtestsettings";
-$version             = "0.1.2";
+$version             = "0.1.3";
 $ilias_min_version   = "9.0";
 $ilias_max_version   = "9.999";
 $responsible         = "André Schweigert";
