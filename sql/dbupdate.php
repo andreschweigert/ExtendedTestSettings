@@ -175,3 +175,32 @@ if ($db->tableExists('examcalc_settings')) {
     }
 }
 ?>
+<#6>
+<?php
+global $DIC;
+$db = $DIC->database();
+
+// Tabelle für berechtigte Benutzer (Authorized Users)
+if (!$db->tableExists('extendedtest_users')) {
+    $fields = array(
+        'user_id' => array(
+            'type' => 'integer',
+            'length' => 4,
+            'notnull' => true
+        ),
+        'added_by' => array(
+            'type' => 'integer',
+            'length' => 4,
+            'notnull' => true
+        ),
+        'added_at' => array(
+            'type' => 'timestamp',
+            'notnull' => true
+        )
+    );
+    
+    $db->createTable('extendedtest_users', $fields);
+    $db->addPrimaryKey('extendedtest_users', array('user_id'));
+    $db->addIndex('extendedtest_users', array('added_by'), 'i1');
+}
+?>

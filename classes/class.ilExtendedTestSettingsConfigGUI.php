@@ -25,12 +25,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $this->settings = new ilSetting('extendedtestsettings');
     }
 
+    /**
+     * performCommand - mit ilRepositorySearchGUI Integration
+     */
     public function performCommand(string $cmd): void
     {
-
         global $DIC, $rbacsystem;
 
-        // Prüfe ob Benutzer eingeloggt ist
+        // Auth-Prüfung für alle Commands
         if (!$DIC->user()->getId() || $DIC->user()->isAnonymous()) {
             $DIC->ui()->mainTemplate()->setOnScreenMessage(
                 'failure',
@@ -40,7 +42,6 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             return;
         }
 
-        // Prüfe System-Admin-Berechtigung
         if (!$rbacsystem->checkAccess("write", SYSTEM_FOLDER_ID)) {
             $DIC->ui()->mainTemplate()->setOnScreenMessage(
                 'failure',
@@ -49,7 +50,6 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $DIC->ctrl()->redirectToURL('./ilias.php?baseClass=ilDashboardGUI');
             return;
         }
-
 
         $this->setTabs();
 
@@ -83,11 +83,24 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $this->saveGeneralSettings();
                 break;
 
+            case 'showUserSearch':
+                $this->showUserSearch();
+                break;
+
+            case 'addSingleUser':
+                $this->addSingleUser();
+                break;
+
+            case 'removeUser':
+                $this->removeUser();
+                break;
+
             default:
                 $this->showGeneral();
                 break;
         }
     }
+
 
     /**
      * Setup Tabs
@@ -128,55 +141,814 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         // Aktuelle Einstellungen laden
         $visibility = $this->settings->get('tab_visibility', 'course_admins');
-
         $admins_only = ($visibility === 'admins_only') ? 'checked' : '';
         $course_admins = ($visibility === 'course_admins') ? 'checked' : '';
+        $specific_users = ($visibility === 'specific_users') ? 'checked' : '';
+
+        // Berechtigte Benutzer laden
+        $authorized_users = $this->getAuthorizedUsers();
+        $users_list_html = $this->renderAuthorizedUsersList($authorized_users);
+
+        // Link für User-Suche
+        $add_user_link = $this->ctrl->getLinkTarget($this, 'showUserSearch');
 
         return '
-    <div style="padding: 2rem;">
-        <form method="post" action="' . $form_action . '">
-            <div style="background: white; border: 1px solid #e9ecef; border-radius: 0.5rem; padding: 2rem;">
-                <h3 style="margin-top: 0; color: #495057;">🔒 Tab-Sichtbarkeit in Test-Einstellungen</h3>
-                <p style="color: #6c757d; margin-bottom: 1.5rem;">
-                    Bestimmen Sie, wer den Tab "Erweiterte Test-Einstellungen" in Tests sehen kann.
-                </p>
-                
-                <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 0.375rem;">
-                    <div style="margin-bottom: 1rem;">
-                        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; margin-bottom: 0.75rem;">
-                            <input type="radio" name="tab_visibility" value="admins_only" ' . $admins_only . ' style="margin-top: 0.25rem;">
-                            <div>
-                                <strong>🔴 Nur System-Administratoren</strong>
-                                <div style="color: #6c757d; font-size: 0.85rem;">
-                                    Nur ILIAS System-Administratoren können den Tab sehen und verwenden
-                                </div>
+<div style="padding: 2rem;">
+    <form method="post" action="' . $form_action . '" id="general-settings-form">
+        <div style="background: white; border: 1px solid #e9ecef; border-radius: 0.5rem; padding: 2rem; margin-bottom: 2rem;">
+            <h3 style="margin-top: 0; color: #495057;">🔒 Tab-Sichtbarkeit in Test-Einstellungen</h3>
+            <p style="color: #6c757d; margin-bottom: 1.5rem;">
+                Bestimmen Sie, wer den Tab "Erweiterte Test-Einstellungen" in Tests sehen kann.
+            </p>
+            
+            <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 0.375rem;">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; margin-bottom: 0.75rem;">
+                        <input type="radio" name="tab_visibility" value="admins_only" ' . $admins_only . ' style="margin-top: 0.25rem;" onchange="toggleUserManagement(false)">
+                        <div>
+                            <strong>🔴 Nur System-Administratoren</strong>
+                            <div style="color: #6c757d; font-size: 0.85rem;">
+                                Nur ILIAS System-Administratoren können den Tab sehen und verwenden
                             </div>
-                        </label>
-                        
-                        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
-                            <input type="radio" name="tab_visibility" value="course_admins" ' . $course_admins . ' style="margin-top: 0.25rem;">
-                            <div>
-                                <strong>🟢 Kurs-Administratoren + System-Administratoren</strong>
-                                <div style="color: #6c757d; font-size: 0.85rem;">
-                                    Kurs-Administratoren, Test-Besitzer und System-Administratoren können den Tab sehen
-                                </div>
+                        </div>
+                    </label>
+                    
+                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; margin-bottom: 0.75rem;">
+                        <input type="radio" name="tab_visibility" value="course_admins" ' . $course_admins . ' style="margin-top: 0.25rem;" onchange="toggleUserManagement(false)">
+                        <div>
+                            <strong>🟢 Kurs-Administratoren + System-Administratoren</strong>
+                            <div style="color: #6c757d; font-size: 0.85rem;">
+                                Kurs-Administratoren, Test-Besitzer und System-Administratoren können den Tab sehen
                             </div>
-                        </label>
-                    </div>
-                </div>
-                
-                <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e9ecef;">
-                    <button type="submit" style="background: #007bff; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.375rem; font-weight: 500; cursor: pointer;">
-                        💾 Einstellungen speichern
-                    </button>
+                        </div>
+                    </label>
+                    
+                    <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;">
+                        <input type="radio" name="tab_visibility" value="specific_users" ' . $specific_users . ' style="margin-top: 0.25rem;" onchange="toggleUserManagement(true)">
+                        <div>
+                            <strong>🔵 Nur ausgewählte Benutzer + System-Administratoren</strong>
+                            <div style="color: #6c757d; font-size: 0.85rem;">
+                                Nur explizit berechtigte Benutzer und System-Administratoren können den Tab sehen
+                            </div>
+                        </div>
+                    </label>
                 </div>
             </div>
-        </form>
-    </div>';
+        </div>
+        
+        <!-- Benutzerverwaltung -->
+        <div id="user-management-section" style="background: white; border: 1px solid #e9ecef; border-radius: 0.5rem; padding: 2rem; margin-bottom: 2rem; ' . ($visibility !== 'specific_users' ? 'opacity: 0.5; pointer-events: none;' : '') . '">
+            <h3 style="margin-top: 0; color: #495057; display: flex; align-items: center; gap: 0.5rem;">
+                <span>👥</span> Berechtigte Benutzer verwalten
+            </h3>
+            <p style="color: #6c757d; margin-bottom: 1.5rem;">
+                Fügen Sie einzelne Benutzer hinzu, die Zugriff auf die erweiterten Test-Einstellungen erhalten sollen.
+            </p>
+            
+            <!-- Benutzer hinzufügen Button -->
+            <div style="background: #f8f9fa; padding: 1.25rem; border-radius: 0.375rem; margin-bottom: 1.5rem;">
+                <a href="' . $add_user_link . '" 
+                   class="btn btn-primary" 
+                   style="display: inline-block; background: #007bff; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 0.375rem; font-weight: 500; transition: all 0.2s;">
+                    ➕ Benutzer hinzufügen
+                </a>
+                <p style="margin: 0.75rem 0 0 0; color: #6c757d; font-size: 0.85rem;">
+                    Öffnet die ILIAS Benutzersuche zur Auswahl
+                </p>
+            </div>
+            
+            <!-- Liste berechtigter Benutzer -->
+            <div>
+                <h4 style="color: #495057; margin-bottom: 1rem;">
+                    Aktuell berechtigt (' . count($authorized_users) . '):
+                </h4>
+                <div id="authorized-users-list">
+                    ' . $users_list_html . '
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid #e9ecef;">
+            <button type="submit" style="background: #007bff; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.375rem; font-weight: 500; cursor: pointer;">
+                💾 Einstellungen speichern
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+.btn:hover {
+    background: #0056b3 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+}
+</style>
+
+<script>
+function toggleUserManagement(enabled) {
+    const section = document.getElementById("user-management-section");
+    if (section) {
+        if (enabled) {
+            section.style.opacity = "1";
+            section.style.pointerEvents = "auto";
+        } else {
+            section.style.opacity = "0.5";
+            section.style.pointerEvents = "none";
+        }
+    }
+}
+
+function removeUserConfirm(userId, login) {
+    if (confirm("Benutzer @" + login + " wirklich entfernen?")) {
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = "' . $this->ctrl->getLinkTarget($this, 'removeUser') . '";
+        
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "user_id";
+        input.value = userId;
+        
+        form.appendChild(input);
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+// Initial state
+document.addEventListener("DOMContentLoaded", function() {
+    const specificUsersRadio = document.querySelector(\'input[value="specific_users"]\');
+    if (specificUsersRadio) {
+        toggleUserManagement(specificUsersRadio.checked);
+    }
+});
+</script>
+';
     }
 
     /**
-     * Speichert die allgemeinen Einstellungen
+     * Rendert die Liste der berechtigten Benutzer
+     */
+    private function renderAuthorizedUsersList(array $users): string
+    {
+        if (empty($users)) {
+            return '<div style="text-align: center; padding: 2rem; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 0.375rem; color: #6c757d;">
+            Noch keine Benutzer hinzugefügt.
+        </div>';
+        }
+
+        $html = '<div style="border: 1px solid #e9ecef; border-radius: 0.375rem; overflow: hidden;">';
+
+        foreach ($users as $user) {
+            $user_id = $user['user_id'];
+            $login = htmlspecialchars($user['login']);
+            $fullname = htmlspecialchars($user['firstname'] . ' ' . $user['lastname']);
+            $added_by = htmlspecialchars($user['added_by_name']);
+            $added_at = htmlspecialchars($user['added_at_formatted']);
+
+            $html .= '
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; border-bottom: 1px solid #e9ecef; background: white;" data-user-id="' . $user_id . '">
+            <div style="flex: 1;">
+                <div style="font-weight: 500; color: #495057;">' . $fullname . '</div>
+                <div style="font-size: 0.85rem; color: #6c757d;">@' . $login . '</div>
+                <div style="font-size: 0.75rem; color: #999; margin-top: 0.25rem;">
+                    Hinzugefügt von ' . $added_by . ' am ' . $added_at . '
+                </div>
+            </div>
+            <button type="button" 
+                    onclick="removeUserConfirm(' . $user_id . ', \'' . addslashes($login) . '\')" 
+                    style="background: #dc3545; color: white; border: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; cursor: pointer; font-size: 0.85rem;">
+                🗑️ Entfernen
+            </button>
+        </div>';
+        }
+
+        $html .= '</div>';
+
+        return $html;
+    }
+
+
+
+    /**
+     * JavaScript für User-Suche
+     */
+    private function getUserSearchScript(): string
+    {
+        $search_ajax_url = $this->ctrl->getLinkTarget($this, 'searchUsersAjax', '', true);
+        $add_user_url = $this->ctrl->getLinkTarget($this, 'addUser', '', true);
+        $remove_user_url = $this->ctrl->getLinkTarget($this, 'removeUser', '', true);
+
+        return '
+<script>
+let searchTimeout = null;
+
+function searchUsers() {
+    const input = document.getElementById("user-search-input");
+    const query = input.value.trim();
+    const resultsDiv = document.getElementById("user-search-results");
+    
+    if (query.length < 2) {
+        resultsDiv.innerHTML = \'<div style="padding: 0.5rem; color: #6c757d; font-size: 0.85rem;">Mindestens 2 Zeichen eingeben...</div>\';
+        return;
+    }
+    
+    resultsDiv.innerHTML = \'<div style="padding: 0.5rem; color: #6c757d;">🔍 Suche...</div>\';
+    
+    fetch("' . $search_ajax_url . '&q=" + encodeURIComponent(query))
+        .then(response => response.json())
+        .then(data => {
+            if (data.users && data.users.length > 0) {
+                let html = \'<div style="border: 1px solid #dee2e6; border-radius: 0.375rem; max-height: 200px; overflow-y: auto; background: white;">\';
+                data.users.forEach(user => {
+                    html += `
+                        <div style="padding: 0.5rem 0.75rem; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center; cursor: pointer;" 
+                             onmouseover="this.style.backgroundColor=\'#f8f9fa\'" 
+                             onmouseout="this.style.backgroundColor=\'white\'">
+                            <div>
+                                <div style="font-weight: 500;">${user.fullname}</div>
+                                <div style="font-size: 0.85rem; color: #6c757d;">@${user.login}</div>
+                            </div>
+                            <button type="button" 
+                                    onclick="addUser(${user.user_id}, \'${user.login}\', \'${user.fullname}\'); event.stopPropagation();" 
+                                    style="background: #28a745; color: white; border: none; padding: 0.25rem 0.5rem; border-radius: 0.25rem; cursor: pointer; font-size: 0.8rem;">
+                                ➕ Hinzufügen
+                            </button>
+                        </div>`;
+                });
+                html += \'</div>\';
+                resultsDiv.innerHTML = html;
+            } else {
+                resultsDiv.innerHTML = \'<div style="padding: 0.5rem; color: #6c757d; font-size: 0.85rem;">Keine Benutzer gefunden.</div>\';
+            }
+        })
+        .catch(error => {
+            resultsDiv.innerHTML = \'<div style="padding: 0.5rem; color: #dc3545;">Fehler bei der Suche.</div>\';
+            console.error("Search error:", error);
+        });
+}
+
+// Auto-search beim Tippen
+document.addEventListener("DOMContentLoaded", function() {
+    const input = document.getElementById("user-search-input");
+    if (input) {
+        input.addEventListener("input", function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                if (this.value.trim().length >= 2) {
+                    searchUsers();
+                }
+            }, 300);
+        });
+        
+        input.addEventListener("keypress", function(e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                searchUsers();
+            }
+        });
+    }
+});
+
+function addUser(userId, login, fullname) {
+    fetch("' . $add_user_url . '&user_id=" + userId)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload page to show updated list
+                window.location.reload();
+            } else {
+                alert("Fehler: " + (data.message || "Benutzer konnte nicht hinzugefügt werden"));
+            }
+        })
+        .catch(error => {
+            alert("Fehler beim Hinzufügen des Benutzers");
+            console.error("Add user error:", error);
+        });
+}
+
+function removeUserConfirm(userId, login) {
+    if (confirm("Benutzer @" + login + " wirklich entfernen?")) {
+        fetch("' . $remove_user_url . '&user_id=" + userId)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove from DOM
+                    const userDiv = document.querySelector(`[data-user-id="${userId}"]`);
+                    if (userDiv) {
+                        userDiv.style.transition = "opacity 0.3s";
+                        userDiv.style.opacity = "0";
+                        setTimeout(() => userDiv.remove(), 300);
+                    }
+                } else {
+                    alert("Fehler: " + (data.message || "Benutzer konnte nicht entfernt werden"));
+                }
+            })
+            .catch(error => {
+                alert("Fehler beim Entfernen des Benutzers");
+                console.error("Remove user error:", error);
+            });
+    }
+}
+</script>';
+    }
+
+
+    /**
+     * Zeigt die ILIAS User-Suche an
+     */
+    public function showUserSearch(): void
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        $this->tabs->activateTab('general');
+
+        $search_query = $_POST['search_query'] ?? $_GET['search_query'] ?? '';
+        $users_html = '';
+
+        if (!empty($search_query) && strlen($search_query) >= 2) {
+            // Benutzer suchen - ILIAS 9 kompatibel mit prepared statements
+            $search_pattern = '%' . $search_query . '%';
+
+            $sql = "
+            SELECT u.usr_id, u.login, u.firstname, u.lastname, u.email
+            FROM usr_data u
+            WHERE (
+                u.login LIKE %s
+                OR u.firstname LIKE %s
+                OR u.lastname LIKE %s
+            )
+            AND u.usr_id NOT IN (SELECT user_id FROM extendedtest_users)
+            AND u.usr_id > 13
+            ORDER BY u.lastname, u.firstname
+            LIMIT 50
+        ";
+
+            $result = $db->queryF(
+                $sql,
+                ['text', 'text', 'text'],
+                [$search_pattern, $search_pattern, $search_pattern]
+            );
+
+            if ($db->numRows($result) > 0) {
+                $users_html = '<div style="background: white; border: 1px solid #e9ecef; border-radius: 0.375rem; margin-top: 1.5rem; overflow: hidden;">';
+                $users_html .= '<div style="padding: 0.75rem 1rem; background: #f8f9fa; border-bottom: 1px solid #e9ecef; font-weight: 500; color: #495057;">
+                Gefundene Benutzer (' . $db->numRows($result) . '):
+            </div>';
+
+                while ($row = $db->fetchAssoc($result)) {
+                    $fullname = htmlspecialchars(trim($row['firstname'] . ' ' . $row['lastname']));
+                    $login = htmlspecialchars($row['login']);
+                    $email = htmlspecialchars($row['email'] ?? '');
+
+                    $users_html .= '
+                <div style="padding: 0.75rem 1rem; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500; color: #495057;">' . $fullname . '</div>
+                        <div style="font-size: 0.85rem; color: #6c757d;">@' . $login . ($email ? ' · ' . $email : '') . '</div>
+                    </div>
+                    <form method="post" action="' . $this->ctrl->getLinkTarget($this, 'addSingleUser') . '" style="margin: 0;">
+                        <input type="hidden" name="user_id" value="' . $row['usr_id'] . '">
+                        <input type="hidden" name="search_query" value="' . htmlspecialchars($search_query) . '">
+                        <button type="submit" style="background: #28a745; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.375rem; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s;">
+                            ➕ Hinzufügen
+                        </button>
+                    </form>
+                </div>';
+                }
+
+                $users_html .= '</div>';
+            } else {
+                $users_html = '<div style="text-align: center; padding: 2rem; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 0.375rem; color: #856404; margin-top: 1.5rem;">
+                ℹ️ Keine Benutzer gefunden für "' . htmlspecialchars($search_query) . '"
+            </div>';
+            }
+        } elseif (!empty($search_query)) {
+            $users_html = '<div style="text-align: center; padding: 2rem; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 0.375rem; color: #856404; margin-top: 1.5rem;">
+            ℹ️ Bitte mindestens 2 Zeichen eingeben
+        </div>';
+        }
+
+        $back_url = $this->ctrl->getLinkTarget($this, 'showGeneral');
+
+        $html = '
+    <div style="padding: 2rem;">
+        <div style="margin-bottom: 1.5rem;">
+            <a href="' . $back_url . '" style="color: #007bff; text-decoration: none; font-weight: 500;">← Zurück zur Konfiguration</a>
+        </div>
+        
+        <div style="background: white; border: 1px solid #e9ecef; border-radius: 0.5rem; padding: 2rem; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);">
+            <h3 style="margin-top: 0; color: #495057; display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.5rem;">👥</span> Benutzer suchen und hinzufügen
+            </h3>
+            <p style="color: #6c757d; margin-bottom: 1.5rem;">
+                Suchen Sie nach Login, Vor- oder Nachnamen. Bereits berechtigte Benutzer werden automatisch ausgeblendet.
+            </p>
+            
+            <form method="post" action="' . $this->ctrl->getLinkTarget($this, 'showUserSearch') . '" id="user-search-form">
+                <div style="display: flex; gap: 0.5rem;">
+                    <input type="text" 
+                           name="search_query" 
+                           id="search-input"
+                           value="' . htmlspecialchars($search_query) . '"
+                           placeholder="Login, Vorname oder Nachname eingeben..." 
+                           style="flex: 1; padding: 0.75rem 1rem; border: 1px solid #ced4da; border-radius: 0.375rem; font-size: 1rem;"
+                           autofocus>
+                    <button type="submit" style="background: #007bff; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 0.375rem; cursor: pointer; font-weight: 500; font-size: 1rem; transition: all 0.2s; white-space: nowrap;">
+                        🔍 Suchen
+                    </button>
+                </div>
+                <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #6c757d;">
+                    💡 Tipp: Mindestens 2 Zeichen eingeben für beste Ergebnisse
+                </div>
+            </form>
+            
+            ' . $users_html . '
+        </div>
+    </div>
+    
+    <style>
+    button:hover {
+        background: #0056b3 !important;
+        transform: translateY(-1px);
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+    }
+    
+    #search-input:focus {
+        outline: none;
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+    }
+    </style>
+    
+    <script>
+    // Enter-Taste im Suchfeld
+    document.getElementById("search-input").addEventListener("keypress", function(e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            document.getElementById("user-search-form").submit();
+        }
+    });
+    </script>';
+
+        $this->tpl->setContent($html);
+    }
+
+    /**
+     * Fügt einen einzelnen Benutzer hinzu
+     */
+    public function addSingleUser(): void
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        $user_id = (int)($_POST['user_id'] ?? 0);
+        $search_query = $_POST['search_query'] ?? '';
+
+        if ($user_id <= 0) {
+            $this->tpl->setOnScreenMessage('failure', 'Ungültige Benutzer-ID');
+            $this->ctrl->redirect($this, 'showUserSearch');
+            return;
+        }
+
+        try {
+            $current_user_id = $DIC->user()->getId();
+
+            // Prüfen ob User bereits existiert
+            $check = $db->queryF(
+                "SELECT user_id FROM extendedtest_users WHERE user_id = %s",
+                ['integer'],
+                [$user_id]
+            );
+
+            if ($db->numRows($check) > 0) {
+                $this->tpl->setOnScreenMessage('info', 'ℹ️ Benutzer war bereits berechtigt.');
+            } else {
+                // Benutzer-Name holen
+                $user_result = $db->queryF(
+                    "SELECT login, firstname, lastname FROM usr_data WHERE usr_id = %s",
+                    ['integer'],
+                    [$user_id]
+                );
+
+                $user_name = '';
+                if ($user_row = $db->fetchAssoc($user_result)) {
+                    $user_name = trim($user_row['firstname'] . ' ' . $user_row['lastname']) . ' (@' . $user_row['login'] . ')';
+                }
+
+                // Benutzer hinzufügen
+                $db->insert('extendedtest_users', [
+                    'user_id' => ['integer', $user_id],
+                    'added_by' => ['integer', $current_user_id],
+                    'added_at' => ['timestamp', date('Y-m-d H:i:s')]
+                ]);
+
+                $this->tpl->setOnScreenMessage('success', "✅ Benutzer $user_name wurde erfolgreich hinzugefügt.");
+            }
+        } catch (Exception $e) {
+            error_log("[ExtendedTestSettings] Fehler beim Hinzufügen: " . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', '❌ Fehler: ' . $e->getMessage());
+        }
+
+        // Zurück zur Suche mit Query
+        if (!empty($search_query)) {
+            $this->ctrl->setParameter($this, 'search_query', $search_query);
+            $_POST['search_query'] = $search_query;
+            $this->showUserSearch();
+        } else {
+            $this->ctrl->redirect($this, 'showGeneral');
+        }
+    }
+
+    /**
+     * Callback für die User-Suche - fügt ausgewählte Benutzer hinzu
+     * Diese Methode wird von ilRepositorySearchGUI aufgerufen
+     */
+    public function addUsersFromSearch(array $users): bool
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        if (empty($users)) {
+            $this->tpl->setOnScreenMessage('info', 'Keine Benutzer ausgewählt.');
+            $this->ctrl->redirect($this, 'showGeneral');
+            return false;
+        }
+
+        $current_user_id = $DIC->user()->getId();
+        $added_count = 0;
+        $already_exists = 0;
+
+        try {
+            foreach ($users as $user_id) {
+                $user_id = (int) $user_id;
+
+                if ($user_id <= 0) {
+                    continue;
+                }
+
+                // Prüfen ob User bereits existiert
+                $check = $db->queryF(
+                    "SELECT user_id FROM extendedtest_users WHERE user_id = %s",
+                    ['integer'],
+                    [$user_id]
+                );
+
+                if ($db->numRows($check) > 0) {
+                    $already_exists++;
+                    continue;
+                }
+
+                // Benutzer hinzufügen
+                $db->insert('extendedtest_users', [
+                    'user_id' => ['integer', $user_id],
+                    'added_by' => ['integer', $current_user_id],
+                    'added_at' => ['timestamp', date('Y-m-d H:i:s')]
+                ]);
+
+                $added_count++;
+            }
+
+            // Success-Message
+            $messages = [];
+            if ($added_count > 0) {
+                $messages[] = "✅ $added_count Benutzer erfolgreich hinzugefügt.";
+            }
+
+            if ($already_exists > 0) {
+                $messages[] = "ℹ️ $already_exists Benutzer waren bereits berechtigt.";
+            }
+
+            if (!empty($messages)) {
+                $this->tpl->setOnScreenMessage('success', implode(' ', $messages));
+            }
+        } catch (Exception $e) {
+            error_log("[ExtendedTestSettings] Fehler beim Hinzufügen: " . $e->getMessage());
+            $this->tpl->setOnScreenMessage(
+                'failure',
+                '❌ Fehler beim Hinzufügen der Benutzer: ' . $e->getMessage()
+            );
+            return false;
+        }
+
+        $this->ctrl->redirect($this, 'showGeneral');
+        return true;
+    }
+
+    /**
+     * Lädt berechtigte Benutzer aus der Datenbank
+     */
+    private function getAuthorizedUsers(): array
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        try {
+            $query = "
+            SELECT 
+                eu.user_id,
+                u.login,
+                u.firstname,
+                u.lastname,
+                eu.added_at,
+                adder.login as added_by_login,
+                adder.firstname as added_by_firstname,
+                adder.lastname as added_by_lastname
+            FROM extendedtest_users eu
+            JOIN usr_data u ON eu.user_id = u.usr_id
+            LEFT JOIN usr_data adder ON eu.added_by = adder.usr_id
+            ORDER BY u.lastname, u.firstname
+        ";
+
+            $result = $db->query($query);
+            $users = [];
+
+            while ($row = $db->fetchAssoc($result)) {
+                $added_by_name = trim($row['added_by_firstname'] . ' ' . $row['added_by_lastname']);
+                if (empty($added_by_name)) {
+                    $added_by_name = $row['added_by_login'] ?? 'System';
+                }
+
+                $users[] = [
+                    'user_id' => $row['user_id'],
+                    'login' => $row['login'],
+                    'firstname' => $row['firstname'],
+                    'lastname' => $row['lastname'],
+                    'added_at' => $row['added_at'],
+                    'added_at_formatted' => $this->formatDateTime($row['added_at']),
+                    'added_by_name' => $added_by_name
+                ];
+            }
+
+            return $users;
+        } catch (Exception $e) {
+            error_log("[ExtendedTestSettings] Fehler beim Laden berechtigter Benutzer: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * AJAX: Benutzer suchen
+     */
+    public function searchUsersAjax(): void
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        header('Content-Type: application/json');
+
+        $query = $_GET['q'] ?? '';
+
+        if (strlen($query) < 2) {
+            echo json_encode(['users' => []]);
+            exit;
+        }
+
+        try {
+            // Suche nach Login oder Name
+            $search_pattern = '%' . $db->escape($query, true) . '%';
+
+            $sql = "
+            SELECT u.usr_id as user_id, u.login, u.firstname, u.lastname
+            FROM usr_data u
+            WHERE (
+                u.login LIKE " . $db->quote($search_pattern, 'text') . "
+                OR u.firstname LIKE " . $db->quote($search_pattern, 'text') . "
+                OR u.lastname LIKE " . $db->quote($search_pattern, 'text') . "
+            )
+            AND u.usr_id NOT IN (SELECT user_id FROM extendedtest_users)
+            AND u.usr_id > 13
+            ORDER BY u.lastname, u.firstname
+            LIMIT 20
+        ";
+
+            $result = $db->query($sql);
+            $users = [];
+
+            while ($row = $db->fetchAssoc($result)) {
+                $users[] = [
+                    'user_id' => (int)$row['user_id'],
+                    'login' => $row['login'],
+                    'firstname' => $row['firstname'],
+                    'lastname' => $row['lastname'],
+                    'fullname' => trim($row['firstname'] . ' ' . $row['lastname'])
+                ];
+            }
+
+            echo json_encode(['users' => $users]);
+        } catch (Exception $e) {
+            error_log("[ExtendedTestSettings] Fehler bei User-Suche: " . $e->getMessage());
+            echo json_encode(['users' => [], 'error' => $e->getMessage()]);
+        }
+
+        exit;
+    }
+
+    /**
+     * AJAX: Benutzer hinzufügen
+     */
+    public function addUser(): void
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        header('Content-Type: application/json');
+
+        $user_id = (int)($_GET['user_id'] ?? 0);
+
+        if ($user_id <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Ungültige Benutzer-ID']);
+            exit;
+        }
+
+        try {
+            $current_user_id = $DIC->user()->getId();
+
+            // Prüfen ob User bereits existiert
+            $check = $db->queryF(
+                "SELECT user_id FROM extendedtest_users WHERE user_id = %s",
+                ['integer'],
+                [$user_id]
+            );
+
+            if ($db->numRows($check) > 0) {
+                echo json_encode(['success' => false, 'message' => 'Benutzer bereits berechtigt']);
+                exit;
+            }
+
+            // Benutzer hinzufügen
+            $db->insert('extendedtest_users', [
+                'user_id' => ['integer', $user_id],
+                'added_by' => ['integer', $current_user_id],
+                'added_at' => ['timestamp', date('Y-m-d H:i:s')]
+            ]);
+
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            error_log("[ExtendedTestSettings] Fehler beim Hinzufügen: " . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+
+        exit;
+    }
+
+    /**
+     * Entfernt einen Benutzer aus der Berechtigungsliste
+     */
+    public function removeUser(): void
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        $user_id = (int)($_POST['user_id'] ?? 0);
+
+        if ($user_id <= 0) {
+            $this->tpl->setOnScreenMessage('failure', 'Ungültige Benutzer-ID');
+            $this->ctrl->redirect($this, 'showGeneral');
+            return;
+        }
+
+        try {
+            // Benutzer-Name für Message holen
+            $result = $db->queryF(
+                "SELECT u.login, u.firstname, u.lastname 
+             FROM extendedtest_users eu
+             JOIN usr_data u ON eu.user_id = u.usr_id
+             WHERE eu.user_id = %s",
+                ['integer'],
+                [$user_id]
+            );
+
+            $user_name = '';
+            if ($row = $db->fetchAssoc($result)) {
+                $user_name = trim($row['firstname'] . ' ' . $row['lastname']) . ' (@' . $row['login'] . ')';
+            }
+
+            // Löschen
+            $db->manipulateF(
+                "DELETE FROM extendedtest_users WHERE user_id = %s",
+                ['integer'],
+                [$user_id]
+            );
+
+            $this->tpl->setOnScreenMessage(
+                'success',
+                "✅ Benutzer $user_name wurde entfernt."
+            );
+        } catch (Exception $e) {
+            error_log("[ExtendedTestSettings] Fehler beim Entfernen: " . $e->getMessage());
+            $this->tpl->setOnScreenMessage(
+                'failure',
+                '❌ Fehler beim Entfernen: ' . $e->getMessage()
+            );
+        }
+
+        $this->ctrl->redirect($this, 'showGeneral');
+    }
+
+    /**
+     * Speichert die allgemeinen Einstellungen (erweitert)
      */
     protected function saveGeneralSettings(): void
     {
@@ -184,7 +956,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $tab_visibility = $_POST['tab_visibility'] ?? 'course_admins';
 
             // Validierung
-            if (!in_array($tab_visibility, ['admins_only', 'course_admins'])) {
+            if (!in_array($tab_visibility, ['admins_only', 'course_admins', 'specific_users'])) {
                 $tab_visibility = 'course_admins';
             }
 
@@ -192,7 +964,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
             $visibility_text = [
                 'admins_only' => 'Nur System-Administratoren',
-                'course_admins' => 'Kurs-Administratoren + System-Administratoren'
+                'course_admins' => 'Kurs-Administratoren + System-Administratoren',
+                'specific_users' => 'Nur ausgewählte Benutzer + System-Administratoren'
             ];
 
             $this->tpl->setOnScreenMessage(

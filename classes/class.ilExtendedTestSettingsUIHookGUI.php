@@ -99,6 +99,8 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
     {
         global $DIC, $rbacsystem;
 
+        $user_id = $DIC->user()->getId();
+
         // System-Admin sieht immer den Tab
         if ($rbacsystem->checkAccess("write", SYSTEM_FOLDER_ID)) {
             return true;
@@ -110,17 +112,42 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
         // Nur System-Admins?
         if ($visibility === 'admins_only') {
-            return false; // Nicht-Admins sehen den Tab nicht
+            return false;
+        }
+
+        // Nur spezifische Benutzer?
+        if ($visibility === 'specific_users') {
+            return $this->isUserAuthorized($user_id);
         }
 
         // Standard: Kurs-Admins + System-Admins
-        // Prüfe ob User Schreibrechte auf den Test hat
         if ($rbacsystem->checkAccess('write', $ref_id)) {
             return true;
         }
 
-        // Zusätzlich: Prüfe ob User Kurs-Admin ist
         return $this->isUserCourseAdmin($ref_id);
+    }
+
+    /**
+     * Prüft ob ein Benutzer explizit berechtigt ist
+     */
+    private function isUserAuthorized(int $user_id): bool
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        try {
+            $result = $db->queryF(
+                "SELECT user_id FROM extendedtest_users WHERE user_id = %s",
+                ['integer'],
+                [$user_id]
+            );
+
+            return $db->numRows($result) > 0;
+        } catch (Exception $e) {
+            error_log("[ExtendedTestSettings] Fehler bei Berechtigungsprüfung: " . $e->getMessage());
+            return false;
+        }
     }
 
     /**
@@ -204,7 +231,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                     error_log("[ExtendedTestSettings] ✅ ExamCalc aktiviert - delegiere an Handler");
                     $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamCalc: Handler aufgerufen';");
                 }
-                
+
                 $examcalc_handler->injectAssets($tpl, $current_ref_id);
             } else {
                 if (self::DEBUG_ENABLED) {
@@ -220,7 +247,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                     error_log("[ExtendedTestSettings] ✅ ExamSymbols aktiviert - delegiere an Handler");
                     $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamSymbols: Handler aufgerufen';");
                 }
-                
+
                 $examsymbols_handler->injectAssets($tpl, $current_ref_id);
             } else {
                 if (self::DEBUG_ENABLED) {
@@ -236,7 +263,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                     error_log("[ExtendedTestSettings] ✅ ExamGuard aktiviert - delegiere an Handler");
                     $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamGuard: Handler aufgerufen';");
                 }
-                
+
                 $examguard_handler->injectAssets($tpl, $current_ref_id);
             } else {
                 if (self::DEBUG_ENABLED) {
@@ -252,7 +279,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                     error_log("[ExtendedTestSettings] ✅ ExamAlert aktiviert - delegiere an Handler");
                     $tpl->addOnLoadCode("window.etsDebug.innerHTML += '<br>✅ ExamAlert: Handler aufgerufen';");
                 }
-                
+
                 $examalert_handler->injectAssets($tpl, $current_ref_id);
             } else {
                 if (self::DEBUG_ENABLED) {
@@ -286,14 +313,14 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
     private function loadExamCalcHandler(): ?ilExamCalcHandler
     {
         $handler_path = __DIR__ . "/ExamCalc/class.ilExamCalcHandler.php";
-        
+
         if (!file_exists($handler_path)) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] ExamCalc Handler nicht gefunden: $handler_path");
             }
             return null;
         }
-        
+
         require_once $handler_path;
         return new ilExamCalcHandler($this->getPluginObject()->getDirectory());
     }
@@ -305,14 +332,14 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
     {
         $handler_path = __DIR__ . "/ExamSymbols/class.ilExamSymbolsHandler.php";
         $config_path = __DIR__ . "/ExamSymbols/class.ilExamSymbolsConfig.php";
-        
+
         if (!file_exists($handler_path) || !file_exists($config_path)) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] ExamSymbols Handler oder Config nicht gefunden");
             }
             return null;
         }
-        
+
         require_once $config_path;
         require_once $handler_path;
         return new ilExamSymbolsHandler($this->getPluginObject()->getDirectory());
@@ -324,14 +351,14 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
     private function loadExamGuardHandler(): ?ilExamGuardHandler
     {
         $handler_path = __DIR__ . "/ExamGuard/class.ilExamGuardHandler.php";
-        
+
         if (!file_exists($handler_path)) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] ExamGuard Handler nicht gefunden: $handler_path");
             }
             return null;
         }
-        
+
         require_once $handler_path;
         return new ilExamGuardHandler($this->getPluginObject()->getDirectory());
     }
@@ -342,14 +369,14 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
     private function loadExamAlertHandler(): ?ilExamAlertHandler
     {
         $handler_path = __DIR__ . "/ExamAlert/class.ilExamAlertHandler.php";
-        
+
         if (!file_exists($handler_path)) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] ExamAlert Handler nicht gefunden: $handler_path");
             }
             return null;
         }
-        
+
         require_once $handler_path;
         return new ilExamAlertHandler($this->getPluginObject()->getDirectory());
     }

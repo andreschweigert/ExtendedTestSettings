@@ -52,34 +52,46 @@ class ilExtendedTestSettingsAdvancedGUI
             return;
         }
 
-        // NEU: Prüfe globale Sichtbarkeitseinstellung
+        // NEU: Erweiterte Sichtbarkeits- und Berechtigungsprüfung
         $settings = new ilSetting('extendedtestsettings');
         $visibility = $settings->get('tab_visibility', 'course_admins');
+        $user_id = $DIC->user()->getId();
+        $is_system_admin = $rbacsystem->checkAccess("write", SYSTEM_FOLDER_ID);
 
-        // Wenn "nur Admins" eingestellt ist
-        if ($visibility === 'admins_only') {
-            // Nur System-Admins dürfen zugreifen
-            if (!$rbacsystem->checkAccess("write", SYSTEM_FOLDER_ID)) {
-                $this->tpl->setOnScreenMessage(
-                    'failure',
-                    'Zugriff verweigert: Diese Funktion ist nur für System-Administratoren verfügbar.'
-                );
-                $DIC->ctrl()->redirectToURL("ilias.php?ref_id=$ref_id&baseClass=ilRepositoryGUI");
-                return;
-            }
+        // Zugriffsprüfung basierend auf Sichtbarkeitseinstellung
+        $access_granted = false;
+
+        if ($is_system_admin) {
+            // System-Admins haben immer Zugriff
+            $access_granted = true;
+        } elseif ($visibility === 'admins_only') {
+            // Nur System-Admins erlaubt
+            $access_granted = false;
+        } elseif ($visibility === 'specific_users') {
+            // Nur spezifische Benutzer erlaubt
+            $access_granted = $this->isUserAuthorized($user_id);
         } else {
             // Standard: Kurs-Admins + System-Admins
-            // Prüfe ob User berechtigt ist (wie vorher)
-            if (!$this->hasTestSettingsAccess($ref_id)) {
-                $this->tpl->setOnScreenMessage(
-                    'failure',
-                    'Zugriff verweigert: Sie haben keine Berechtigung, diese Test-Einstellungen zu ändern.'
-                );
-                $DIC->ctrl()->redirectToURL("ilias.php?ref_id=$ref_id&baseClass=ilRepositoryGUI");
-                return;
-            }
+            $access_granted = $this->hasTestSettingsAccess($ref_id);
         }
 
+        // Zugriff verweigern falls nicht berechtigt
+        if (!$access_granted) {
+            $error_messages = [
+                'admins_only' => 'Diese Funktion ist nur für System-Administratoren verfügbar.',
+                'specific_users' => 'Sie haben keine Berechtigung für diese Funktion.',
+                'course_admins' => 'Sie haben keine Berechtigung, diese Test-Einstellungen zu ändern.'
+            ];
+
+            $this->tpl->setOnScreenMessage(
+                'failure',
+                'Zugriff verweigert: ' . ($error_messages[$visibility] ?? $error_messages['course_admins'])
+            );
+            $DIC->ctrl()->redirectToURL("ilias.php?ref_id=$ref_id&baseClass=ilRepositoryGUI");
+            return;
+        }
+
+        // Befehl ausführen
         switch ($cmd) {
             case "show":
                 $this->show();
@@ -93,6 +105,45 @@ class ilExtendedTestSettingsAdvancedGUI
         }
 
         $this->tpl->printToStdout();
+    }
+
+    /**
+     * Prüft ob ein Benutzer explizit berechtigt ist
+     * @param int $user_id Die Benutzer-ID
+     * @return bool True wenn berechtigt
+     */
+    private function isUserAuthorized(int $user_id): bool
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        try {
+            // Prüfe ob Tabelle existiert
+            if (!$db->tableExists('extendedtest_users')) {
+                if (self::DEBUG_ENABLED) {
+                    error_log("[ExtendedTestSettings] Tabelle 'extendedtest_users' existiert nicht");
+                }
+                return false;
+            }
+
+            // Prüfe ob User in der Berechtigungstabelle ist
+            $result = $db->queryF(
+                "SELECT user_id FROM extendedtest_users WHERE user_id = %s",
+                ['integer'],
+                [$user_id]
+            );
+
+            $is_authorized = $db->numRows($result) > 0;
+
+            if (self::DEBUG_ENABLED) {
+                error_log("[ExtendedTestSettings] User $user_id Berechtigung: " . ($is_authorized ? 'JA' : 'NEIN'));
+            }
+
+            return $is_authorized;
+        } catch (Exception $e) {
+            error_log("[ExtendedTestSettings] Fehler bei Berechtigungsprüfung für User $user_id: " . $e->getMessage());
+            return false;
+        }
     }
 
     protected function show(): void
@@ -846,6 +897,9 @@ HTML;
     /**
      * Einstellungen speichern
      */
+    /**
+     * Einstellungen speichern
+     */
     public function saveSettings(): void
     {
         global $DIC, $rbacsystem;
@@ -859,30 +913,31 @@ HTML;
             return;
         }
 
-        // NEU: Prüfe globale Sichtbarkeitseinstellung auch beim Speichern
+        // NEU: Erweiterte Berechtigungsprüfung beim Speichern
         $settings = new ilSetting('extendedtestsettings');
         $visibility = $settings->get('tab_visibility', 'course_admins');
+        $user_id = $DIC->user()->getId();
+        $is_system_admin = $rbacsystem->checkAccess("write", SYSTEM_FOLDER_ID);
 
-        if ($visibility === 'admins_only') {
-            // Nur System-Admins dürfen speichern
-            if (!$rbacsystem->checkAccess("write", SYSTEM_FOLDER_ID)) {
-                $this->tpl->setOnScreenMessage(
-                    'failure',
-                    'Zugriff verweigert: Nur System-Administratoren können diese Einstellungen ändern.'
-                );
-                $this->ctrl->redirect($this, "show");
-                return;
-            }
+        $access_granted = false;
+
+        if ($is_system_admin) {
+            $access_granted = true;
+        } elseif ($visibility === 'admins_only') {
+            $access_granted = false;
+        } elseif ($visibility === 'specific_users') {
+            $access_granted = $this->isUserAuthorized($user_id);
         } else {
-            // Standard-Prüfung
-            if (!$this->hasTestSettingsAccess($ref_id)) {
-                $this->tpl->setOnScreenMessage(
-                    'failure',
-                    'Zugriff verweigert: Keine Berechtigung zum Speichern.'
-                );
-                $this->ctrl->redirect($this, "show");
-                return;
-            }
+            $access_granted = $this->hasTestSettingsAccess($ref_id);
+        }
+
+        if (!$access_granted) {
+            $this->tpl->setOnScreenMessage(
+                'failure',
+                'Zugriff verweigert: Keine Berechtigung zum Speichern.'
+            );
+            $this->ctrl->redirect($this, "show");
+            return;
         }
 
         if ($ref_id <= 0) {
