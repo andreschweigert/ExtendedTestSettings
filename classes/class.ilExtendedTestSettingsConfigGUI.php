@@ -145,6 +145,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $course_admins = ($visibility === 'course_admins') ? 'checked' : '';
         $specific_users = ($visibility === 'specific_users') ? 'checked' : '';
 
+        // NEU: ExamAlert Auto-Enable Setting
+        $examalert_auto_enable = $this->settings->get('examalert_auto_enable', '1');
+        $auto_enable_checked = ($examalert_auto_enable === '1') ? 'checked' : '';
+
         // Berechtigte Benutzer laden
         $authorized_users = $this->getAuthorizedUsers();
         $users_list_html = $this->renderAuthorizedUsersList($authorized_users);
@@ -155,6 +159,48 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         return '
 <div style="padding: 2rem;">
     <form method="post" action="' . $form_action . '" id="general-settings-form">
+        
+        <!-- NEU: ExamAlert Auto-Enable Sektion -->
+        <div style="background: white; border: 1px solid #e9ecef; border-radius: 0.5rem; padding: 2rem; margin-bottom: 2rem;">
+            <h3 style="margin-top: 0; color: #495057; display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.5rem;">⏰</span> ExamAlert Auto-Aktivierung
+            </h3>
+            <p style="color: #6c757d; margin-bottom: 1.5rem;">
+                Bestimmen Sie, ob ExamAlert bei <strong>neu erstellten Tests</strong> standardmäßig aktiviert sein soll.
+            </p>
+            
+            <div style="background: #f8f9fa; padding: 1.5rem; border-radius: 0.375rem;">
+                <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer;">
+                    <input type="checkbox" 
+                           name="examalert_auto_enable" 
+                           value="1" 
+                           ' . $auto_enable_checked . ' 
+                           style="margin-top: 0.25rem; transform: scale(1.3);">
+                    <div>
+                        <strong style="color: #495057; font-size: 1rem;">
+                            Neue Tests automatisch mit ExamAlert ausstatten
+                        </strong>
+                        <div style="color: #6c757d; font-size: 0.9rem; margin-top: 0.5rem; line-height: 1.5;">
+                            ✅ <strong>Aktiviert:</strong> Jeder neue Test bekommt automatisch ExamAlert aktiviert (30s Warnung vor Ende)<br>
+                            ❌ <strong>Deaktiviert:</strong> ExamAlert muss für jeden Test manuell in den Einstellungen aktiviert werden
+                        </div>
+                    </div>
+                </label>
+                
+                <div style="margin-top: 1rem; padding: 1rem; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 0.25rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <span style="font-size: 1.25rem;">💡</span>
+                        <strong style="color: #856404;">Hinweis</strong>
+                    </div>
+                    <div style="color: #856404; font-size: 0.85rem; line-height: 1.4;">
+                        Diese Einstellung betrifft nur <strong>neue Tests</strong>. Bereits existierende Tests behalten ihre aktuellen Einstellungen.
+                        Administratoren können ExamAlert jederzeit in den Test-Einstellungen manuell aktivieren oder deaktivieren.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bestehende Tab-Sichtbarkeit Sektion -->
         <div style="background: white; border: 1px solid #e9ecef; border-radius: 0.5rem; padding: 2rem; margin-bottom: 2rem;">
             <h3 style="margin-top: 0; color: #495057;">🔒 Tab-Sichtbarkeit in Test-Einstellungen</h3>
             <p style="color: #6c757d; margin-bottom: 1.5rem;">
@@ -953,6 +999,7 @@ function removeUserConfirm(userId, login) {
     protected function saveGeneralSettings(): void
     {
         try {
+            // Tab-Sichtbarkeit
             $tab_visibility = $_POST['tab_visibility'] ?? 'course_admins';
 
             // Validierung
@@ -962,15 +1009,26 @@ function removeUserConfirm(userId, login) {
 
             $this->settings->set('tab_visibility', $tab_visibility);
 
+            // NEU: ExamAlert Auto-Enable
+            $examalert_auto_enable = isset($_POST['examalert_auto_enable']) ? '1' : '0';
+            $this->settings->set('examalert_auto_enable', $examalert_auto_enable);
+
+            // Success-Message zusammenstellen
             $visibility_text = [
                 'admins_only' => 'Nur System-Administratoren',
                 'course_admins' => 'Kurs-Administratoren + System-Administratoren',
                 'specific_users' => 'Nur ausgewählte Benutzer + System-Administratoren'
             ];
 
+            $auto_enable_text = $examalert_auto_enable === '1'
+                ? '✅ ExamAlert wird automatisch für neue Tests aktiviert'
+                : '❌ ExamAlert muss manuell für Tests aktiviert werden';
+
             $this->tpl->setOnScreenMessage(
                 'success',
-                '✅ Einstellungen gespeichert. Tab-Sichtbarkeit: ' . $visibility_text[$tab_visibility]
+                '✅ Einstellungen gespeichert.<br>' .
+                    '• Tab-Sichtbarkeit: ' . $visibility_text[$tab_visibility] . '<br>' .
+                    '• ' . $auto_enable_text
             );
         } catch (Exception $e) {
             $this->tpl->setOnScreenMessage(

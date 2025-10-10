@@ -20,7 +20,7 @@ class ilExamAlertHandler
 
     /**
      * Prüft ob ExamAlert für den Test aktiviert ist
-     * Standardmäßig aktiviert für alle Tests
+     * Berücksichtigt nun das globale Auto-Enable Setting
      */
     public function isEnabled(int $ref_id): bool
     {
@@ -41,13 +41,31 @@ class ilExamAlertHandler
                 return (bool) $row['enabled'];
             }
 
-            // Erstelle automatisch Default-Einstellungen
-            $this->ensureDefaultSettings($test_id);
-            return true;
+            // NEU: Prüfe globales Auto-Enable Setting
+            $should_auto_enable = $this->shouldAutoEnableForNewTests();
+            
+            // Erstelle automatisch Default-Einstellungen (aktiviert oder deaktiviert je nach Setting)
+            $this->ensureDefaultSettings($test_id, $should_auto_enable);
+            return $should_auto_enable;
 
         } catch (Exception $e) {
             error_log("[ExamAlert] Fehler beim Prüfen der Aktivierung: " . $e->getMessage());
             return false;
+        }
+    }
+
+    /**
+     * NEU: Prüft das globale Auto-Enable Setting
+     */
+    private function shouldAutoEnableForNewTests(): bool
+    {
+        try {
+            $settings = new ilSetting('extendedtestsettings');
+            $auto_enable = $settings->get('examalert_auto_enable', '1'); // Default: aktiviert
+            return $auto_enable === '1';
+        } catch (Exception $e) {
+            error_log("[ExamAlert] Fehler beim Laden des Auto-Enable Settings: " . $e->getMessage());
+            return true; // Fallback: aktiviert
         }
     }
 
@@ -81,9 +99,11 @@ class ilExamAlertHandler
             }
 
             // Keine Einstellungen vorhanden = erstelle Defaults und gebe sie zurück
-            $this->ensureDefaultSettings($test_id);
+            $should_auto_enable = $this->shouldAutoEnableForNewTests();
+            $this->ensureDefaultSettings($test_id, $should_auto_enable);
+            
             return [
-                'enabled' => true,
+                'enabled' => $should_auto_enable,
                 'alert_time' => 30,
                 'alert_message' => self::DEFAULT_MESSAGE
             ];
@@ -97,8 +117,9 @@ class ilExamAlertHandler
 
     /**
      * Stellt sicher, dass Default-Einstellungen für einen Test existieren
+     * MODIFIZIERT: Berücksichtigt nun das auto_enable Setting
      */
-    private function ensureDefaultSettings(int $test_id): void
+    private function ensureDefaultSettings(int $test_id, bool $auto_enable = true): void
     {
         global $DIC;
         $db = $DIC->database();
@@ -109,16 +130,19 @@ class ilExamAlertHandler
             $result = $db->queryF($query, ['integer'], [$test_id]);
             
             if (!$db->fetchAssoc($result)) {
-                // Erstelle Default-Einstellungen
+                // Erstelle Default-Einstellungen mit dem übergebenen enabled-Wert
+                $enabled_value = $auto_enable ? 1 : 0;
+                
                 $db->insert('examalert_settings', [
                     'test_id' => ['integer', $test_id],
-                    'enabled' => ['integer', 1], // Standardmäßig AKTIVIERT
+                    'enabled' => ['integer', $enabled_value],
                     'alert_time' => ['integer', 30], // Standard: 30 Sekunden
                     'alert_message' => ['text', self::DEFAULT_MESSAGE],
                     'updated_at' => ['timestamp', date('Y-m-d H:i:s')]
                 ]);
                 
-                error_log("[ExamAlert] Default-Einstellungen erstellt für Test-ID: $test_id");
+                $status = $auto_enable ? 'AKTIVIERT' : 'DEAKTIVIERT';
+                error_log("[ExamAlert] Default-Einstellungen erstellt für Test-ID: $test_id (Status: $status)");
             }
         } catch (Exception $e) {
             error_log("[ExamAlert] Fehler beim Erstellen der Default-Einstellungen: " . $e->getMessage());
@@ -306,9 +330,9 @@ HTML;
             'title' => 'Zeit-Warnung',
             'icon' => '⏰',
             'description' => 'Zeigt zeitbasierte Warnungen mit benutzerdefinierten Nachrichten während des Tests an',
-            'version' => '1.0.0',
+            'version' => '1.0.1',
             'features' => [
-                'Standardmäßig für alle Tests aktiviert',
+                'Konfigurierbare Auto-Aktivierung für neue Tests',
                 'Einstellbare Warnzeit (5 Sekunden bis 1 Stunde, Default: 30s)',
                 'Benutzerdefinierte Warnnachrichten mit HTML-Formatierung', 
                 'Zweisprachige Standardnachricht (Deutsch/Englisch)',
