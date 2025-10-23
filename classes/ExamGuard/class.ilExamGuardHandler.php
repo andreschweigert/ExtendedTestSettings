@@ -84,24 +84,8 @@ class ilExamGuardHandler
             return;
         }
 
-        // Debug-Logging
-        $tpl->addOnLoadCode("
-            if (typeof window.egLog === 'undefined') {
-                window.egLog = function(msg) { 
-                    console.log('[ExamGuard] ' + msg); 
-                };
-            }
-            egLog('🔒 ExamGuard wird geladen für ref_id: $ref_id');
-        ");
-
-        // JavaScript laden
         $js_guard_path = $this->plugin_path . "/js/examguard/examguard.js";
         $tpl->addJavaScript($js_guard_path);
-
-        // Erfolgsmeldung
-        $tpl->addOnLoadCode("
-            egLog('✅ ExamGuard Schutz aktiviert');
-        ");
     }
 
     /**
@@ -161,7 +145,7 @@ HTML;
             'title' => 'Prüfungsschutz',
             'icon' => '🔒',
             'description' => 'Blockiert Copy&Paste, Rechtsklick und kritische Tastenkombinationen während der Prüfung',
-            'version' => '0.0.1',
+            'version' => '1.0.0',
             'features' => [
                 'Copy&Paste blockieren',
                 'Rechtsklick verhindern',

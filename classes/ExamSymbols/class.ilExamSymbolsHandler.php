@@ -88,47 +88,32 @@ class ilExamSymbolsHandler
             return;
         }
 
-        // Debug-Logging
-        $tpl->addOnLoadCode("
-            if (typeof window.esLog === 'undefined') {
-                window.esLog = function(msg) { 
-                    console.log('[ExamSymbols] ' + msg); 
-                };
-            }
-            esLog('📝 ExamSymbols wird geladen für ref_id: $ref_id');
-        ");
-
-        // Template und Symbole laden - NUR AUS CONFIG-KLASSE
         $template = $this->getSymbolTemplate($ref_id);
         $symbols = $this->config->getSymbolsForTemplate($template);
 
-        // CSS laden
         $css_path = $this->plugin_path . "/css/examsymbols.css";
         $tpl->addCss($css_path);
 
-        // JavaScript laden
         $js_symbols_path = $this->plugin_path . "/js/examsymbols/symbols-manager.js";
         $js_loader_path = $this->plugin_path . "/js/examsymbols/examsymbols-loader.js";
 
         $tpl->addJavaScript($js_symbols_path);
         $tpl->addJavaScript($js_loader_path);
 
-        // Template-Pfad und Konfiguration als JavaScript-Variable bereitstellen
         $template_path = $this->plugin_path . "/templates/symbols_overlay.html";
         $symbols_json = json_encode($symbols);
         $templates_json = json_encode($this->config->getAvailableTemplates());
 
         $tpl->addOnLoadCode("
-    window.ExamSymbols = window.ExamSymbols || {};
-    window.ExamSymbols.templatePath = '$template_path';
-    window.ExamSymbols.config = {
-        template: '$template',
-        refId: $ref_id,
-        symbols: $symbols_json,
-        availableTemplates: $templates_json
-    };
-    esLog('✅ ExamSymbols Assets geladen - Template: $template mit ' + " . count($symbols) . " + ' Symbole');
-");
+            window.ExamSymbols = window.ExamSymbols || {};
+            window.ExamSymbols.templatePath = '$template_path';
+            window.ExamSymbols.config = {
+                template: '$template',
+                refId: $ref_id,
+                symbols: $symbols_json,
+                availableTemplates: $templates_json
+            };
+        ");
     }
 
     /**
@@ -252,7 +237,7 @@ HTML;
             'title' => 'Sonderzeichen-Palette',
             'icon' => '📝',
             'description' => "Palette mit Sonderzeichen für verschiedene Fachbereiche ($template_count Templates, $total_symbols Symbole)",
-            'version' => '0.0.4',
+            'version' => '1.0.0',
             'features' => [
                 'Floating Button (Alt + S)',
                 "Multiple Templates ($template_count verfügbar)",

@@ -1,159 +1,246 @@
-Achtung - WIP - Benutzen auf eigene Gefahr.
-
 # ExtendedTestSettings Plugin für ILIAS
 
-Das **ExtendedTestSettings** Plugin erweitert den ILIAS-Testkontext um zusätzliche Funktionen für Online-Prüfungen. Es dient als zentrales Verwaltungssystem für optionale Prüfungs-Features, die modular integriert und pro Test konfiguriert werden können.
+**Version 1.0.0** | ILIAS 9.x
 
-## Übersicht
+Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um professionelle Funktionen für Online-Prüfungen. Es bietet ein modulares System mit fünf spezialisierten Tools, die individuell pro Test aktiviert werden können.
 
-Das Plugin bietet fünf spezialisierte Module für verschiedene Aspekte von Online-Prüfungen:
+## Features
 
-- **ExamCalc**: Wissenschaftlicher Taschenrechner während der Prüfung
-- **ExamSymbols**: Sonderzeichen-Palette für Fachbereiche (Mathematik, Sprachen)
-- **ExamGuard**: Eingabeschutz und Sicherheitsmaßnahmen
-- **ExamAlert**: Zeitbasierte Warnungen vor Prüfungsende
-- **ExamChecker**: Automatisierte Überprüfung der Testeinstellungen
-
-Alle Module sind optional und können pro Test individuell aktiviert werden.
-
-## Module im Detail
-
-### ExamCalc - Wissenschaftlicher Taschenrechner
-
-Aktiviert einen wissenschaftlichen Taschenrechner während der Prüfung mit erweiterten Funktionen.
-
-**Funktionen:**
-- Grundrechenarten und wissenschaftliche Funktionen
-- Trigonometrie (sin, cos, tan)
-- Logarithmen (ln, log)
-- Wurzeln und Potenzen
-- Mathematische Konstanten (π, e)
-- Bruchdarstellung
-- Berechnungsverlauf mit Wiederverwendung
-- Verschiebbare Oberfläche
-- Automatische Bereinigung bei Prüfungsende
-
-**Aktivierung:** Pro Test über Einstellungstab
-
-### ExamSymbols - Spezialzeichen-Tastatur
-
-Blendet eine kontextsensitive Tastatur mit Sonderzeichen ein, die während der Prüfung genutzt werden kann.
-
-**Verfügbare Symbol-Vorlagen:**
-- **Mathematik/Wissenschaft**: π, √, ∑, ∞, ≈, ≠, ≤, ≥, ±, ∆, ∫, ∂, →, ↔, ∈, ∉, ∅, ², ³, °, griechische Buchstaben (α-ω, Α-Ω)
-- **Spanisch**: Vokale mit Akzent (Á, É, Í, Ó, Ú, á, é, í, ó, ú), Ñ, ñ, ¿, ¡
-- **Italienisch**: à, è, ì, ò, ù, é, í, ó, À, È, Ì, Ò, Ù, É, Í, Ó
-- **Deutsch**: ä, ö, ü, ß, Ä, Ö, Ü
-- **Französisch**: à, â, é, è, ê, ë, î, ï, ô, ù, û, ü, ÿ, ç, æ, œ, Großbuchstaben-Varianten
-- **Griechisch**: Vollständiges griechisches Alphabet (Klein- und Großbuchstaben)
-- **Chemie**: Reaktionspfeile (→, ←, ↔, ⇌), Ladungen (⁺, ⁻, ²⁺, ³⁺), Bindungen (−, ≡, ∼)
-- **Physik**: Mathematische Symbole, Vektoren (→, ⃗, ∙, ×), Differentiale (∇, ∆), Konstanten (ℏ, ħ)
-
-**Aktivierung:** Pro Test mit Auswahl der gewünschten Symbol-Vorlage
-
-### ExamGuard - Eingabeeinschränkungen
-
-Sichert den Prüfungsmodus durch Einschränkung von Interaktionen, die die Prüfungsintegrität gefährden könnten.
-
-**Blockierte Aktionen:**
-- Rechtsklick-Kontextmenü
-- Copy/Paste/Cut (Strg+C/V/X)
-- Alles markieren (Strg+A)
-- Entwickler-Tools öffnen (F12, Strg+Shift+I/J/C)
-- Textauswahl (mit Ausnahmen für Eingabefelder)
-
-**Aktivierung:** Pro Test über Einstellungstab
-
-### ExamAlert - Zeit-Warnung
-
-Zeigt zeitbasierte Warnungen mit benutzerdefinierten Nachrichten während des Tests an.
-
-**Funktionen:**
-- Konfigurierbare Warnzeit: 5 Sekunden bis 1 Stunde vor Testende
-- Benutzerdefinierte Nachrichten pro Test
-- Diskrete Toast-Benachrichtigung von oben
-- Live-Countdown mit verbleibender Zeit
-- Automatisches Schließen nach 20 Sekunden
-
-**Konfiguration:**
-- Warnzeit in Sekunden (5-3600)
-- Individuelle Warnnachricht
-- Standard: "Achtung: Der Test endet bald!"
-
-**Aktivierung:** Pro Test mit Zeitkonfiguration und Nachrichtentext
-
-### ExamChecker - Prüfungseinstellungen Checker
-
-Analysiert Test-Einstellungen und prüft diese gegen definierte Standards für Präsenz- und Fernprüfungen. Generiert übersichtliche Berichte über die Einhaltung von Prüfungsrichtlinien.
-
-**Funktionen:**
-- Auswahl zwischen Präsenz- und Fernprüfung
-- Detaillierter Report mit Ampel-System
-- Prozentuale Bewertung der Konfiguration
-- Hinweise auf zu überprüfende Einstellungen
-
-**Aktivierung:** Immer verfügbar als Analyse-Tool
+- **ExamCalc** - Taschenrechner für Prüfungen (einfach oder wissenschaftlich)
+- **ExamSymbols** - Sonderzeichen-Paletten für Fachbereiche
+- **ExamGuard** - Prüfungsschutz durch Eingabeeinschränkungen
+- **ExamAlert** - Zeitbasierte Warnungen vor Prüfungsende
+- **ExamChecker** - Automatisierte Prüfung der Testeinstellungen
 
 ## Installation
 
-1. Das Repository in folgendes Verzeichnis klonen:
-   ```
-   Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/
-   ```
+### 1. Plugin installieren
 
-2. Abhängigkeiten installieren:
-   ```bash
-   composer install --no-dev
-   ```
+```bash
+cd /path/to/ilias/Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/
+git clone <repository-url> ExtendedTestSettings
+cd ExtendedTestSettings
+composer install --no-dev
+```
 
-3. Plugin im ILIAS-Pluginmanager installieren und aktivieren.
+### 2. Plugin aktivieren
 
-4. In einem ILIAS-Testobjekt erscheint unter "Einstellungen" ein neuer Tab: **Erweiterte Test-Einstellungen**
+- Navigieren zu: **Administration → Plugins**
+- Plugin **ExtendedTestSettings** suchen und installieren
+- Plugin aktivieren
 
-Dort können die Features testbezogen aktiviert oder deaktiviert werden.
+### 3. Verwendung
+
+Nach der Aktivierung erscheint in jedem ILIAS-Test ein neuer Tab **"Erweiterte Test-Einstellungen"**, in dem die Module individuell konfiguriert werden können.
+
+## Module im Detail
+
+### ExamCalc - Taschenrechner
+
+Stellt einen Taschenrechner während der Prüfung bereit.
+
+**Modi:**
+- **Einfach**: Grundrechenarten (+ − × ÷) - empfohlen für die meisten Prüfungen
+- **Wissenschaftlich**: Erweiterte Funktionen (sin, cos, tan, √, ^, log, ln, π, e) - Beta-Version
+
+**Bedienung:**
+- Tastenkombination: `Alt + R`
+- Verschiebbar per Drag & Drop
+- Automatische Bereinigung bei Prüfungsende
+
+**Hinweis:** Der wissenschaftliche Modus ist als Beta gekennzeichnet und sollte vor Einsatz getestet werden.
+
+### ExamSymbols - Sonderzeichen
+
+Bietet fachspezifische Sonderzeichen-Paletten für Prüfungen.
+
+**Verfügbare Vorlagen:**
+- **Mathematik/Wissenschaft**: π, √, ∑, ∞, ≈, ≠, ≤, ≥, ±, ∆, ∫, ∂, griechische Buchstaben
+- **Sprachen**: Spanisch, Italienisch, Deutsch, Französisch, Griechisch
+- **Naturwissenschaften**: Chemie (Reaktionspfeile, Ladungen), Physik (Vektoren, Differentiale)
+
+**Bedienung:**
+- Tastenkombination: `Alt + S`
+- Kompatibel mit TinyMCE und CKEditor
+- Responsive Design für alle Geräte
+
+**Erweiterung:** Neue Vorlagen können in `classes/ExamSymbols/class.ilExamSymbolsConfig.php` hinzugefügt werden.
+
+### ExamGuard - Prüfungsschutz
+
+Blockiert kritische Eingaben zum Schutz der Prüfungsintegrität.
+
+**Blockierte Aktionen:**
+- Rechtsklick und Kontextmenü
+- Copy/Paste/Cut (Strg+C/V/X)
+- Alles markieren (Strg+A)
+- Entwickler-Tools (F12, Strg+Shift+I/J/C)
+- Textauswahl (außer in Eingabefeldern)
+
+**Hinweis:** ExamGuard bietet client-seitige Sicherheit und sollte als zusätzliche Barriere, nicht als alleinige Sicherheitsmaßnahme verstanden werden. Für Hochsicherheits-Prüfungen empfehlen wir zusätzliche Maßnahmen wie ILIAS Kiosk-Modus oder Safe Exam Browser.
+
+### ExamAlert - Zeit-Warnung
+
+Warnt Teilnehmer rechtzeitig vor Prüfungsende.
+
+**Funktionen:**
+- Konfigurierbare Warnzeit: 5 Sekunden bis 1 Stunde vor Ende
+- Anpassbare Warnnachrichten (HTML-Formatierung möglich)
+- Zweisprachige Standard-Nachricht (DE/EN)
+- Live-Countdown der verbleibenden Zeit
+- Dezente Benachrichtigung von oben
+
+**Tipp:** Die Standard-Warnzeit beträgt 30 Sekunden. Für längere Prüfungen empfehlen wir 5-10 Minuten.
+
+### ExamChecker - Einstellungs-Prüfung
+
+Überprüft Testeinstellungen gegen definierte Vorgaben.
+
+**Funktionen:**
+- Auswahl: Präsenz- oder Fernprüfung
+- Detaillierter Report mit Ampel-System
+- Prozentuale Bewertung der Konfiguration
+- Prüfung auf Vorbedingungen und zeitliche Verfügbarkeit
+- Hinweise auf kritische Einstellungen
+
+**Konfiguration:** Standards können in der Plugin-Konfiguration (Administration → Plugins) angepasst werden.
+
+## Systemanforderungen
+
+- **ILIAS**: Version 9.0 oder höher
+- **PHP**: 8.0 oder höher
+- **Composer**: Für Abhängigkeiten
+- **Browser**: Moderne Browser (Chrome, Firefox, Safari, Edge)
 
 ## Datenbankstruktur
 
-Das Plugin erstellt folgende Tabellen:
+Das Plugin erstellt folgende Tabellen automatisch bei der Installation:
 
-- `examcalc_settings`: Taschenrechner-Konfiguration pro Test
-- `examsymbols_settings`: Symbol-Vorlagen-Konfiguration pro Test
-- `examguard_settings`: Eingabeschutz-Konfiguration pro Test
-- `examalert_settings`: Zeit-Warnungen-Konfiguration pro Test
+| Tabelle | Beschreibung |
+|---------|-------------|
+| `examcalc_settings` | Taschenrechner-Konfiguration pro Test |
+| `examsymbols_settings` | Symbol-Vorlagen pro Test |
+| `examguard_settings` | Eingabeschutz-Einstellungen pro Test |
+| `examalert_settings` | Zeit-Warnungen pro Test |
 
-ExamChecker benötigt keine eigene Tabelle, da es nur analysiert.
+Bei Deinstallation werden alle Tabellen automatisch entfernt.
 
-## Konfiguration neuer Symbol-Vorlagen
+## Konfiguration
 
-Neue Symbol-Vorlagen können in `classes/ExamSymbols/class.ilExamSymbolsConfig.php` hinzugefügt werden:
+### Plugin-Konfiguration
 
-```php
-"neue_vorlage" => [
-    "label" => "Neue Vorlage",
-    "description" => "Beschreibung der neuen Vorlage",
-    "symbols" => [
-        "Symbol1", "Symbol2", "Symbol3"
-    ]
-]
+Unter **Administration → Plugins → ExtendedTestSettings → Konfigurieren** können Sie folgende Einstellungen vornehmen:
+
+- **Tab-Sichtbarkeit**: Wer darf den "Erweiterte Test-Einstellungen" Tab sehen?
+  - System-Administratoren
+  - Kurs-Administratoren (Standard)
+  - Spezifische Benutzer
+
+- **ExamAlert Auto-Aktivierung**: Soll ExamAlert für neue Tests automatisch aktiviert werden?
+
+- **ExamChecker Standards**: Definieren Sie die Prüfkriterien für Präsenz- und Fernprüfungen.
+
+### Test-Konfiguration
+
+In jedem Test unter **Einstellungen → Erweiterte Test-Einstellungen** können die Module einzeln aktiviert und konfiguriert werden.
+
+## Troubleshooting
+
+### Debug-Modus aktivieren
+
+Für Fehlerdiagnose kann der Debug-Modus aktiviert werden:
+
+1. In `classes/class.ilExtendedTestSettingsUIHookGUI.php`:
+   ```php
+   private const DEBUG_ENABLED = true;
+   ```
+
+2. In `classes/ExamChecker/class.ilExamCheckerHandler.php`:
+   ```php
+   private const DEBUG_ENABLED = true;
+   ```
+
+3. Logs finden Sie im ILIAS-Error-Log.
+
+### Häufige Probleme
+
+**Module werden nicht geladen:**
+- Prüfen Sie, ob das Plugin aktiviert ist
+- Prüfen Sie die Browser-Konsole auf JavaScript-Fehler
+- Aktivieren Sie den Debug-Modus für detaillierte Logs
+
+**Tab ist nicht sichtbar:**
+- Prüfen Sie die Tab-Sichtbarkeitseinstellungen in der Plugin-Konfiguration
+- Prüfen Sie Ihre Berechtigungen im Test
+
+**Datenbankfehler bei Installation:**
+- Prüfen Sie die Datenbankrechte
+- Prüfen Sie das Error-Log für Details
+
+## Entwicklung
+
+### Architektur
+
+Das Plugin folgt einer Handler-basierten Architektur:
+
+```
+ExtendedTestSettings/
+├── classes/
+│   ├── class.ilExtendedTestSettingsPlugin.php      # Plugin-Hauptklasse
+│   ├── class.ilExtendedTestSettingsUIHookGUI.php   # UI-Hook Integration
+│   ├── class.ilExtendedTestSettingsAdvancedGUI.php # Einstellungs-GUI
+│   ├── ExamCalc/
+│   │   ├── class.ilExamCalcHandler.php
+│   │   └── class.ilExamCalcConfig.php
+│   ├── ExamSymbols/
+│   │   ├── class.ilExamSymbolsHandler.php
+│   │   └── class.ilExamSymbolsConfig.php
+│   ├── ExamGuard/
+│   │   └── class.ilExamGuardHandler.php
+│   ├── ExamAlert/
+│   │   └── class.ilExamAlertHandler.php
+│   └── ExamChecker/
+│       ├── class.ilExamCheckerHandler.php
+│       └── class.ilExamCheckerConfig.php
+├── js/          # JavaScript-Module
+├── css/         # Stylesheets
+├── templates/   # HTML-Templates
+└── sql/         # Datenbank-Migrations
 ```
 
-## Debugging
+### Neues Modul hinzufügen
 
-Debug-Modus kann in den jeweiligen Handler-Klassen aktiviert werden:
+1. Erstellen Sie einen neuen Handler in `classes/NewModule/`
+2. Implementieren Sie die Methoden: `isEnabled()`, `injectAssets()`, `saveSettings()`, `getSettingsHTML()`
+3. Registrieren Sie das Modul in `ilExtendedTestSettingsUIHookGUI.php`
+4. Fügen Sie JavaScript/CSS in `js/` bzw. `css/` hinzu
+5. Erstellen Sie eine Datenbanktabelle in `sql/dbupdate.php`
 
-```php
-private const DEBUG_ENABLED = true;
-```
-
-Dies aktiviert ausführliche Console-Logs für die Fehlerdiagnose.
-
-## Support
-
-Bei Fragen oder Problemen:
+## Support & Kontakt
 
 **Entwickler:**
-- Andre.Schweigert@fau.de
-- Cornel.Musielak@fau.de
+- André Schweigert (Andre.Schweigert@fau.de)
+- Cornel Musielak (Cornel.Musielak@fau.de)
 
-**Universität:**
+**Institution:**
 Friedrich-Alexander-Universität Erlangen-Nürnberg (FAU)
+
+**Bug Reports & Feature Requests:**
+Bitte erstellen Sie ein Issue im Git-Repository oder kontaktieren Sie die Entwickler direkt.
+
+## Lizenz
+
+Dieses Plugin wurde an der Friedrich-Alexander-Universität Erlangen-Nürnberg entwickelt.
+
+## Changelog
+
+### Version 1.0.0 (2025)
+- Produktions-Release
+- Alle Module stabil und getestet
+- Debug-Modus standardmäßig deaktiviert
+- Vereinheitlichte Versionsnummern
+- Überarbeitete Dokumentation
+
+---
+
+**Hinweis:** Dieses Plugin wird aktiv weiterentwickelt. Feedback und Verbesserungsvorschläge sind willkommen!

@@ -86,47 +86,32 @@ class ilExamCalcHandler
             return;
         }
 
-        // Debug-Logging (ANALOG ZU EXAMSYMBOLS)
-        $tpl->addOnLoadCode("
-            if (typeof window.ecLog === 'undefined') {
-                window.ecLog = function(msg) { 
-                    console.log('[ExamCalc] ' + msg); 
-                };
-            }
-            ecLog('🧮 ExamCalc wird geladen für ref_id: $ref_id');
-        ");
-
         $calculator_mode = $this->getCalculatorMode($ref_id);
 
-        // CSS laden
         $css_path = $this->plugin_path . "/css/examcalc.css";
         $tpl->addCss($css_path);
 
-        // Template-Dateiname bestimmen
         $template_filename = ($calculator_mode === 'simple')
             ? 'calculator_simple.html'
             : 'calculator_overlay.html';
 
-        // JavaScript laden
         if ($calculator_mode === 'simple') {
             $js_calc_path = $this->plugin_path . "/js/examcalc/calculator-simple.js";
         } else {
             $js_calc_path = $this->plugin_path . "/js/examcalc/calculator.js";
         }
-        
+
         $js_loader_path = $this->plugin_path . "/js/examcalc/examcalc-loader.js";
 
         $tpl->addJavaScript($js_calc_path);
         $tpl->addJavaScript($js_loader_path);
 
-        // Template-Pfad und Konfiguration als JavaScript-Variable bereitstellen
         $template_path = $this->plugin_path . "/templates/$template_filename";
 
         $tpl->addOnLoadCode("
             window.ExamCalc = window.ExamCalc || {};
             window.ExamCalc.templatePath = '$template_path';
             window.ExamCalc.calculatorMode = '$calculator_mode';
-            ecLog('✅ ExamCalc Assets geladen - Modus: $calculator_mode');
         ");
     }
 
@@ -237,7 +222,7 @@ HTML;
             'title' => 'Wissenschaftlicher Taschenrechner',
             'icon' => '🧮',
             'description' => 'Taschenrechner für Prüfungen mit zwei Modi: Einfach (Grundrechenarten) und Wissenschaftlich',
-            'version' => '0.0.9',
+            'version' => '1.0.0',
             'features' => [
                 'Floating Button (Alt + R)',
                 'Einfacher Modus (Grundrechenarten)',

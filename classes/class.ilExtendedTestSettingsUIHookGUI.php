@@ -7,7 +7,6 @@
 
 class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 {
-    // DEBUG-SCHALTER 
     private const DEBUG_ENABLED = false;
 
     /**

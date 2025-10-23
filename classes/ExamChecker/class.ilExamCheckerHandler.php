@@ -5,12 +5,9 @@
  * Part of ExtendedTestSettings Plugin
  */
 
-
 class ilExamCheckerHandler
 {
-    private string $plugin_path;
-    private const DEBUG_ENABLED = true;
-    public function __construct(string $plugin_path)
+    private string $plugin_path;    public function __construct(string $plugin_path)
     {
         $this->plugin_path = $plugin_path;
     }
@@ -88,14 +85,11 @@ class ilExamCheckerHandler
             const loadingDiv = document.getElementById("check-loading");
             const examTypeSelect = document.getElementById("exam_type");
 
-            console.log("[ExamChecker] JavaScript geladen für ref_id: ' . $ref_id . '");
-
             if (checkButton) {
                 checkButton.addEventListener("click", function() {
                     const examType = examTypeSelect.value;
                     const refId = ' . $ref_id . ';
                     
-                    console.log("[ExamChecker] Button geklickt - examType:", examType, "refId:", refId);
                     
                     // UI-Status
                     checkButton.disabled = true;
@@ -110,8 +104,6 @@ class ilExamCheckerHandler
                     ajaxUrl = ajaxUrl.replace("cmd=show", "cmd=saveSettings");
                     ajaxUrl = ajaxUrl.replace("&debug=1", ""); // Debug-Parameter entfernen für AJAX
                     
-                    console.log("[ExamChecker] POST-Daten:", postData);
-                    console.log("[ExamChecker] AJAX-URL:", ajaxUrl);
 
                     // AJAX-Request
                     fetch(ajaxUrl, {
@@ -122,8 +114,6 @@ class ilExamCheckerHandler
                         body: postData
                     })
                     .then(response => {
-                        console.log("[ExamChecker] Response Status:", response.status);
-                        console.log("[ExamChecker] Response Headers:", response.headers);
                         
                         if (!response.ok) {
                             throw new Error("HTTP " + response.status + ": " + response.statusText);
@@ -132,11 +122,9 @@ class ilExamCheckerHandler
                         return response.text(); // Erstmal als Text um zu sehen was ankommt
                     })
                     .then(text => {
-                        console.log("[ExamChecker] Raw Response:", text);
                         
                         try {
                             const data = JSON.parse(text);
-                            console.log("[ExamChecker] Parsed JSON:", data);
                             
                             loadingDiv.style.display = "none";
                             resultsDiv.innerHTML = data.html;
@@ -194,25 +182,15 @@ class ilExamCheckerHandler
      */
     public function saveSettings(int $ref_id, array $post_data): bool
     {
-        // Debug-Logging
-        error_log("[ExamChecker] saveSettings aufgerufen - ref_id: $ref_id");
-        error_log("[ExamChecker] POST-Daten: " . print_r($post_data, true));
-
-        // Alternative Methode: auch direkt aus $_POST prüfen
         if (empty($post_data)) {
-            error_log("[ExamChecker] post_data leer, versuche $_POST");
             $post_data = $_POST;
         }
 
-        // Prüfe ob es ein AJAX-Request für den Check ist
         if (isset($post_data['action']) && $post_data['action'] === 'exam_check') {
-            error_log("[ExamChecker] AJAX-Request erkannt - starte handleExamCheck");
             $this->handleExamCheck($ref_id, $post_data);
-            return true; // Wichtig: Nach AJAX-Response nicht weiter ausführen
+            return true;
         }
 
-        // ExamChecker hat keine Settings zu speichern - es ist nur ein Tool
-        error_log("[ExamChecker] Kein AJAX-Request, normale Settings-Speicherung");
         return true;
     }
 
@@ -222,26 +200,16 @@ class ilExamCheckerHandler
     private function handleExamCheck(int $ref_id, array $post_data): void
     {
         try {
-            error_log("[ExamChecker] handleExamCheck gestartet");
-
             $exam_type = $post_data['exam_type'] ?? 'praesenz';
-            error_log("[ExamChecker] Exam Type: $exam_type");
-
             $results = $this->performExamCheck($ref_id, $exam_type);
-            error_log("[ExamChecker] performExamCheck erfolgreich");
-
             $html = $this->generateCheckResultsHTML($results, $exam_type);
-            error_log("[ExamChecker] HTML generiert, Länge: " . strlen($html));
 
-            // JSON-Response senden
             header('Content-Type: application/json');
-            $response = json_encode(array(
+            $response = json_encode([
                 'html' => $html,
-                'success' => true,
-                'debug' => 'Check erfolgreich durchgeführt'
-            ));
+                'success' => true
+            ]);
 
-            error_log("[ExamChecker] JSON-Response wird gesendet");
             echo $response;
             exit;
         } catch (Exception $e) {
@@ -300,10 +268,8 @@ class ilExamCheckerHandler
             $result = $db->queryF($query, array('integer'), array($obj_id));
 
             if ($row = $db->fetchAssoc($result)) {
-                error_log("[ExamChecker] ✅ Test-Daten gefunden für obj_id: $obj_id");
                 return $row;
             } else {
-                error_log("[ExamChecker] ❌ Kein Test-Eintrag für obj_fi: $obj_id");
                 return null;
             }
         } catch (Exception $e) {
@@ -351,7 +317,6 @@ class ilExamCheckerHandler
         // Fallback auf hardcodierte Defaults
         return $this->getHardcodedDefaults($exam_type);
     }
-
 
     private function getHardcodedDefaults(string $exam_type): array
     {
@@ -470,11 +435,7 @@ class ilExamCheckerHandler
                 $ref_id = (int)$ref_row['ref_id'];
             }
 
-            if ($ref_id <= 0) {
-                if (self::DEBUG_ENABLED) {
-                    error_log("[ExamChecker] Keine ref_id für obj_id $obj_id gefunden");
-                }
-                return true; // Bei Fehler als "OK" bewerten
+            if ($ref_id <= 0) {                return true; // Bei Fehler als "OK" bewerten
             }
 
             // Prüfe crs_items Tabelle für zeitliche Begrenzung
@@ -486,29 +447,12 @@ class ilExamCheckerHandler
                 $timing_end = (int)($timing_row['timing_end'] ?? 0);
 
                 // Beide Werte sollten 0 sein (keine zeitliche Begrenzung)
-                $timing_disabled = ($timing_start === 0) && ($timing_end === 0);
-
-                if (self::DEBUG_ENABLED) {
-                    error_log("[ExamChecker] Test ref_id $ref_id - timing_start: $timing_start, timing_end: $timing_end");
-                    error_log("[ExamChecker] Zeitlich begrenzte Verfügbarkeit: " .
-                        ($timing_disabled ? "DEAKTIVIERT (✅)" : "AKTIVIERT (❌)"));
-                }
-
-                return $timing_disabled;
-            } else {
-                if (self::DEBUG_ENABLED) {
-                    error_log("[ExamChecker] Kein crs_items Eintrag für ref_id $ref_id gefunden");
-                }
-                return true; // Kein Eintrag = keine Begrenzung = OK
+                $timing_disabled = ($timing_start === 0) && ($timing_end === 0);                return $timing_disabled;
+            } else {                return true; // Kein Eintrag = keine Begrenzung = OK
             }
-        } catch (Exception $e) {
-            if (self::DEBUG_ENABLED) {
-                error_log("[ExamChecker] Zeitlich begrenzte Verfügbarkeit Check Fehler: " . $e->getMessage());
-            }
-            return true; // Bei Fehler als "OK" bewerten
+        } catch (Exception $e) {            return true; // Bei Fehler als "OK" bewerten
         }
     }
-
 
     /**
      * Prüft ob KEINE Vorbedingungen für den Test definiert sind
@@ -568,20 +512,9 @@ class ilExamCheckerHandler
                 'details' => $conditions,
                 'obj_id' => $obj_id,
                 'ref_id' => $ref_id
-            ];
-
-            if (self::DEBUG_ENABLED) {
-                error_log("[ExamChecker] Test obj_id $obj_id (ref_id $ref_id) hat " .
-                    ($has_conditions ? count($conditions) . " VORBEDINGUNGEN (❌)" : "keine Vorbedingungen (✅)"));
-            }
-
-            // Return TRUE wenn KEINE Vorbedingungen (das ist gut für Prüfungen)
+            ];            // Return TRUE wenn KEINE Vorbedingungen (das ist gut für Prüfungen)
             return !$has_conditions;
-        } catch (Exception $e) {
-            if (self::DEBUG_ENABLED) {
-                error_log("[ExamChecker] Vorbedingungen-Check Fehler: " . $e->getMessage());
-            }
-            return true; // Bei Fehler als "OK" bewerten
+        } catch (Exception $e) {            return true; // Bei Fehler als "OK" bewerten
         }
     }
 
@@ -912,11 +845,11 @@ class ilExamCheckerHandler
     public function getInfo(): array
     {
         return array(
-            'name' => 'ExamChecker - WIP',
+            'name' => 'ExamChecker',
             'title' => 'Prüfungs-Einstellungen Checker',
             'icon' => '🔍',
             'description' => 'Überprüft Test-Einstellungen gegen definierte Standards für Präsenz- und Fernprüfungen.',
-            'version' => '0.0.3',
+            'version' => '1.0.0',
             'features' => array()
         );
     }

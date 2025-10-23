@@ -190,39 +190,24 @@ class ilExamAlertHandler
             return;
         }
 
-        // Alert-Konfiguration laden
         $config = $this->getAlertConfig($ref_id);
-        
+
         if (!$config['enabled']) {
             return;
         }
 
-        // Debug-Logging
-        $tpl->addOnLoadCode("
-            if (typeof window.eaLog === 'undefined') {
-                window.eaLog = function(msg) { 
-                    console.log('[ExamAlert] ' + msg); 
-                };
-            }
-            eaLog('⏰ ExamAlert wird geladen für ref_id: $ref_id');
-        ");
-
-        // CSS laden
         $css_path = $this->plugin_path . "/css/examalert.css";
         $tpl->addCss($css_path);
 
-        // JavaScript laden
         $js_path = $this->plugin_path . "/js/examalert/examalert.js";
         $tpl->addJavaScript($js_path);
 
-        // Konfiguration als JavaScript-Variable bereitstellen
         $config_json = json_encode($config);
-        
+
         $tpl->addOnLoadCode("
             window.ExamAlert = window.ExamAlert || {};
             window.ExamAlert.config = $config_json;
             window.ExamAlert.refId = $ref_id;
-            eaLog('✅ ExamAlert konfiguriert - Warnung bei ' + {$config['alert_time']} + ' Sekunden vor Ende');
         ");
     }
 
@@ -330,7 +315,7 @@ HTML;
             'title' => 'Zeit-Warnung',
             'icon' => '⏰',
             'description' => 'Zeigt zeitbasierte Warnungen mit benutzerdefinierten Nachrichten während des Tests an',
-            'version' => '1.0.1',
+            'version' => '1.0.0',
             'features' => [
                 'Konfigurierbare Auto-Aktivierung für neue Tests',
                 'Einstellbare Warnzeit (5 Sekunden bis 1 Stunde, Default: 30s)',
