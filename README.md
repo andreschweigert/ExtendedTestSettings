@@ -19,7 +19,8 @@ Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um professionelle Funk
 ```bash
 cd /path/to/ilias/Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/
 git clone <repository-url> ExtendedTestSettings
-cd ExtendedTestSettings
+
+Im ILIAS Verzeichnis:
 composer install --no-dev
 ```
 
@@ -40,15 +41,13 @@ Nach der Aktivierung erscheint in jedem ILIAS-Test ein neuer Tab **"Erweiterte T
 Stellt einen Taschenrechner während der Prüfung bereit.
 
 **Modi:**
-- **Einfach**: Grundrechenarten (+ − × ÷) - empfohlen für die meisten Prüfungen
-- **Wissenschaftlich**: Erweiterte Funktionen (sin, cos, tan, √, ^, log, ln, π, e) - Beta-Version
+- **Einfach**: Grundrechenarten (+ − × ÷) - 
+- **Wissenschaftlich**: Erweiterte Funktionen (sin, cos, tan, √, ^, log, ln, π, e) - Alpha-Version
 
 **Bedienung:**
 - Tastenkombination: `Alt + R`
 - Verschiebbar per Drag & Drop
 - Automatische Bereinigung bei Prüfungsende
-
-**Hinweis:** Der wissenschaftliche Modus ist als Beta gekennzeichnet und sollte vor Einsatz getestet werden.
 
 ### ExamSymbols - Sonderzeichen
 
@@ -77,7 +76,7 @@ Blockiert kritische Eingaben zum Schutz der Prüfungsintegrität.
 - Entwickler-Tools (F12, Strg+Shift+I/J/C)
 - Textauswahl (außer in Eingabefeldern)
 
-**Hinweis:** ExamGuard bietet client-seitige Sicherheit und sollte als zusätzliche Barriere, nicht als alleinige Sicherheitsmaßnahme verstanden werden. Für Hochsicherheits-Prüfungen empfehlen wir zusätzliche Maßnahmen wie ILIAS Kiosk-Modus oder Safe Exam Browser.
+**Hinweis:** ExamGuard bietet client-seitige Sicherheit und sollte als zusätzliche Barriere, nicht als alleinige Sicherheitsmaßnahme verstanden werden.
 
 ### ExamAlert - Zeit-Warnung
 
@@ -90,7 +89,7 @@ Warnt Teilnehmer rechtzeitig vor Prüfungsende.
 - Live-Countdown der verbleibenden Zeit
 - Dezente Benachrichtigung von oben
 
-**Tipp:** Die Standard-Warnzeit beträgt 30 Sekunden. Für längere Prüfungen empfehlen wir 5-10 Minuten.
+**Tipp:** Die Standard-Warnzeit beträgt 30 Sekunden.
 
 ### ExamChecker - Einstellungs-Prüfung
 
@@ -104,13 +103,6 @@ Warnt Teilnehmer rechtzeitig vor Prüfungsende.
 - Hinweise auf kritische Einstellungen
 
 **Konfiguration:** Standards können in der Plugin-Konfiguration (Administration → Plugins) angepasst werden.
-
-## Systemanforderungen
-
-- **ILIAS**: Version 9.0 oder höher
-- **PHP**: 8.0 oder höher
-- **Composer**: Für Abhängigkeiten
-- **Browser**: Moderne Browser (Chrome, Firefox, Safari, Edge)
 
 ## Datenbankstruktur
 
@@ -146,37 +138,6 @@ In jedem Test unter **Einstellungen → Erweiterte Test-Einstellungen** können 
 
 ## Troubleshooting
 
-### Debug-Modus aktivieren
-
-Für Fehlerdiagnose kann der Debug-Modus aktiviert werden:
-
-1. In `classes/class.ilExtendedTestSettingsUIHookGUI.php`:
-   ```php
-   private const DEBUG_ENABLED = true;
-   ```
-
-2. In `classes/ExamChecker/class.ilExamCheckerHandler.php`:
-   ```php
-   private const DEBUG_ENABLED = true;
-   ```
-
-3. Logs finden Sie im ILIAS-Error-Log.
-
-### Häufige Probleme
-
-**Module werden nicht geladen:**
-- Prüfen Sie, ob das Plugin aktiviert ist
-- Prüfen Sie die Browser-Konsole auf JavaScript-Fehler
-- Aktivieren Sie den Debug-Modus für detaillierte Logs
-
-**Tab ist nicht sichtbar:**
-- Prüfen Sie die Tab-Sichtbarkeitseinstellungen in der Plugin-Konfiguration
-- Prüfen Sie Ihre Berechtigungen im Test
-
-**Datenbankfehler bei Installation:**
-- Prüfen Sie die Datenbankrechte
-- Prüfen Sie das Error-Log für Details
-
 ## Entwicklung
 
 ### Architektur
@@ -207,15 +168,6 @@ ExtendedTestSettings/
 ├── templates/   # HTML-Templates
 └── sql/         # Datenbank-Migrations
 ```
-
-### Neues Modul hinzufügen
-
-1. Erstellen Sie einen neuen Handler in `classes/NewModule/`
-2. Implementieren Sie die Methoden: `isEnabled()`, `injectAssets()`, `saveSettings()`, `getSettingsHTML()`
-3. Registrieren Sie das Modul in `ilExtendedTestSettingsUIHookGUI.php`
-4. Fügen Sie JavaScript/CSS in `js/` bzw. `css/` hinzu
-5. Erstellen Sie eine Datenbanktabelle in `sql/dbupdate.php`
-
 ## Support & Kontakt
 
 **Entwickler:**
@@ -225,21 +177,14 @@ ExtendedTestSettings/
 **Institution:**
 Friedrich-Alexander-Universität Erlangen-Nürnberg (FAU)
 
-**Bug Reports & Feature Requests:**
-Bitte erstellen Sie ein Issue im Git-Repository oder kontaktieren Sie die Entwickler direkt.
-
 ## Lizenz
 
-Dieses Plugin wurde an der Friedrich-Alexander-Universität Erlangen-Nürnberg entwickelt.
+tba
+
 
 ## Changelog
 
 ### Version 1.0.0 (2025)
-- Produktions-Release
-- Alle Module stabil und getestet
-- Debug-Modus standardmäßig deaktiviert
-- Vereinheitlichte Versionsnummern
-- Überarbeitete Dokumentation
 
 ---
 
