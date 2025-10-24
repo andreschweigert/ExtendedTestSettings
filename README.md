@@ -2,7 +2,7 @@
 
 **Version 1.0.0** | ILIAS 9.x
 
-Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um professionelle Funktionen für Online-Prüfungen. Es bietet ein modulares System mit fünf spezialisierten Tools, die individuell pro Test aktiviert werden können.
+Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Online-Prüfungen. Es bietet ein modulares System mit fünf spezialisierten Tools, die individuell pro Test aktiviert werden können.
 
 ## Features
 
@@ -136,11 +136,7 @@ Unter **Administration → Plugins → ExtendedTestSettings → Konfigurieren** 
 
 In jedem Test unter **Einstellungen → Erweiterte Test-Einstellungen** können die Module einzeln aktiviert und konfiguriert werden.
 
-## Troubleshooting
-
-## Entwicklung
-
-### Architektur
+### Struktur
 
 Das Plugin folgt einer Handler-basierten Architektur:
 
