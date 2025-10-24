@@ -18,7 +18,7 @@ Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Onl
 
 ```bash
 cd /path/to/ilias/Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/
-git clone <repository-url> ExtendedTestSettings
+git clone https://github.com/andreschweigert/ExtendedTestSettings ExtendedTestSettings
 
 Im ILIAS Verzeichnis:
 composer install --no-dev
