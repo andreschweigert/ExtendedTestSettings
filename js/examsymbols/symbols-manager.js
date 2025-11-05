@@ -142,12 +142,8 @@ window.ExamSymbols.Manager = class {
             }
         });
 
-        // Template-Wechsler
-        if (this.templateSelect) {
-            this.templateSelect.addEventListener('change', (e) => {
-                this.switchTemplate(e.target.value);
-            });
-        }
+        // Template-Wechsler ENTFERNT - Nutzer sollen Template nicht ändern können
+        // Template wird nur vom Admin in Einstellungen festgelegt
 
         // Close Button
         const closeBtn = this.panel.querySelector('.close-btn');
@@ -246,26 +242,14 @@ window.ExamSymbols.Manager = class {
     }
 
     /**
-     * Template-Selector aktualisieren
+     * Template-Selector aktualisieren - DEAKTIVIERT
+     * Template wird nur vom Admin festgelegt, Nutzer können nicht wechseln
      */
     updateTemplateSelector() {
         if (!this.templateSelect) return;
 
-        // Optionen aus PHP-Konfiguration laden
-        if (window.ExamSymbols?.config?.availableTemplates) {
-            this.templateSelect.innerHTML = '';
-            for (const [key, data] of Object.entries(window.ExamSymbols.config.availableTemplates)) {
-                const option = document.createElement('option');
-                option.value = key;
-                option.textContent = data.label;
-                option.selected = key === this.currentTemplate;
-                this.templateSelect.appendChild(option);
-            }
-            this.templateSelect.style.display = 'block';
-        } else {
-            // Template-Selector verstecken wenn keine Templates
-            this.templateSelect.style.display = 'none';
-        }
+        // Template-Selector immer verstecken
+        this.templateSelect.style.display = 'none';
     }
 
     /**
@@ -331,7 +315,6 @@ window.ExamSymbols.Manager = class {
         // 1. Gespeichertes Element (für normale Textfelder)
         if (this.lastFocusedElement && this.isTextElement(this.lastFocusedElement)) {
             if (this.insertIntoNormalField(this.lastFocusedElement, symbol)) {
-                this.showInsertFeedback();
                 return;
             }
         }
@@ -340,31 +323,29 @@ window.ExamSymbols.Manager = class {
         const activeElement = document.activeElement;
         if (activeElement && this.isTextElement(activeElement)) {
             if (this.insertIntoNormalField(activeElement, symbol)) {
-                this.showInsertFeedback();
                 return;
             }
         }
 
         // 3. TinyMCE Editor
         if (this.insertIntoTinyMCE(symbol)) {
-            this.showInsertFeedback();
             return;
         }
 
         // 4. CKEditor
         if (this.insertIntoCKEditor(symbol)) {
-            this.showInsertFeedback();
             return;
         }
 
         // 5. Iframe-basierte Editoren
         if (this.insertIntoIframe(symbol)) {
-            this.showInsertFeedback();
             return;
         }
 
-        // Fallback: Fehlermeldung
-        this.showErrorFeedback();
+        // Fallback: Stille Fehlerbehandlung (kein visuelles Feedback)
+        if (window.esLog) {
+            window.esLog('⚠ Kein fokussiertes Textfeld gefunden');
+        }
     }
 
     /**
@@ -556,54 +537,9 @@ window.ExamSymbols.Manager = class {
     }
 
     /**
-     * Visuelles Feedback für erfolgreiches Einfügen
+     * ENTFERNT: Visuelles Feedback (war vorher besser ohne)
+     * showInsertFeedback() und showErrorFeedback() nicht mehr benötigt
      */
-    showInsertFeedback() {
-        // Symbol-Button hervorheben (wenn vorhanden)
-        const lastClickedBtn = this.symbolsGrid.querySelector('.symbol-btn:hover');
-        if (lastClickedBtn) {
-            lastClickedBtn.classList.add('inserted');
-            setTimeout(() => {
-                lastClickedBtn.classList.remove('inserted');
-            }, 400);
-        }
-
-        // Kurzes Feedback im Panel-Header
-        const header = this.panel.querySelector('.header h3');
-        if (header) {
-            const originalText = header.textContent;
-            header.textContent = '✓ Symbol eingefügt';
-            header.style.color = '#28a745';
-            
-            setTimeout(() => {
-                header.textContent = originalText;
-                header.style.color = '';
-            }, 1000);
-        }
-    }
-
-    /**
-     * Fehlerfeedback anzeigen
-     */
-    showErrorFeedback() {
-        // Fehlermeldung im Panel-Header
-        const header = this.panel.querySelector('.header h3');
-        if (header) {
-            const originalText = header.textContent;
-            header.textContent = '⚠ Erst in Textfeld klicken';
-            header.style.color = '#dc3545';
-            
-            setTimeout(() => {
-                header.textContent = originalText;
-                header.style.color = '';
-            }, 2000);
-        }
-
-        // Alternativer Alert (nur als Fallback)
-        if (!header) {
-            alert('Bitte zuerst in ein Textfeld klicken, dann das Symbol auswählen.');
-        }
-    }
 
     /**
      * Panel zurücksetzen

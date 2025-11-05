@@ -96,24 +96,11 @@
 }
 
 /* ============================================
-   TEMPLATE SELECTOR
+   TEMPLATE SELECTOR - DEAKTIVIERT
+   Nutzer sollen Template nicht ändern können
    ============================================ */
 #template-select {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
-    background: white;
-    font-size: 14px;
-    margin-bottom: 12px;
-    font-family: inherit;
-    transition: border-color 0.2s ease;
-}
-
-#template-select:focus {
-    outline: none;
-    border-color: #28a745;
-    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+    display: none !important;
 }
 
 /* ============================================
@@ -165,23 +152,8 @@
     outline-offset: 2px;
 }
 
-/* Symbol einfügen Animation */
-.symbol-btn.inserted {
-    animation: symbolInserted 0.4s ease-out;
-}
-
-@keyframes symbolInserted {
-    0% {
-        background: #28a745;
-        color: white;
-        transform: scale(1.2);
-    }
-    100% {
-        background: #ffffff;
-        color: inherit;
-        transform: scale(1);
-    }
-}
+/* Symbol einfügen Animation - ENTFERNT
+   Visuelles Feedback war vorher besser ohne */
 
 /* ============================================
    SCROLLBAR STYLING
@@ -357,18 +329,13 @@
     #symbols-panel {
         animation: none;
     }
-    
+
     .symbol-btn {
         transition: none;
     }
-    
+
     .symbol-btn:hover {
         transform: none;
-    }
-    
-    .symbol-inserted {
-        animation: none;
-        background: #d4edda;
     }
 }
 
