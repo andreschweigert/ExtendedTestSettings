@@ -197,11 +197,12 @@
 }
 
 /* ============================================
-   BUTTON GRID LAYOUT
+   BUTTON GRID LAYOUT (8 Zeilen)
    ============================================ */
 #calculator .buttons {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(8, auto);
     gap: 6px;
     margin-top: 8px;
     min-width: 0;
@@ -277,6 +278,92 @@
     background-color: #1e40af !important;
     color: white !important;
     border-color: #1e40af !important;
+}
+
+/* Angle Toggle (DEG/RAD) */
+.angle-toggle {
+    background-color: #f0fdf4 !important;
+    color: #15803d !important;
+    border-color: #bbf7d0 !important;
+    font-weight: 600 !important;
+    font-size: 11px !important;
+    padding: 8px 4px !important;
+}
+
+.angle-toggle:hover {
+    background-color: #dcfce7 !important;
+    border-color: #15803d !important;
+}
+
+.angle-toggle.active {
+    background-color: #15803d !important;
+    color: white !important;
+    border-color: #15803d !important;
+}
+
+/* Shift Toggle (2nd) */
+.shift-toggle {
+    background-color: #fef3c7 !important;
+    color: #b45309 !important;
+    border-color: #fde68a !important;
+    font-weight: 600 !important;
+    font-size: 11px !important;
+    padding: 8px 4px !important;
+}
+
+.shift-toggle:hover {
+    background-color: #fde68a !important;
+    border-color: #b45309 !important;
+}
+
+.shift-toggle.active {
+    background-color: #b45309 !important;
+    color: white !important;
+    border-color: #b45309 !important;
+    box-shadow: 0 0 8px rgba(180, 83, 9, 0.4) !important;
+}
+
+/* Trig Buttons mit 2nd-Modus */
+.trig-btn {
+    position: relative;
+    overflow: visible;
+}
+
+.trig-btn .secondary-label {
+    display: none;
+    font-size: 10px;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    color: #b45309;
+    font-weight: 600;
+}
+
+.trig-btn.shift-active .primary-label {
+    display: none;
+}
+
+.trig-btn.shift-active .secondary-label {
+    display: block;
+    position: static;
+    font-size: 13px;
+}
+
+.trig-btn.shift-active {
+    background-color: #fef3c7 !important;
+    border-color: #fde68a !important;
+}
+
+/* Funktions-Buttons (ln, log, exp, etc.) */
+.func-btn {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #7c3aed !important;
+}
+
+.func-btn:hover {
+    background-color: #faf5ff !important;
+    border-color: #7c3aed !important;
 }
 
 /* ============================================

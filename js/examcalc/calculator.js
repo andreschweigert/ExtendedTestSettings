@@ -29,6 +29,8 @@ window.ExamCalc.Calculator = class {
         this.maxHistoryItems = 10;
         this.showingFraction = false;
         this.historyVisible = false;
+        this.angleMode = 'deg'; // 'deg' oder 'rad'
+        this.shiftMode = false; // Für 2nd-Funktionen (arcsin, arccos, arctan)
     }
 
     /**
@@ -94,12 +96,39 @@ window.ExamCalc.Calculator = class {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
 
-                // SPEZIAL-BEHANDLUNG: Fraction Toggle Button
+                // SPEZIAL-BEHANDLUNG: Toggle Buttons
                 if (button.classList.contains('fraction-toggle')) {
-                    if (window.ecLog) {
-                        window.ecLog('⅓ Fraction-Button über Button-Handler geklickt!');
-                    }
                     this.toggleFractionMode();
+                    return;
+                }
+
+                if (button.classList.contains('angle-toggle')) {
+                    this.toggleAngleMode();
+                    return;
+                }
+
+                if (button.classList.contains('shift-toggle')) {
+                    this.toggleShiftMode();
+                    return;
+                }
+
+                // Trig-Buttons (berücksichtigen Shift-Modus)
+                if (button.classList.contains('trig-btn')) {
+                    const func = this.shiftMode ? button.dataset.secondary : button.dataset.primary;
+                    this.addFunction(func);
+                    if (this.shiftMode) {
+                        this.toggleShiftMode(); // Auto-deaktivieren nach Verwendung
+                    }
+                    return;
+                }
+
+                // Funktions-Buttons (ln, log, exp, etc.)
+                if (button.classList.contains('func-btn')) {
+                    const buttonId = button.id;
+                    if (buttonId === 'ln-btn') this.addFunction('ln');
+                    else if (buttonId === 'log-btn') this.addFunction('log');
+                    else if (buttonId === 'exp-btn') this.addFunction('exp');
+                    else if (buttonId === 'pow10-btn') this.addPower10();
                     return;
                 }
 
@@ -301,28 +330,63 @@ window.ExamCalc.Calculator = class {
             .replace(/(^|[^A-Za-z0-9_.])π(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.PI)
             .replace(/(^|[^A-Za-z0-9_.])e(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.E);
 
-        //  Natürlicher Logarithmus ln() 
+        // √ Wurzel-Funktion (vor anderen Funktionen)
+        parsed = parsed.replace(/√\s*\(([^)]+)\)/g, (m, arg) => `Math.sqrt(${arg})`);
+        parsed = parsed.replace(/sqrt\s*\(([^)]+)\)/g, (m, arg) => `Math.sqrt(${arg})`);
+
+        // exp() Funktion - Exponentialfunktion
+        parsed = parsed.replace(/exp\s*\(([^)]+)\)/g, (m, arg) => `Math.exp(${arg})`);
+
+        //  Natürlicher Logarithmus ln() - mit und ohne Klammern
         parsed = parsed.replace(
             /(^|[^A-Za-z0-9_.])ln\s*\(([^)]+)\)/g,
             (m, pre, arg) => `${pre}Math.log(${arg})`
+        );
+        // ln ohne Klammern (nimmt nächste Zahl)
+        parsed = parsed.replace(
+            /(^|[^A-Za-z0-9_.])ln\s+(\d+(?:\.\d+)?)/g,
+            (m, pre, num) => `${pre}Math.log(${num})`
+        );
+
+        // Logarithmus zur Basis 10 - mit und ohne Klammern
+        parsed = parsed.replace(
+            /(^|[^A-Za-z0-9_.])log\s*\(([^)]+)\)/g,
+            (m, pre, arg) => `${pre}Math.log10(${arg})`
+        );
+        // log ohne Klammern
+        parsed = parsed.replace(
+            /(^|[^A-Za-z0-9_.])log\s+(\d+(?:\.\d+)?)/g,
+            (m, pre, num) => `${pre}Math.log10(${num})`
+        );
+
+        // Winkel-Konvertierung basierend auf Modus
+        const angleConversion = this.angleMode === 'rad' ? '' : '*Math.PI/180';
+        const inverseAngleConversion = this.angleMode === 'rad' ? '' : '*180/Math.PI';
+
+        // Inverse trigonometrische Funktionen (arcsin, arccos, arctan)
+        parsed = parsed.replace(
+            /(^|[^A-Za-z0-9_.])(arcsin|asin)\s*\(([^)]+)\)/g,
+            (m, pre, fn, arg) => `${pre}(Math.asin(${arg})${inverseAngleConversion})`
+        );
+        parsed = parsed.replace(
+            /(^|[^A-Za-z0-9_.])(arccos|acos)\s*\(([^)]+)\)/g,
+            (m, pre, fn, arg) => `${pre}(Math.acos(${arg})${inverseAngleConversion})`
+        );
+        parsed = parsed.replace(
+            /(^|[^A-Za-z0-9_.])(arctan|atan)\s*\(([^)]+)\)/g,
+            (m, pre, fn, arg) => `${pre}(Math.atan(${arg})${inverseAngleConversion})`
         );
 
         // Trig-Funktionen mit beliebigem Exponenten: sin^n(x), cos^n(x), tan^n(x)
         parsed = parsed.replace(
             /(^|[^A-Za-z0-9_.])(sin|cos|tan)\^(\d+)\s*\(([^)]+)\)/g,
-            (m, pre, fn, exp, arg) => `${pre}Math.pow(Math.${fn}(${arg}*Math.PI/180),${exp})`
+            (m, pre, fn, exp, arg) => `${pre}Math.pow(Math.${fn}(${arg}${angleConversion}),${exp})`
         );
 
-        // Normale trigonometrische Funktionen in Grad
+        // Normale trigonometrische Funktionen
         parsed = parsed.replace(
             /(^|[^A-Za-z0-9_.])(sin|cos|tan)\s*\(([^)]+)\)/g,
-            (m, pre, fn, arg) => `${pre}Math.${fn}(${arg}*Math.PI/180)`
-        );
-
-        // Logarithmus zur Basis 10
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])log\s*\(([^)]+)\)/g,
-            (m, pre, arg) => `${pre}Math.log10(${arg})`
+            (m, pre, fn, arg) => `${pre}Math.${fn}(${arg}${angleConversion})`
         );
 
         // Exponenten-Operator zuletzt
@@ -726,6 +790,85 @@ window.ExamCalc.Calculator = class {
 
         if (window.ecLog) {
             window.ecLog(`⅓ Bruch-Modus ${this.showingFraction ? 'aktiviert' : 'deaktiviert'}`);
+        }
+    }
+
+    /**
+     *  Winkel-Modus umschalten (DEG/RAD)
+     */
+    toggleAngleMode() {
+        this.angleMode = this.angleMode === 'deg' ? 'rad' : 'deg';
+
+        const angleToggle = document.getElementById('angle-toggle');
+        if (angleToggle) {
+            angleToggle.textContent = this.angleMode.toUpperCase();
+            angleToggle.classList.toggle('active', this.angleMode === 'rad');
+            angleToggle.title = this.angleMode === 'deg'
+                ? "Zu Radiant wechseln"
+                : "Zu Grad wechseln";
+        }
+
+        if (window.ecLog) {
+            window.ecLog(`📐 Winkel-Modus: ${this.angleMode.toUpperCase()}`);
+        }
+    }
+
+    /**
+     *  Shift-Modus umschalten (2nd-Funktionen)
+     */
+    toggleShiftMode() {
+        this.shiftMode = !this.shiftMode;
+
+        const shiftToggle = document.getElementById('shift-toggle');
+        if (shiftToggle) {
+            shiftToggle.classList.toggle('active', this.shiftMode);
+        }
+
+        // Trig-Buttons visuell umschalten
+        const trigBtns = this.calc.querySelectorAll('.trig-btn');
+        trigBtns.forEach(btn => {
+            btn.classList.toggle('shift-active', this.shiftMode);
+        });
+
+        if (window.ecLog) {
+            window.ecLog(`🔄 Shift-Modus ${this.shiftMode ? 'aktiviert' : 'deaktiviert'}`);
+        }
+    }
+
+    /**
+     *  Funktion hinzufügen (ln, log, exp, sin, cos, tan, etc.)
+     */
+    addFunction(funcName) {
+        // Automatisch Klammer öffnen
+        this.current += funcName + '(';
+        this.display.value = this.formatDisplayExpression(this.current);
+
+        if (window.ecLog) {
+            window.ecLog(`📊 Funktion hinzugefügt: ${funcName}(`);
+        }
+    }
+
+    /**
+     *  10^x hinzufügen
+     */
+    addPower10() {
+        if (this.lastResult !== null && this.current === '') {
+            // 10^(letztes Ergebnis)
+            const result = Math.pow(10, this.lastResult);
+            this.lastResult = result;
+            this.updateDisplay(result);
+        } else if (this.current) {
+            // 10^(aktuelle Expression)
+            this.current = `10^(${this.current})`;
+            this.display.value = this.formatDisplayExpression(this.current);
+        } else {
+            // Leere Eingabe - starte mit 10^
+            this.current = '10^';
+            this.display.value = '10^';
+        }
+
+        if (window.ecLog) {
+            window.ecLog(`🔟 10^x hinzugefügt`);
         }
     }
 
