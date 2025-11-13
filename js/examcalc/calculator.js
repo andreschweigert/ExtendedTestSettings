@@ -31,6 +31,10 @@ window.ExamCalc.Calculator = class {
         this.historyVisible = false;
         this.angleMode = 'deg'; // 'deg' oder 'rad'
         this.shiftMode = false; // Für 2nd-Funktionen (arcsin, arccos, arctan)
+
+        // NEU: Speicher-Funktionalität
+        this.memory = 0;
+        this.memoryIndicator = null;
     }
 
     /**
@@ -40,6 +44,7 @@ window.ExamCalc.Calculator = class {
         this.btn = document.getElementById('calculator-btn');
         this.calc = document.getElementById('calculator');
         this.display = document.getElementById('calc-display');
+        this.memoryIndicator = document.getElementById('memory-indicator');
 
         if (!this.btn || !this.calc || !this.display) {
             console.error("[ExamCalc] Calculator-Elemente nicht gefunden");
@@ -109,6 +114,22 @@ window.ExamCalc.Calculator = class {
 
                 if (button.classList.contains('shift-toggle')) {
                     this.toggleShiftMode();
+                    return;
+                }
+
+                // NEU: Speicher-Buttons
+                if (button.classList.contains('memory-btn')) {
+                    const action = button.dataset.action;
+                    if (action === 'add') this.memoryAdd();
+                    else if (action === 'subtract') this.memorySubtract();
+                    else if (action === 'recall') this.memoryRecall();
+                    else if (action === 'clear') this.memoryClear();
+                    return;
+                }
+
+                // NEU: Verlaufs-Addition Button
+                if (button.classList.contains('history-add-btn')) {
+                    this.addHistoryResults();
                     return;
                 }
 
@@ -1007,6 +1028,140 @@ window.ExamCalc.Calculator = class {
         window.ExamCalc.DEBUG = !window.ExamCalc.DEBUG;
         console.log(`[ExamCalc] Debug ${window.ExamCalc.DEBUG ? 'aktiviert' : 'deaktiviert'}`);
         return window.ExamCalc.DEBUG;
+    }
+
+    /**
+     * NEU: Speicher-Funktionen
+     */
+
+    /**
+     * M+ - Zum Speicher hinzufügen
+     */
+    memoryAdd() {
+        const value = this.getCurrentValue();
+        if (value !== null) {
+            this.memory += value;
+            this.updateMemoryIndicator();
+
+            if (window.ecLog) {
+                window.ecLog(`💾 M+ : ${value} hinzugefügt → Speicher = ${this.memory}`);
+            }
+        }
+    }
+
+    /**
+     * M- - Vom Speicher abziehen
+     */
+    memorySubtract() {
+        const value = this.getCurrentValue();
+        if (value !== null) {
+            this.memory -= value;
+            this.updateMemoryIndicator();
+
+            if (window.ecLog) {
+                window.ecLog(`💾 M- : ${value} abgezogen → Speicher = ${this.memory}`);
+            }
+        }
+    }
+
+    /**
+     * MR - Speicher abrufen
+     */
+    memoryRecall() {
+        if (this.memory !== 0) {
+            this.current = this.memory.toString();
+            this.display.value = this.formatDisplayExpression(this.current);
+            this.lastResult = this.memory;
+
+            if (window.ecLog) {
+                window.ecLog(`💾 MR : Speicher abgerufen = ${this.memory}`);
+            }
+        }
+    }
+
+    /**
+     * MC - Speicher löschen
+     */
+    memoryClear() {
+        this.memory = 0;
+        this.updateMemoryIndicator();
+
+        if (window.ecLog) {
+            window.ecLog('💾 MC : Speicher gelöscht');
+        }
+    }
+
+    /**
+     * Aktuellen Wert ermitteln (Display oder letztes Ergebnis)
+     */
+    getCurrentValue() {
+        if (this.current !== '' && this.current !== 'Fehler') {
+            try {
+                const parsed = this.parseExpression(this.current);
+                return eval(parsed);
+            } catch (error) {
+                if (window.ecLog) {
+                    window.ecLog(`❌ Fehler beim Auswerten: ${error.message}`);
+                }
+                return null;
+            }
+        } else if (this.lastResult !== null) {
+            return this.lastResult;
+        }
+        return null;
+    }
+
+    /**
+     * Speicher-Indikator aktualisieren
+     */
+    updateMemoryIndicator() {
+        if (this.memoryIndicator) {
+            if (this.memory !== 0) {
+                this.memoryIndicator.textContent = `M: ${this.memory}`;
+                this.memoryIndicator.style.display = 'block';
+            } else {
+                this.memoryIndicator.style.display = 'none';
+            }
+        }
+    }
+
+    /**
+     * NEU: Alle Ergebnisse aus dem Verlauf addieren
+     */
+    addHistoryResults() {
+        if (this.history.length === 0) {
+            if (window.ecLog) {
+                window.ecLog('⚠️ Kein Verlauf vorhanden zum Addieren');
+            }
+            return;
+        }
+
+        // Alle Ergebnisse aus dem Verlauf sammeln
+        let sum = 0;
+        let expression = '';
+
+        this.history.forEach((item, index) => {
+            const result = parseFloat(item.result);
+            if (!isNaN(result)) {
+                sum += result;
+                if (index > 0) {
+                    expression += ' + ';
+                }
+                expression += result;
+            }
+        });
+
+        // Ergebnis anzeigen
+        this.lastResult = sum;
+        this.current = '';
+        this.updateDisplay(sum);
+
+        // In Verlauf hinzufügen
+        this.addToHistory(`Σ(${this.history.length} Werte)`, sum);
+
+        if (window.ecLog) {
+            window.ecLog(`➕ Verlaufs-Addition: ${expression} = ${sum}`);
+        }
     }
 
     /**

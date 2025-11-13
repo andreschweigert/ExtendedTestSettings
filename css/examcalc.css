@@ -197,12 +197,29 @@
 }
 
 /* ============================================
-   BUTTON GRID LAYOUT (8 Zeilen)
+   MEMORY INDICATOR (NEU)
+   ============================================ */
+#memory-indicator {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #fbbf24;
+    border-radius: 6px;
+    padding: 6px 12px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #92400e;
+    text-align: center;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    box-shadow: 0 2px 4px rgba(251, 191, 36, 0.2);
+}
+
+/* ============================================
+   BUTTON GRID LAYOUT (9 Zeilen - NEU)
    ============================================ */
 #calculator .buttons {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    grid-template-rows: repeat(8, auto);
+    grid-template-rows: repeat(9, auto);
     gap: 6px;
     margin-top: 8px;
     min-width: 0;
@@ -364,6 +381,42 @@
 .func-btn:hover {
     background-color: #faf5ff !important;
     border-color: #7c3aed !important;
+}
+
+/* NEU: Speicher-Buttons */
+.memory-btn {
+    background-color: #fef3c7 !important;
+    color: #92400e !important;
+    border-color: #fde68a !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+}
+
+.memory-btn:hover {
+    background-color: #fde68a !important;
+    border-color: #f59e0b !important;
+}
+
+.memory-btn:active {
+    background-color: #fbbf24 !important;
+}
+
+/* NEU: History-Add-Button (Sigma) */
+.history-add-btn {
+    background-color: #dbeafe !important;
+    color: #1e40af !important;
+    border-color: #93c5fd !important;
+    font-weight: 700 !important;
+    font-size: 18px !important;
+}
+
+.history-add-btn:hover {
+    background-color: #bfdbfe !important;
+    border-color: #1e40af !important;
+}
+
+.history-add-btn:active {
+    background-color: #93c5fd !important;
 }
 
 /* ============================================
