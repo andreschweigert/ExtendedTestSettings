@@ -21,13 +21,14 @@
     <div class="calculator-content">
         <!-- Main Calculator -->
         <div class="calculator-main">
-            <!-- Display -->
+            <!-- Display (editierbar für Keyboard-Eingabe) -->
             <input
                 type="text"
                 id="calc-display"
-                readonly
                 placeholder="0"
                 aria-label="Rechenergebnis"
+                autocomplete="off"
+                spellcheck="false"
             />
 
             <!-- NEU: Speicher-Indikator -->

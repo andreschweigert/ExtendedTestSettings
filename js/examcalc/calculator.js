@@ -96,6 +96,26 @@ window.ExamCalc.Calculator = class {
             clearHistory.addEventListener('click', () => this.clearHistory());
         }
 
+        // Keyboard-Eingabe für Display-Feld (mit Sicherheits-Validierung)
+        if (this.display) {
+            this.display.addEventListener('input', (e) => {
+                const value = e.target.value;
+                this.current = value;
+
+                if (window.ecLog) {
+                    window.ecLog(`⌨️ Keyboard-Eingabe: "${value}"`);
+                }
+            });
+
+            // Enter-Taste zum Berechnen
+            this.display.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.calculate();
+                }
+            });
+        }
+
         // Calculator Buttons (erweitert für neue Buttons)
         this.calc.querySelectorAll('.buttons button').forEach(button => {
             button.addEventListener('click', (e) => {
@@ -312,6 +332,64 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
+     * Input-Validierung: Schützt vor Code-Injection
+     * Multi-Layer Security Ansatz
+     */
+    validateInput(input) {
+        if (!input || input.trim() === '') {
+            return true; // Leere Eingabe ist ok
+        }
+
+        // Layer 1: Gefährliche Keywords blocken (höchste Priorität)
+        const dangerousKeywords = /constructor|__proto__|prototype|eval|function|window|document|alert|console|import|require|this\.|globalThis|process|exec/i;
+        if (dangerousKeywords.test(input)) {
+            if (window.ecLog) {
+                window.ecLog(`🛡️ SECURITY: Gefährliche Keywords blockiert in: "${input}"`);
+            }
+            return false;
+        }
+
+        // Layer 2: Keine String-Injection (Quotes, Backticks, Backslashes)
+        if (/[`'"\\]/.test(input)) {
+            if (window.ecLog) {
+                window.ecLog(`🛡️ SECURITY: String-Injection blockiert in: "${input}"`);
+            }
+            return false;
+        }
+
+        // Layer 3: Keine Semikolons (Code-Chaining verhindern)
+        if (/;/.test(input)) {
+            if (window.ecLog) {
+                window.ecLog(`🛡️ SECURITY: Semikolon blockiert in: "${input}"`);
+            }
+            return false;
+        }
+
+        // Layer 4: Nur erlaubte Zeichen und Funktionsnamen
+        // Erlaubte Zeichen: 0-9, +, -, *, /, ^, !, %, ., (, ), π, e, √, Leerzeichen
+        // Erlaubte Funktionen: sin, cos, tan, arcsin, arccos, arctan, asin, acos, atan, ln, log, exp, sqrt
+        const allowedPattern = /^[0-9+\-*/().πe√^!%\s,]+$|sin|cos|tan|arcsin|arccos|arctan|asin|acos|atan|ln|log|exp|sqrt/;
+
+        // Entferne alle erlaubten Funktionsnamen temporär
+        let testInput = input;
+        testInput = testInput.replace(/sin|cos|tan|arcsin|arccos|arctan|asin|acos|atan|ln|log|exp|sqrt/g, '');
+
+        // Prüfe ob nur erlaubte Zeichen übrig bleiben
+        if (!/^[0-9+\-*/().πe√^!%\s,]*$/.test(testInput)) {
+            if (window.ecLog) {
+                window.ecLog(`🛡️ SECURITY: Unerlaubte Zeichen blockiert in: "${input}"`);
+            }
+            return false;
+        }
+
+        // Alles ok!
+        if (window.ecLog) {
+            window.ecLog(`✅ SECURITY: Input validiert: "${input}"`);
+        }
+        return true;
+    }
+
+    /**
      * Berechnung ausführen (erweitert mit Verlauf)
      */
     calculate() {
@@ -321,6 +399,16 @@ window.ExamCalc.Calculator = class {
             // Wenn leer, aber letztes Ergebnis vorhanden
             if (expression === '' && this.lastResult !== null && this.lastOperator) {
                 expression = this.lastResult + this.lastOperator + this.lastOperand;
+            }
+
+            // SICHERHEIT: Input-Validierung VOR eval()
+            if (!this.validateInput(expression)) {
+                this.current = 'Ungültige Eingabe';
+                this.display.value = this.current;
+                if (window.ecLog) {
+                    window.ecLog(`❌ SECURITY: Berechnung blockiert - ungültige Eingabe`);
+                }
+                return;
             }
 
             // Expression für eval() vorbereiten
