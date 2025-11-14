@@ -278,6 +278,40 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
+     * Epsilon-Cleanup: Bereinigt Rundungsfehler
+     * - Werte nahe 0 werden auf 0 gesetzt
+     * - Werte nahe ganzen Zahlen werden gerundet
+     */
+    applyEpsilonCleanup(value) {
+        // Machine Epsilon für JavaScript (IEEE 754 Double Precision)
+        const EPSILON = 2.220446049250313e-16;
+
+        // Schwellwert: 1000x größer als Machine Epsilon
+        // (praktischer Wert für numerische Toleranz)
+        const THRESHOLD = EPSILON * 1000;
+
+        // Wenn Wert sehr nahe bei 0 ist → 0
+        if (Math.abs(value) < THRESHOLD) {
+            if (window.ecLog) {
+                window.ecLog(`🔧 Epsilon-Cleanup: ${value} → 0 (unter Schwellwert)`);
+            }
+            return 0;
+        }
+
+        // Wenn Wert sehr nahe bei ganzer Zahl ist → runden
+        const rounded = Math.round(value);
+        if (Math.abs(value - rounded) < THRESHOLD) {
+            if (window.ecLog) {
+                window.ecLog(`🔧 Epsilon-Cleanup: ${value} → ${rounded} (nahe ganzer Zahl)`);
+            }
+            return rounded;
+        }
+
+        // Ansonsten: Original-Wert beibehalten
+        return value;
+    }
+
+    /**
      * Berechnung ausführen (erweitert mit Verlauf)
      */
     calculate() {
@@ -291,7 +325,10 @@ window.ExamCalc.Calculator = class {
 
             // Expression für eval() vorbereiten
             const parsed = this.parseExpression(expression);
-            const result = eval(parsed);
+            let result = eval(parsed);
+
+            // Epsilon-Cleanup anwenden
+            result = this.applyEpsilonCleanup(result);
 
             //  In Verlauf hinzufügen (nur wenn gültiges Ergebnis)
             if (!isNaN(result) && isFinite(result)) {
