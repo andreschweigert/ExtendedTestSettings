@@ -471,6 +471,13 @@ window.ExamCalc.Calculator = class {
         //  Kehrwert 1/x - wenn 1/x als Token gefunden wird
         parsed = parsed.replace(/1\/x/g, '(1/x)');
 
+        // e^(...) zu exp(...) konvertieren - MUSS VOR der e→Math.E Ersetzung stehen!
+        // Matcht: e^(0.5) → exp(0.5)
+        parsed = parsed.replace(/(^|[^A-Za-z0-9_.])e\^\(([^)]+)\)/g, (match, pre, arg) => {
+            if (window.ecLog) window.ecLog(`🔧 e^(...)-Ersetzung: "${match.trim()}" → "exp(${arg})"`);
+            return `${pre}exp(${arg})`;
+        });
+
         // Konstanten nur als eigenständige Tokens ersetzen (verhindert 1e5 -> 1Math.E5)
         parsed = parsed
             .replace(/(^|[^A-Za-z0-9_.])π(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.PI)
@@ -613,19 +620,22 @@ window.ExamCalc.Calculator = class {
 
     /**
      *  Smart Exponenten-Verarbeitung (erweitert)
+     *  Fügt automatisch ^( hinzu für e, π, Funktionen
      */
     processSmartExponent(currentExpression, newDigit) {
-        // Pattern für automatische Exponenten
+        // Pattern für automatische Exponenten MIT KLAMMER
+        // User tippt: e 2 → wird zu e^(2
+        // User tippt dann ) → wird zu e^(2)
         const patterns = [
-            { regex: /e$/, replacement: `e^${newDigit}` },
-            { regex: /π$/, replacement: `π^${newDigit}` },
-            { regex: /sin$/, replacement: `sin^${newDigit}` },
-            { regex: /cos$/, replacement: `cos^${newDigit}` },
-            { regex: /tan$/, replacement: `tan^${newDigit}` },
-            { regex: /log$/, replacement: `log^${newDigit}` },
-            { regex: /ln$/, replacement: `ln^${newDigit}` },
-            { regex: /x$/, replacement: `x^${newDigit}` },
-            { regex: /\)$/, replacement: `)^${newDigit}` }
+            { regex: /e$/, replacement: `e^(${newDigit}` },
+            { regex: /π$/, replacement: `π^(${newDigit}` },
+            { regex: /sin$/, replacement: `sin^(${newDigit}` },
+            { regex: /cos$/, replacement: `cos^(${newDigit}` },
+            { regex: /tan$/, replacement: `tan^(${newDigit}` },
+            { regex: /log$/, replacement: `log^(${newDigit}` },
+            { regex: /ln$/, replacement: `ln^(${newDigit}` },
+            { regex: /x$/, replacement: `x^(${newDigit}` },
+            { regex: /\)$/, replacement: `)^(${newDigit}` }
         ];
 
         for (const pattern of patterns) {
@@ -633,7 +643,7 @@ window.ExamCalc.Calculator = class {
                 const newExpression = currentExpression.replace(pattern.regex, pattern.replacement);
 
                 if (window.ecLog) {
-                    window.ecLog(`🔤 Smart Exponent: "${currentExpression}" + "${newDigit}" → "${newExpression}"`);
+                    window.ecLog(`🔤 Smart Exponent (mit Klammer): "${currentExpression}" + "${newDigit}" → "${newExpression}"`);
                 }
 
                 return newExpression;
@@ -812,12 +822,17 @@ window.ExamCalc.Calculator = class {
         const superscriptMap = {
             '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
             '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
-            '+': '⁺', '-': '⁻', '(': '⁽', ')': '⁾'
+            '+': '⁺', '-': '⁻', '(': '⁽', ')': '⁾', '.': '·'
         };
 
         let formattedExpression = expression;
 
-        // Exponenten in Superscript umwandeln
+        // Exponenten MIT KLAMMERN in Superscript umwandeln: ^(0.5) → ⁽⁰·⁵⁾
+        formattedExpression = formattedExpression.replace(/\^\(([^)]+)\)/g, (match, content) => {
+            return content.split('').map(char => superscriptMap[char] || char).join('');
+        });
+
+        // Exponenten OHNE KLAMMERN in Superscript umwandeln: ^2 → ²
         formattedExpression = formattedExpression.replace(/\^(\d+)/g, (match, exponent) => {
             return exponent.split('').map(char => superscriptMap[char] || char).join('');
         });
