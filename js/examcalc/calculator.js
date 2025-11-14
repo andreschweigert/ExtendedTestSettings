@@ -477,8 +477,23 @@ window.ExamCalc.Calculator = class {
             .replace(/(^|[^A-Za-z0-9_.])e(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.E);
 
         // √ Wurzel-Funktion (vor anderen Funktionen)
-        parsed = parsed.replace(/√\s*\(([^)]+)\)/g, (m, arg) => `Math.sqrt(${arg})`);
-        parsed = parsed.replace(/sqrt\s*\(([^)]+)\)/g, (m, arg) => `Math.sqrt(${arg})`);
+        // WICHTIG: Ohne Klammern ZUERST, damit √2 nicht als √ + 2 geparst wird
+        // Ohne Klammern: √2 oder √16 (nimmt die nächste Zahl)
+        parsed = parsed.replace(/√(\d+(?:\.\d+)?)/g, (match, num) => {
+            if (window.ecLog) window.ecLog(`🔧 √-Ersetzung ohne Klammern: "${match}" → "Math.sqrt(${num})"`);
+            return `Math.sqrt(${num})`;
+        });
+        // Mit Klammern: √(2+3)
+        parsed = parsed.replace(/√\(([^)]+)\)/g, (match, arg) => {
+            if (window.ecLog) window.ecLog(`🔧 √-Ersetzung mit Klammern: "${match}" → "Math.sqrt(${arg})"`);
+            return `Math.sqrt(${arg})`;
+        });
+        // sqrt() - aber NUR wenn NICHT bereits Math.sqrt() ist
+        // Negative Lookbehind: (?<!Math\.) verhindert Doppel-Ersetzung
+        parsed = parsed.replace(/(?<!Math\.)sqrt\(([^)]+)\)/g, (match, arg) => {
+            if (window.ecLog) window.ecLog(`🔧 sqrt-Ersetzung: "${match}" → "Math.sqrt(${arg})"`);
+            return `Math.sqrt(${arg})`;
+        });
 
         // exp() Funktion - Exponentialfunktion
         parsed = parsed.replace(/exp\s*\(([^)]+)\)/g, (m, arg) => `Math.exp(${arg})`);
