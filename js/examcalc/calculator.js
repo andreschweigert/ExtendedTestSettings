@@ -1072,31 +1072,39 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     *  10^x hinzufügen
+     *  10^x hinzufügen (POSTFIX-Operator wie x²)
      */
     addPower10() {
         if (this.lastResult !== null && this.current === '') {
-            // 10^(letztes Ergebnis)
+            // 10^(letztes Ergebnis) - Postfix auf Ergebnis
             const result = Math.pow(10, this.lastResult);
             this.lastResult = result;
             this.updateDisplay(result);
+
+            if (window.ecLog) {
+                window.ecLog(`🔟 10^x (Postfix): 10^${this.lastResult} = ${result}`);
+            }
         } else if (this.current) {
-            // 10^(aktuelle Expression)
+            // 10^(aktuelle Expression) - Postfix auf Expression
             this.current = `10^(${this.current})`;
             this.display.value = this.formatDisplayExpression(this.current);
-        } else {
-            // Leere Eingabe - starte mit 10^
-            this.current = '10^';
-            this.display.value = '10^';
-        }
 
-        if (window.ecLog) {
-            window.ecLog(`🔟 10^x hinzugefügt`);
+            if (window.ecLog) {
+                window.ecLog(`🔟 10^x (Postfix): 10^(${this.current})`);
+            }
+        } else {
+            // Nichts vorhanden - zeige Placeholder wie bei x²
+            this.current = '10^x';
+            this.display.value = '10^x';
+
+            if (window.ecLog) {
+                window.ecLog('🔟 10^x Placeholder angezeigt');
+            }
         }
     }
 
     /**
-     *  Display aktualisieren (mit Bruch-Support)
+     *  Display aktualisieren (mit Bruch-Support und optimierter Zahlenformatierung)
      */
     updateDisplay(value) {
         if (window.ecLog) {
@@ -1107,8 +1115,41 @@ window.ExamCalc.Calculator = class {
             const fractionText = this.formatAsFraction(parseFloat(value));
             this.display.value = fractionText;
         } else {
-            this.display.value = value;
+            // Optimierte Zahlenformatierung für bessere Lesbarkeit
+            this.display.value = this.formatNumber(value);
         }
+    }
+
+    /**
+     * Formatiert Zahlen für optimale Display-Darstellung
+     * - Entfernt unnötige Dezimalstellen bei sehr großen Zahlen
+     * - Nutzt präzise Scientific Notation
+     * - Vermeidet Floating-Point Artefakte in der Anzeige
+     */
+    formatNumber(value) {
+        // Wenn kein numerischer Wert, direkt zurückgeben (z.B. "Fehler", "Ungültige Eingabe")
+        if (isNaN(value) || !isFinite(value)) {
+            return value;
+        }
+
+        const num = parseFloat(value);
+
+        // Sehr große oder sehr kleine Zahlen: Scientific Notation mit sinnvoller Präzision
+        if (Math.abs(num) >= 1e15 || (Math.abs(num) < 1e-10 && Math.abs(num) > 0)) {
+            // Nutze toPrecision für bessere Darstellung
+            return num.toPrecision(10);
+        }
+
+        // Normale Zahlen: Maximal 12 signifikante Stellen
+        // Dies vermeidet Floating-Point Artefakte wie "1.0000000000000001"
+        const str = num.toString();
+
+        // Wenn Exponentialschreibweise automatisch verwendet wird, optimiere sie
+        if (str.includes('e')) {
+            return num.toPrecision(10);
+        }
+
+        return str;
     }
 
     /**

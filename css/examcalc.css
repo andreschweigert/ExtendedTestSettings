@@ -189,11 +189,33 @@
     box-sizing: border-box;
     min-width: 0;
     flex-shrink: 0;
+    /* Overflow-Handling für lange Zahlen */
+    overflow-x: auto;
+    white-space: nowrap;
 }
 
 #calculator input:focus {
     outline: none;
     box-shadow: inset 0 2px 4px rgba(30, 64, 175, 0.1), 0 0 0 3px rgba(30, 64, 175, 0.15);
+}
+
+/* Scrollbar Styling für Display */
+#calculator input::-webkit-scrollbar {
+    height: 6px;
+}
+
+#calculator input::-webkit-scrollbar-track {
+    background: #e5e7eb;
+    border-radius: 3px;
+}
+
+#calculator input::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 3px;
+}
+
+#calculator input::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
 }
 
 /* ============================================
