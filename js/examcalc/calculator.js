@@ -390,6 +390,40 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
+     * Auto-Complete: Fehlende schließende Klammern hinzufügen
+     * Zählt öffnende und schließende Klammern und ergänzt fehlende )
+     */
+    autoCompleteParentheses(expression) {
+        if (!expression) return expression;
+
+        // Zähle öffnende und schließende Klammern
+        let openCount = 0;
+        let closeCount = 0;
+
+        for (let char of expression) {
+            if (char === '(') openCount++;
+            if (char === ')') closeCount++;
+        }
+
+        // Berechne wie viele Klammern fehlen
+        const missingClosing = openCount - closeCount;
+
+        if (missingClosing > 0) {
+            // Füge fehlende schließende Klammern hinzu
+            const completed = expression + ')'.repeat(missingClosing);
+
+            if (window.ecLog) {
+                window.ecLog(`🔧 Auto-Complete: ${missingClosing} Klammer(n) ergänzt: "${expression}" → "${completed}"`);
+            }
+
+            return completed;
+        }
+
+        // Keine fehlenden Klammern
+        return expression;
+    }
+
+    /**
      * Berechnung ausführen (erweitert mit Verlauf)
      */
     calculate() {
@@ -399,6 +433,19 @@ window.ExamCalc.Calculator = class {
             // Wenn leer, aber letztes Ergebnis vorhanden
             if (expression === '' && this.lastResult !== null && this.lastOperator) {
                 expression = this.lastResult + this.lastOperator + this.lastOperand;
+            }
+
+            // AUTO-COMPLETE: Fehlende schließende Klammern hinzufügen
+            expression = this.autoCompleteParentheses(expression);
+
+            // Aktualisiere current und Display mit vervollständigter Expression
+            if (expression !== this.current) {
+                this.current = expression;
+                this.display.value = this.formatDisplayExpression(expression);
+
+                if (window.ecLog) {
+                    window.ecLog(`🔧 Auto-Complete: Klammern ergänzt → "${expression}"`);
+                }
             }
 
             // SICHERHEIT: Input-Validierung VOR eval()
