@@ -258,7 +258,7 @@ Wir freuen uns über Beiträge! Das Plugin ist Open Source.
 **Status:** TBA (To Be Announced)
 
 **Haftungsausschluss:**
-Das ExtendedTestSettings Plugin wird "wie besehen" bereitgestellt, ohne jegliche ausdrückliche oder stillschweigende Gewährleistung. Die Entwickler übernehmen keine Haftung für Datenverlust, Prüfungsausfälle, Sicherheitsvorfälle oder technische Probleme.
+Das ExtendedTestSettings Plugin wird "wie gesehen" bereitgestellt, ohne jegliche ausdrückliche oder stillschweigende Gewährleistung. Die Entwickler übernehmen keine Haftung für Datenverlust, Prüfungsausfälle, Sicherheitsvorfälle oder technische Probleme.
 
 **Empfehlung:** Testen Sie das Plugin ausführlich in einer Test-Umgebung, bevor Sie es in Produktiv-Prüfungen einsetzen.
 
