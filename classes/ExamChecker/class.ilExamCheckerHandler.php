@@ -7,7 +7,8 @@
 
 class ilExamCheckerHandler
 {
-    private string $plugin_path;    public function __construct(string $plugin_path)
+    private string $plugin_path;
+    public function __construct(string $plugin_path)
     {
         $this->plugin_path = $plugin_path;
     }
@@ -377,8 +378,11 @@ class ilExamCheckerHandler
 
         // Automatisches Speichern (30s Intervall)
         $autosave_enabled = (int)$test_data['autosave'] === 1;
-        $autosave_interval = (int)$test_data['autosave_ival'] === 30;
+
+        $autosave_interval = (int)$test_data['autosave_ival'] === 30000; # 30 Sekunden in Millisekunden
+
         $checks['automatisches_speichern'] = $autosave_enabled && $autosave_interval;
+
 
         // Weitere Standard-Einstellungen
         $checks['direkte_rueckmeldung'] = (int)$test_data['instant_verification'] === 0; // Sollte AUS sein
@@ -435,7 +439,8 @@ class ilExamCheckerHandler
                 $ref_id = (int)$ref_row['ref_id'];
             }
 
-            if ($ref_id <= 0) {                return true; // Bei Fehler als "OK" bewerten
+            if ($ref_id <= 0) {
+                return true; // Bei Fehler als "OK" bewerten
             }
 
             // Prüfe crs_items Tabelle für zeitliche Begrenzung
@@ -447,10 +452,13 @@ class ilExamCheckerHandler
                 $timing_end = (int)($timing_row['timing_end'] ?? 0);
 
                 // Beide Werte sollten 0 sein (keine zeitliche Begrenzung)
-                $timing_disabled = ($timing_start === 0) && ($timing_end === 0);                return $timing_disabled;
-            } else {                return true; // Kein Eintrag = keine Begrenzung = OK
+                $timing_disabled = ($timing_start === 0) && ($timing_end === 0);
+                return $timing_disabled;
+            } else {
+                return true; // Kein Eintrag = keine Begrenzung = OK
             }
-        } catch (Exception $e) {            return true; // Bei Fehler als "OK" bewerten
+        } catch (Exception $e) {
+            return true; // Bei Fehler als "OK" bewerten
         }
     }
 
@@ -514,7 +522,8 @@ class ilExamCheckerHandler
                 'ref_id' => $ref_id
             ];            // Return TRUE wenn KEINE Vorbedingungen (das ist gut für Prüfungen)
             return !$has_conditions;
-        } catch (Exception $e) {            return true; // Bei Fehler als "OK" bewerten
+        } catch (Exception $e) {
+            return true; // Bei Fehler als "OK" bewerten
         }
     }
 
