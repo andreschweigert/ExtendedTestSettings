@@ -566,10 +566,13 @@ HTML;
                     continue;
                 }
 
-                $info = $handler->getInfo();
-                $settings_html = $handler->getSettingsHTML($ref_id);
-
-                $html_sections .= $this->generateModuleSection($info, $settings_html);
+                try {
+                    $info = $handler->getInfo();
+                    $settings_html = $handler->getSettingsHTML($ref_id);
+                    $html_sections .= $this->generateModuleSection($info, $settings_html);
+                } catch (Exception $e) {
+                    error_log("[ExtendedTestSettings] Fehler beim Laden von Modul '$moduleName': " . $e->getMessage());
+                }
             }
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
@@ -885,6 +888,27 @@ HTML;
                     'alert_message' => $row['alert_message'] ?? 'Achtung: Der Test endet bald!'
                 ];
             }
+
+            // Kein Eintrag: Auto-Enable-Setting lesen und Row direkt anlegen
+            $settings = new ilSetting('extendedtestsettings');
+            $auto_enable = $settings->get('examalert_auto_enable', '1') === '1';
+            $enabled_value = $auto_enable ? 1 : 0;
+
+            $db->insert('examalert_settings', [
+                'test_id'       => ['integer',   $test_id],
+                'enabled'       => ['integer',   $enabled_value],
+                'alert_time'    => ['integer',   30],
+                'alert_message' => ['text',      'Achtung: Der Test endet bald!'],
+                'updated_at'    => ['timestamp', date('Y-m-d H:i:s')]
+            ]);
+
+            error_log("[ExamAlert] Fallback: Default-Einstellungen erstellt für Test-ID: $test_id (enabled: $enabled_value)");
+
+            return [
+                'enabled'       => $auto_enable,
+                'alert_time'    => 30,
+                'alert_message' => 'Achtung: Der Test endet bald!'
+            ];
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Fallback ExamAlert Status Fehler: " . $e->getMessage());
