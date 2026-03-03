@@ -19,8 +19,8 @@ class ilExamAlertHandler
     }
 
     /**
-     * Prüft ob ExamAlert für den Test aktiviert ist
-     * Berücksichtigt nun das globale Auto-Enable Setting
+     * Prüft ob ExamAlert für den Test aktiviert ist.
+     * Legt bei fehlendem Eintrag automatisch Defaults an (enabled=1).
      */
     public function isEnabled(int $ref_id): bool
     {
@@ -41,31 +41,13 @@ class ilExamAlertHandler
                 return (bool) $row['enabled'];
             }
 
-            // NEU: Prüfe globales Auto-Enable Setting
-            $should_auto_enable = $this->shouldAutoEnableForNewTests();
-            
-            // Erstelle automatisch Default-Einstellungen (aktiviert oder deaktiviert je nach Setting)
-            $this->ensureDefaultSettings($test_id, $should_auto_enable);
-            return $should_auto_enable;
+            // Kein Eintrag: Default anlegen — enabled=1 wie auch alert_message immer DEFAULT_MESSAGE bekommt
+            $this->ensureDefaultSettings($test_id);
+            return true;
 
         } catch (Exception $e) {
             error_log("[ExamAlert] Fehler beim Prüfen der Aktivierung: " . $e->getMessage());
             return false;
-        }
-    }
-
-    /**
-     * NEU: Prüft das globale Auto-Enable Setting
-     */
-    private function shouldAutoEnableForNewTests(): bool
-    {
-        try {
-            $settings = new ilSetting('extendedtestsettings');
-            $auto_enable = $settings->get('examalert_auto_enable', '1'); // Default: aktiviert
-            return $auto_enable === '1';
-        } catch (Exception $e) {
-            error_log("[ExamAlert] Fehler beim Laden des Auto-Enable Settings: " . $e->getMessage());
-            return true; // Fallback: aktiviert
         }
     }
 
@@ -98,13 +80,12 @@ class ilExamAlertHandler
                 return ['enabled' => false, 'alert_time' => 30, 'alert_message' => ''];
             }
 
-            // Keine Einstellungen vorhanden = erstelle Defaults und gebe sie zurück
-            $should_auto_enable = $this->shouldAutoEnableForNewTests();
-            $this->ensureDefaultSettings($test_id, $should_auto_enable);
-            
+            // Keine Einstellungen vorhanden = Defaults anlegen (enabled=1 per Default)
+            $this->ensureDefaultSettings($test_id);
+
             return [
-                'enabled' => $should_auto_enable,
-                'alert_time' => 30,
+                'enabled'       => true,
+                'alert_time'    => 30,
                 'alert_message' => self::DEFAULT_MESSAGE
             ];
 
@@ -116,33 +97,28 @@ class ilExamAlertHandler
     }
 
     /**
-     * Stellt sicher, dass Default-Einstellungen für einen Test existieren
-     * MODIFIZIERT: Berücksichtigt nun das auto_enable Setting
+     * Legt Default-Einstellungen an, falls noch kein Eintrag existiert.
+     * enabled=1 ist der feste Default — analog zu alert_message=DEFAULT_MESSAGE.
      */
-    private function ensureDefaultSettings(int $test_id, bool $auto_enable = true): void
+    private function ensureDefaultSettings(int $test_id): void
     {
         global $DIC;
         $db = $DIC->database();
 
         try {
-            // Prüfe ob bereits Einstellungen existieren
             $query = "SELECT test_id FROM examalert_settings WHERE test_id = %s";
             $result = $db->queryF($query, ['integer'], [$test_id]);
-            
+
             if (!$db->fetchAssoc($result)) {
-                // Erstelle Default-Einstellungen mit dem übergebenen enabled-Wert
-                $enabled_value = $auto_enable ? 1 : 0;
-                
                 $db->insert('examalert_settings', [
-                    'test_id' => ['integer', $test_id],
-                    'enabled' => ['integer', $enabled_value],
-                    'alert_time' => ['integer', 30], // Standard: 30 Sekunden
-                    'alert_message' => ['text', self::DEFAULT_MESSAGE],
-                    'updated_at' => ['timestamp', date('Y-m-d H:i:s')]
+                    'test_id'       => ['integer',   $test_id],
+                    'enabled'       => ['integer',   1],
+                    'alert_time'    => ['integer',   30],
+                    'alert_message' => ['text',      self::DEFAULT_MESSAGE],
+                    'updated_at'    => ['timestamp', date('Y-m-d H:i:s')]
                 ]);
-                
-                $status = $auto_enable ? 'AKTIVIERT' : 'DEAKTIVIERT';
-                error_log("[ExamAlert] Default-Einstellungen erstellt für Test-ID: $test_id (Status: $status)");
+
+                error_log("[ExamAlert] Default-Einstellungen erstellt für Test-ID: $test_id (enabled=1)");
             }
         } catch (Exception $e) {
             error_log("[ExamAlert] Fehler beim Erstellen der Default-Einstellungen: " . $e->getMessage());

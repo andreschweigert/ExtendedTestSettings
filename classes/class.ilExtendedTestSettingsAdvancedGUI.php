@@ -889,23 +889,19 @@ HTML;
                 ];
             }
 
-            // Kein Eintrag: Auto-Enable-Setting lesen und Row direkt anlegen
-            $settings = new ilSetting('extendedtestsettings');
-            $auto_enable = $settings->get('examalert_auto_enable', '1') === '1';
-            $enabled_value = $auto_enable ? 1 : 0;
-
+            // Kein Eintrag: Default anlegen — enabled=1 als fester Default
             $db->insert('examalert_settings', [
                 'test_id'       => ['integer',   $test_id],
-                'enabled'       => ['integer',   $enabled_value],
+                'enabled'       => ['integer',   1],
                 'alert_time'    => ['integer',   30],
                 'alert_message' => ['text',      'Achtung: Der Test endet bald!'],
                 'updated_at'    => ['timestamp', date('Y-m-d H:i:s')]
             ]);
 
-            error_log("[ExamAlert] Fallback: Default-Einstellungen erstellt für Test-ID: $test_id (enabled: $enabled_value)");
+            error_log("[ExamAlert] Fallback: Default-Einstellungen erstellt für Test-ID: $test_id (enabled=1)");
 
             return [
-                'enabled'       => $auto_enable,
+                'enabled'       => true,
                 'alert_time'    => 30,
                 'alert_message' => 'Achtung: Der Test endet bald!'
             ];
