@@ -237,6 +237,12 @@ window.ExamCalc.Calculator = class {
      * Button-Klicks verarbeiten (erweitert mit neuen Funktionen)
      */
     handleButtonClick(value, classList) {
+        // Bei Fehler-Zustand: nächster Tastendruck löscht den Fehler
+        if (this.current === 'Fehler') {
+            this.current = '';
+            this.display.value = '';
+        }
+
         // DEL Button
         if (classList.contains('del-btn')) {
             this.deleteLastChar();
