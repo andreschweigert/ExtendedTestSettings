@@ -176,8 +176,10 @@ window.ExamCalc.Calculator = class {
         document.addEventListener('click', (e) => {
             if (e.target.closest('.history-item')) {
                 const item = e.target.closest('.history-item');
-                const result = item.querySelector('.history-result').textContent.replace('= ', '');
-                this.useHistoryResult(result);
+                const resultEl = item.querySelector('.history-result');
+                // data-value enthält den rohen numerischen Wert (kein Bruch-String)
+                const numericValue = resultEl.dataset.value ?? resultEl.textContent.replace('= ', '');
+                this.useHistoryResult(numericValue);
             }
         });
 
@@ -804,7 +806,7 @@ window.ExamCalc.Calculator = class {
             historyHTML += `
                 <div class="history-item" data-index="${index}">
                     <div class="history-expression">${this.escapeHtml(item.expression)}</div>
-                    <div class="history-result">= ${resultDisplay}</div>
+                    <div class="history-result" data-value="${item.result}">= ${resultDisplay}</div>
                 </div>
             `;
         });
@@ -1028,13 +1030,15 @@ window.ExamCalc.Calculator = class {
      *  Verlauf-Ergebnis verwenden
      */
     useHistoryResult(result) {
-        const cleanResult = result.replace(/\s+\d+\/\d+/, '').trim();
-        this.current = cleanResult;
-        this.display.value = cleanResult;
-        this.lastResult = parseFloat(cleanResult);
+        // result ist der rohe numerische Wert aus data-value (kein Bruch-String)
+        const numValue = parseFloat(result);
+        const display = isNaN(numValue) ? String(result) : String(numValue);
+        this.current = display;
+        this.display.value = display;
+        this.lastResult = isNaN(numValue) ? null : numValue;
 
         if (window.ecLog) {
-            window.ecLog(`📜 Verlauf-Ergebnis verwendet: ${cleanResult}`);
+            window.ecLog(`📜 Verlauf-Ergebnis verwendet: ${display}`);
         }
     }
 
