@@ -239,46 +239,33 @@ class ilExamAlertHandler
         $config = $this->getAlertConfig($ref_id);
         $alert_time = $config['alert_time'] ?? 30;
         $alert_message = htmlspecialchars($config['alert_message'] ?? self::DEFAULT_MESSAGE, ENT_QUOTES);
-        
-        return <<<HTML
-            <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                    <input type="checkbox" name="examalert_enabled" value="1" $enabled style="transform: scale(1.2);">
-                    <strong>Zeit-Warnung aktivieren</strong>
-                </label>
-                <p style="margin: 0.5rem 0 1rem 1.7rem; color: #666; font-size: 0.9rem;">
-                    Zeigt eine Warnung zu einer bestimmten Zeit vor Testende an.
-                </p>
 
-                <div style="margin-left: 1.7rem;">
-                    <label for="examalert_time" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
-                        Warnung anzeigen:
-                    </label>
-                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
-                        <input type="number" 
-                               name="examalert_time" 
-                               id="examalert_time" 
-                               value="$alert_time" 
-                               min="5" 
-                               max="3600" 
-                               style="width: 80px; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
-                        <span>Sekunden vor Testende</span>
-                    </div>
-
-                    <label for="examalert_message" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
-                        Nachricht:
-                    </label>
-                    <textarea name="examalert_message" 
-                              id="examalert_message" 
-                              rows="6"
-                              placeholder="Nachricht..."
-                              style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; resize: vertical; font-family: monospace;">$alert_message</textarea>
-                    <p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">
-                        Diese Nachricht wird den Teilnehmern zur eingestellten Zeit angezeigt. HTML-Formatierung erlaubt: &lt;strong&gt;, &lt;u&gt;, &lt;br&gt;
-                    </p>
-                </div>
-            </div>
-HTML;
+        return <<<EOT
+<div class="mb-3">
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="examalert_enabled" value="1" id="examalert_enabled" $enabled>
+        <label class="form-check-label fw-bold" for="examalert_enabled">Zeit-Warnung aktivieren</label>
+    </div>
+    <div class="form-text">Zeigt eine Warnung zu einer bestimmten Zeit vor Testende an.</div>
+</div>
+<div class="mb-3">
+    <label for="examalert_time" class="form-label fw-semibold">Warnung anzeigen:</label>
+    <div class="input-group" style="max-width: 300px;">
+        <input type="number" class="form-control" name="examalert_time" id="examalert_time"
+               value="$alert_time" min="5" max="3600">
+        <span class="input-group-text">Sekunden vor Testende</span>
+    </div>
+</div>
+<div class="mb-3">
+    <label for="examalert_message" class="form-label fw-semibold">Nachricht:</label>
+    <textarea name="examalert_message" id="examalert_message" rows="6"
+              class="form-control font-monospace" placeholder="Nachricht...">$alert_message</textarea>
+    <div class="form-text">
+        Diese Nachricht wird den Teilnehmern zur eingestellten Zeit angezeigt.
+        HTML-Formatierung erlaubt: &lt;strong&gt;, &lt;u&gt;, &lt;br&gt;
+    </div>
+</div>
+EOT;
     }
 
     /**
