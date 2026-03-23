@@ -473,8 +473,9 @@ window.ExamCalc.Calculator = class {
         expr = expr.replace(/(^|[^A-Za-z0-9_])log\s*\(/g, (m, pre) => pre + 'log10(');
         // ln( → log( (natürlicher Logarithmus in math.js)
         expr = expr.replace(/(^|[^A-Za-z0-9_])ln\s*\(/g, (m, pre) => pre + 'log(');
-        // √ → sqrt
-        expr = expr.replace(/√/g, 'sqrt');
+        // √ → sqrt(...)  — explizite Form für alle Varianten
+        expr = expr.replace(/√\(/g, 'sqrt(');                          // √(x+y) → sqrt(x+y)
+        expr = expr.replace(/√(\d+(?:\.\d+)?)/g, (m, n) => `sqrt(${n})`); // √9 → sqrt(9)
         // π → pi
         expr = expr.replace(/π/g, 'pi');
         // % → /100 (Prozent als Teilen durch 100)
