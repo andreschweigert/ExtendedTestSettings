@@ -22,22 +22,20 @@
         <!-- Main Calculator -->
         <div class="calculator-main">
             <!-- Display (readonly — Eingabe nur über Buttons) -->
-            <div class="display-wrapper">
-                <input
-                    type="text"
-                    id="calc-display"
-                    readonly
-                    placeholder="0"
-                    aria-label="Rechenergebnis"
-                    autocomplete="off"
-                    spellcheck="false"
-                />
-                <!-- Winkel-Modus-Indikator (Badge im Display) -->
+            <input
+                type="text"
+                id="calc-display"
+                readonly
+                placeholder="0"
+                aria-label="Rechenergebnis"
+                autocomplete="off"
+                spellcheck="false"
+            />
+            <!-- Status-Leiste: Badges mit fixer Höhe → kein Layout-Shift -->
+            <div class="display-badges">
                 <span id="angle-mode-display" class="angle-mode-indicator">DEG</span>
+                <span id="memory-indicator" class="memory-indicator" style="display: none;">M: 0</span>
             </div>
-
-            <!-- NEU: Speicher-Indikator -->
-            <div id="memory-indicator" style="display: none;">M: 0</div>
 
             <!-- Button Grid -->
             <div class="buttons" role="grid">

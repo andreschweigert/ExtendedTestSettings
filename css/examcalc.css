@@ -173,14 +173,9 @@
 /* ============================================
    DISPLAY INPUT
    ============================================ */
-.display-wrapper {
-    position: relative;
-    margin-bottom: 12px;
-}
-
 #calculator input {
     width: 100%;
-    padding: 12px 12px 12px 44px;
+    padding: 12px;
     font-size: 20px;
     font-weight: 500;
     border: none;
@@ -197,6 +192,16 @@
     /* Overflow-Handling für lange Zahlen */
     overflow-x: auto;
     white-space: nowrap;
+}
+
+/* Status-Leiste unter dem Display — fixe Höhe verhindert Layout-Shift */
+.display-badges {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 22px;
+    padding: 0 2px;
+    margin-bottom: 6px;
 }
 
 #calculator input:focus {
@@ -224,23 +229,19 @@
 }
 
 /* ============================================
-   ANGLE MODE INDICATOR (Badge im Display)
+   ANGLE MODE INDICATOR & MEMORY INDICATOR
+   (Badges in .display-badges — kein Overlap, kein Layout-Shift)
    ============================================ */
 .angle-mode-indicator {
-    position: absolute;
-    left: 7px;
-    top: 50%;
-    transform: translateY(-50%);
     background: #f0fdf4;
     border: 1px solid #bbf7d0;
     border-radius: 4px;
-    padding: 2px 5px;
+    padding: 2px 6px;
     font-size: 10px;
     font-weight: 700;
     color: #15803d;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     letter-spacing: 0.5px;
-    pointer-events: none;
     line-height: 1.4;
 }
 
@@ -250,21 +251,16 @@
     color: #c2410c;
 }
 
-/* ============================================
-   MEMORY INDICATOR (NEU)
-   ============================================ */
-#memory-indicator {
-    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+.memory-indicator {
+    background: #fef3c7;
     border: 1px solid #fbbf24;
-    border-radius: 6px;
-    padding: 6px 12px;
-    margin-bottom: 8px;
-    font-size: 13px;
-    font-weight: 600;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 700;
     color: #92400e;
-    text-align: center;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-    box-shadow: 0 2px 4px rgba(251, 191, 36, 0.2);
+    line-height: 1.4;
 }
 
 /* ============================================
