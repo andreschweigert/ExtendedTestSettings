@@ -1058,34 +1058,14 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     *  10^x hinzufügen (POSTFIX-Operator wie x²)
+     *  10^x hinzufügen (PRÄFIX — öffnet Klammer für Exponent-Eingabe)
      */
     addPower10() {
-        if (this.lastResult !== null && this.current === '') {
-            // 10^(letztes Ergebnis) - Postfix auf Ergebnis
-            const result = Math.pow(10, this.lastResult);
-            this.lastResult = result;
-            this.updateDisplay(result);
+        this.current += '10^(';
+        this.display.value = this.formatDisplayExpression(this.current);
 
-            if (window.ecLog) {
-                window.ecLog(`🔟 10^x (Postfix): 10^${this.lastResult} = ${result}`);
-            }
-        } else if (this.current) {
-            // 10^(aktuelle Expression) - Postfix auf Expression
-            this.current = `10^(${this.current})`;
-            this.display.value = this.formatDisplayExpression(this.current);
-
-            if (window.ecLog) {
-                window.ecLog(`🔟 10^x (Postfix): 10^(${this.current})`);
-            }
-        } else {
-            // Nichts vorhanden - zeige Placeholder wie bei x²
-            this.current = '10^x';
-            this.display.value = '10^x';
-
-            if (window.ecLog) {
-                window.ecLog('🔟 10^x Placeholder angezeigt');
-            }
+        if (window.ecLog) {
+            window.ecLog(`🔟 10^( eingefügt`);
         }
     }
 
