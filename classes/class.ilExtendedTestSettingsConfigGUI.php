@@ -188,6 +188,37 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $radio->addOption($opt_specific);
 
         $form->addItem($radio);
+
+        // --- ExamAlert Auto-Aktivierung ---
+        $section_alert = new ilFormSectionHeaderGUI();
+        $section_alert->setTitle('⏰ ExamAlert Auto-Aktivierung');
+        $form->addItem($section_alert);
+
+        $auto_val   = $this->settings->get('examalert_auto_activate', '1');
+        $radio_auto = new ilRadioGroupInputGUI('Standard für neue Tests', 'examalert_auto_activate');
+        $radio_auto->setValue($auto_val);
+        $radio_auto->setInfo(
+            'Diese Einstellung betrifft nur neue Tests. '
+            . 'Bereits existierende Tests behalten ihre aktuellen Einstellungen. '
+            . 'Administratoren können ExamAlert jederzeit in den Test-Einstellungen manuell aktivieren oder deaktivieren.'
+        );
+
+        $opt_auto_on = new ilRadioOption(
+            'Aktiviert: Jeder neue Test bekommt automatisch ExamAlert aktiviert (30s Warnung vor Ende)',
+            '1',
+            'Neue Tests erhalten automatisch eine 30-Sekunden-Warnung vor Testende.'
+        );
+        $radio_auto->addOption($opt_auto_on);
+
+        $opt_auto_off = new ilRadioOption(
+            'Deaktiviert: ExamAlert muss für jeden Test manuell in den Einstellungen aktiviert werden',
+            '0',
+            'ExamAlert ist bei neuen Tests standardmäßig deaktiviert.'
+        );
+        $radio_auto->addOption($opt_auto_off);
+
+        $form->addItem($radio_auto);
+
         $form->addCommandButton('saveGeneralSettings', 'Einstellungen speichern');
 
         return $form;
@@ -738,25 +769,16 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         try {
             // Tab-Sichtbarkeit
             $tab_visibility = $_POST['tab_visibility'] ?? 'course_admins';
-
-            // Validierung
             if (!in_array($tab_visibility, ['admins_only', 'course_admins', 'specific_users'])) {
                 $tab_visibility = 'course_admins';
             }
-
             $this->settings->set('tab_visibility', $tab_visibility);
 
-            $visibility_text = [
-                'admins_only'    => 'Nur System-Administratoren',
-                'course_admins'  => 'Kurs-Administratoren + System-Administratoren',
-                'specific_users' => 'Nur ausgewählte Benutzer + System-Administratoren'
-            ];
+            // ExamAlert Auto-Aktivierung
+            $examalert_auto = ($_POST['examalert_auto_activate'] ?? '1') === '0' ? '0' : '1';
+            $this->settings->set('examalert_auto_activate', $examalert_auto);
 
-            $this->tpl->setOnScreenMessage(
-                'success',
-                '✅ Einstellungen gespeichert.<br>' .
-                    '• Tab-Sichtbarkeit: ' . $visibility_text[$tab_visibility]
-            );
+            $this->tpl->setOnScreenMessage('success', 'Einstellungen gespeichert.');
         } catch (Exception $e) {
             $this->tpl->setOnScreenMessage(
                 'failure',

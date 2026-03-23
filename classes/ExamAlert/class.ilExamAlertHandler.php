@@ -41,9 +41,10 @@ class ilExamAlertHandler
                 return (bool) $row['enabled'];
             }
 
-            // Kein Eintrag: Default anlegen — enabled=1 wie auch alert_message immer DEFAULT_MESSAGE bekommt
-            $this->ensureDefaultSettings($test_id);
-            return true;
+            // Kein Eintrag: Default anlegen — enabled hängt von globaler Auto-Aktivierungs-Einstellung ab
+            $auto_activate = (new ilSetting('extendedtestsettings'))->get('examalert_auto_activate', '1') === '1';
+            $this->ensureDefaultSettings($test_id, $auto_activate);
+            return $auto_activate;
 
         } catch (Exception $e) {
             error_log("[ExamAlert] Fehler beim Prüfen der Aktivierung: " . $e->getMessage());
@@ -80,11 +81,12 @@ class ilExamAlertHandler
                 return ['enabled' => false, 'alert_time' => 30, 'alert_message' => ''];
             }
 
-            // Keine Einstellungen vorhanden = Defaults anlegen (enabled=1 per Default)
-            $this->ensureDefaultSettings($test_id);
+            // Keine Einstellungen vorhanden = Defaults anlegen, enabled abhängig von globaler Einstellung
+            $auto_activate = (new ilSetting('extendedtestsettings'))->get('examalert_auto_activate', '1') === '1';
+            $this->ensureDefaultSettings($test_id, $auto_activate);
 
             return [
-                'enabled'       => true,
+                'enabled'       => $auto_activate,
                 'alert_time'    => 30,
                 'alert_message' => self::DEFAULT_MESSAGE
             ];
@@ -98,9 +100,9 @@ class ilExamAlertHandler
 
     /**
      * Legt Default-Einstellungen an, falls noch kein Eintrag existiert.
-     * enabled=1 ist der feste Default — analog zu alert_message=DEFAULT_MESSAGE.
+     * $enabled_default wird von der globalen Auto-Aktivierungs-Einstellung der ConfigGUI gesteuert.
      */
-    private function ensureDefaultSettings(int $test_id): void
+    private function ensureDefaultSettings(int $test_id, bool $enabled_default = true): void
     {
         global $DIC;
         $db = $DIC->database();
@@ -112,13 +114,13 @@ class ilExamAlertHandler
             if (!$db->fetchAssoc($result)) {
                 $db->insert('examalert_settings', [
                     'test_id'       => ['integer',   $test_id],
-                    'enabled'       => ['integer',   1],
+                    'enabled'       => ['integer',   $enabled_default ? 1 : 0],
                     'alert_time'    => ['integer',   30],
                     'alert_message' => ['text',      self::DEFAULT_MESSAGE],
                     'updated_at'    => ['timestamp', date('Y-m-d H:i:s')]
                 ]);
 
-                error_log("[ExamAlert] Default-Einstellungen erstellt für Test-ID: $test_id (enabled=1)");
+                error_log("[ExamAlert] Default-Einstellungen erstellt für Test-ID: $test_id (enabled=" . ($enabled_default ? 1 : 0) . ')');
             }
         } catch (Exception $e) {
             error_log("[ExamAlert] Fehler beim Erstellen der Default-Einstellungen: " . $e->getMessage());
