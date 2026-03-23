@@ -972,6 +972,12 @@ window.ExamCalc.Calculator = class {
                 : "Zu Grad wechseln";
         }
 
+        const indicator = document.getElementById('angle-mode-display');
+        if (indicator) {
+            indicator.textContent = this.angleMode.toUpperCase();
+            indicator.classList.toggle('rad-active', this.angleMode === 'rad');
+        }
+
         if (window.ecLog) {
             window.ecLog(`📐 Winkel-Modus: ${this.angleMode.toUpperCase()}`);
         }

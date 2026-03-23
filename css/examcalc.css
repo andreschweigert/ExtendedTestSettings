@@ -219,6 +219,30 @@
 }
 
 /* ============================================
+   ANGLE MODE INDICATOR
+   ============================================ */
+.angle-mode-indicator {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    padding: 4px 10px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #15803d;
+    text-align: center;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    letter-spacing: 1px;
+}
+
+.angle-mode-indicator.rad-active {
+    background: #fff7ed;
+    border-color: #fdba74;
+    color: #c2410c;
+    box-shadow: 0 0 6px rgba(234, 88, 12, 0.3);
+}
+
+/* ============================================
    MEMORY INDICATOR (NEU)
    ============================================ */
 #memory-indicator {
