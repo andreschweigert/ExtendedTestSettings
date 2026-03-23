@@ -96,18 +96,8 @@ window.ExamCalc.Calculator = class {
             clearHistory.addEventListener('click', () => this.clearHistory());
         }
 
-        // Keyboard-Eingabe für Display-Feld (mit Sicherheits-Validierung)
+        // Enter-Taste zum Berechnen (Display ist readonly — kein input-Listener nötig)
         if (this.display) {
-            this.display.addEventListener('input', (e) => {
-                const value = e.target.value;
-                this.current = value;
-
-                if (window.ecLog) {
-                    window.ecLog(`⌨️ Keyboard-Eingabe: "${value}"`);
-                }
-            });
-
-            // Enter-Taste zum Berechnen
             this.display.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -120,6 +110,9 @@ window.ExamCalc.Calculator = class {
         this.calc.querySelectorAll('.buttons button').forEach(button => {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
+
+                // hyp-Button hat keine Implementierung — ignorieren
+                if (button.id === 'hyp-toggle') return;
 
                 // SPEZIAL-BEHANDLUNG: Toggle Buttons
                 if (button.classList.contains('fraction-toggle')) {
@@ -157,9 +150,6 @@ window.ExamCalc.Calculator = class {
                 if (button.classList.contains('trig-btn')) {
                     const func = this.shiftMode ? button.dataset.secondary : button.dataset.primary;
                     this.addFunction(func);
-                    if (this.shiftMode) {
-                        this.toggleShiftMode(); // Auto-deaktivieren nach Verwendung
-                    }
                     return;
                 }
 
@@ -186,8 +176,10 @@ window.ExamCalc.Calculator = class {
         document.addEventListener('click', (e) => {
             if (e.target.closest('.history-item')) {
                 const item = e.target.closest('.history-item');
-                const result = item.querySelector('.history-result').textContent.replace('= ', '');
-                this.useHistoryResult(result);
+                const resultEl = item.querySelector('.history-result');
+                // data-value enthält den rohen numerischen Wert (kein Bruch-String)
+                const numericValue = resultEl.dataset.value ?? resultEl.textContent.replace('= ', '');
+                this.useHistoryResult(numericValue);
             }
         });
 
@@ -245,6 +237,12 @@ window.ExamCalc.Calculator = class {
      * Button-Klicks verarbeiten (erweitert mit neuen Funktionen)
      */
     handleButtonClick(value, classList) {
+        // Bei Fehler-Zustand: nächster Tastendruck löscht den Fehler
+        if (this.current === 'Fehler') {
+            this.current = '';
+            this.display.value = '';
+        }
+
         // DEL Button
         if (classList.contains('del-btn')) {
             this.deleteLastChar();
@@ -327,20 +325,20 @@ window.ExamCalc.Calculator = class {
             return rounded;
         }
 
-        // Ansonsten: Original-Wert beibehalten
-        return value;
+        // Auf 10 signifikante Stellen runden (eliminiert Floating-Point-Rauschen wie 0.49999999999999994)
+        return parseFloat(value.toPrecision(10));
     }
 
     /**
      * Input-Validierung: Schützt vor Code-Injection
-     * Multi-Layer Security Ansatz
+     * (Layer 4 / Zeichenallowlist entfernt — math.js wirft bei ungültigem Ausdruck selbst)
      */
     validateInput(input) {
         if (!input || input.trim() === '') {
-            return true; // Leere Eingabe ist ok
+            return true;
         }
 
-        // Layer 1: Gefährliche Keywords blocken (höchste Priorität)
+        // Layer 1: Gefährliche Keywords blocken
         const dangerousKeywords = /constructor|__proto__|prototype|eval|function|window|document|alert|console|import|require|this\.|globalThis|process|exec/i;
         if (dangerousKeywords.test(input)) {
             if (window.ecLog) {
@@ -357,7 +355,7 @@ window.ExamCalc.Calculator = class {
             return false;
         }
 
-        // Layer 3: Keine Semikolons (Code-Chaining verhindern)
+        // Layer 3: Keine Semikolons
         if (/;/.test(input)) {
             if (window.ecLog) {
                 window.ecLog(`🛡️ SECURITY: Semikolon blockiert in: "${input}"`);
@@ -365,24 +363,6 @@ window.ExamCalc.Calculator = class {
             return false;
         }
 
-        // Layer 4: Nur erlaubte Zeichen und Funktionsnamen
-        // Erlaubte Zeichen: 0-9, +, -, *, /, ^, !, %, ., (, ), π, e, √, Leerzeichen
-        // Erlaubte Funktionen: sin, cos, tan, arcsin, arccos, arctan, asin, acos, atan, ln, log, exp, sqrt
-        const allowedPattern = /^[0-9+\-*/().πe√^!%\s,]+$|sin|cos|tan|arcsin|arccos|arctan|asin|acos|atan|ln|log|exp|sqrt/;
-
-        // Entferne alle erlaubten Funktionsnamen temporär
-        let testInput = input;
-        testInput = testInput.replace(/sin|cos|tan|arcsin|arccos|arctan|asin|acos|atan|ln|log|exp|sqrt/g, '');
-
-        // Prüfe ob nur erlaubte Zeichen übrig bleiben
-        if (!/^[0-9+\-*/().πe√^!%\s,]*$/.test(testInput)) {
-            if (window.ecLog) {
-                window.ecLog(`🛡️ SECURITY: Unerlaubte Zeichen blockiert in: "${input}"`);
-            }
-            return false;
-        }
-
-        // Alles ok!
         if (window.ecLog) {
             window.ecLog(`✅ SECURITY: Input validiert: "${input}"`);
         }
@@ -435,18 +415,8 @@ window.ExamCalc.Calculator = class {
                 expression = this.lastResult + this.lastOperator + this.lastOperand;
             }
 
-            // AUTO-COMPLETE: Fehlende schließende Klammern hinzufügen
+            // Fehlende schließende Klammern am Ende ergänzen
             expression = this.autoCompleteParentheses(expression);
-
-            // Aktualisiere current und Display mit vervollständigter Expression
-            if (expression !== this.current) {
-                this.current = expression;
-                this.display.value = this.formatDisplayExpression(expression);
-
-                if (window.ecLog) {
-                    window.ecLog(`🔧 Auto-Complete: Klammern ergänzt → "${expression}"`);
-                }
-            }
 
             // SICHERHEIT: Input-Validierung VOR eval()
             if (!this.validateInput(expression)) {
@@ -458,9 +428,8 @@ window.ExamCalc.Calculator = class {
                 return;
             }
 
-            // Expression für eval() vorbereiten
-            const parsed = this.parseExpression(expression);
-            let result = eval(parsed);
+            // Ausdruck mit math.js auswerten (kein eval() mehr)
+            let result = this.evaluateWithMathJs(expression);
 
             // Epsilon-Cleanup anwenden
             result = this.applyEpsilonCleanup(result);
@@ -489,126 +458,41 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * Expression für JavaScript eval() umwandeln (ERWEITERTE VERSION)
+     * Ausdruck mit math.js auswerten
+     * Ersetzt den alten Regex-Parser + eval()-Ansatz vollständig.
+     * Unterstützt verschachtelte Funktionen: sin(cos(30)), ln(sqrt(x)) etc.
      */
-    parseExpression(expression) {
-        let parsed = expression;
-        if (window.ecLog) window.ecLog(`🔧 Parse Input: "${expression}"`);
+    evaluateWithMathJs(expression) {
+        let expr = expression;
 
-        //  Fakultät-Funktion definieren (muss vor anderen Ersetzungen stehen)
-        if (!window.factorialFunction) {
-            window.factorialFunction = (n) => {
-                if (n < 0) return NaN;
-                if (n === 0 || n === 1) return 1;
-                let result = 1;
-                for (let i = 2; i <= n; i++) {
-                    result *= i;
-                }
-                return result;
-            };
+        if (window.ecLog) window.ecLog(`🔧 evaluateWithMathJs Input: "${expr}"`);
+
+        // log( → log10( ZUERST (Basis-10), damit ln( nicht versehentlich erfasst wird
+        expr = expr.replace(/(^|[^A-Za-z0-9_])log\s*\(/g, (m, pre) => pre + 'log10(');
+        // ln( → log( (natürlicher Logarithmus in math.js)
+        expr = expr.replace(/(^|[^A-Za-z0-9_])ln\s*\(/g, (m, pre) => pre + 'log(');
+        // √ → sqrt(...)  — explizite Form für alle Varianten
+        expr = expr.replace(/√\(/g, 'sqrt(');                          // √(x+y) → sqrt(x+y)
+        expr = expr.replace(/√(\d+(?:\.\d+)?)/g, (m, n) => `sqrt(${n})`); // √9 → sqrt(9)
+        // π → pi
+        expr = expr.replace(/π/g, 'pi');
+        // % → /100 (Prozent als Teilen durch 100)
+        expr = expr.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
+
+        if (window.ecLog) window.ecLog(`🔧 evaluateWithMathJs Output: "${expr}"`);
+
+        const scope = { pi: Math.PI, e: Math.E };
+        if (this.angleMode === 'deg') {
+            const toRad = x => x * Math.PI / 180;
+            const toDeg = x => x * 180 / Math.PI;
+            scope.sin  = x => Math.sin(toRad(x));
+            scope.cos  = x => Math.cos(toRad(x));
+            scope.tan  = x => Math.tan(toRad(x));
+            scope.asin = x => toDeg(Math.asin(x));
+            scope.acos = x => toDeg(Math.acos(x));
+            scope.atan = x => toDeg(Math.atan(x));
         }
-
-        //  Fakultät-Operator (!) verarbeiten - ZUERST
-        parsed = parsed.replace(/(\d+(?:\.\d+)?)!/g, 'factorialFunction($1)');
-
-        //  Prozent-Operator (%) verarbeiten
-        // Pattern: Zahl% wird zu (Zahl/100)
-        parsed = parsed.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
-
-        //  Kehrwert 1/x - wenn 1/x als Token gefunden wird
-        parsed = parsed.replace(/1\/x/g, '(1/x)');
-
-        // e^(...) zu exp(...) konvertieren - MUSS VOR der e→Math.E Ersetzung stehen!
-        // Matcht: e^(0.5) → exp(0.5)
-        parsed = parsed.replace(/(^|[^A-Za-z0-9_.])e\^\(([^)]+)\)/g, (match, pre, arg) => {
-            if (window.ecLog) window.ecLog(`🔧 e^(...)-Ersetzung: "${match.trim()}" → "exp(${arg})"`);
-            return `${pre}exp(${arg})`;
-        });
-
-        // Konstanten nur als eigenständige Tokens ersetzen (verhindert 1e5 -> 1Math.E5)
-        parsed = parsed
-            .replace(/(^|[^A-Za-z0-9_.])π(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.PI)
-            .replace(/(^|[^A-Za-z0-9_.])e(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.E);
-
-        // √ Wurzel-Funktion (vor anderen Funktionen)
-        // WICHTIG: Ohne Klammern ZUERST, damit √2 nicht als √ + 2 geparst wird
-        // Ohne Klammern: √2 oder √16 (nimmt die nächste Zahl)
-        parsed = parsed.replace(/√(\d+(?:\.\d+)?)/g, (match, num) => {
-            if (window.ecLog) window.ecLog(`🔧 √-Ersetzung ohne Klammern: "${match}" → "Math.sqrt(${num})"`);
-            return `Math.sqrt(${num})`;
-        });
-        // Mit Klammern: √(2+3)
-        parsed = parsed.replace(/√\(([^)]+)\)/g, (match, arg) => {
-            if (window.ecLog) window.ecLog(`🔧 √-Ersetzung mit Klammern: "${match}" → "Math.sqrt(${arg})"`);
-            return `Math.sqrt(${arg})`;
-        });
-        // sqrt() - aber NUR wenn NICHT bereits Math.sqrt() ist
-        // Negative Lookbehind: (?<!Math\.) verhindert Doppel-Ersetzung
-        parsed = parsed.replace(/(?<!Math\.)sqrt\(([^)]+)\)/g, (match, arg) => {
-            if (window.ecLog) window.ecLog(`🔧 sqrt-Ersetzung: "${match}" → "Math.sqrt(${arg})"`);
-            return `Math.sqrt(${arg})`;
-        });
-
-        // exp() Funktion - Exponentialfunktion
-        parsed = parsed.replace(/exp\s*\(([^)]+)\)/g, (m, arg) => `Math.exp(${arg})`);
-
-        //  Natürlicher Logarithmus ln() - mit und ohne Klammern
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])ln\s*\(([^)]+)\)/g,
-            (m, pre, arg) => `${pre}Math.log(${arg})`
-        );
-        // ln ohne Klammern (nimmt nächste Zahl)
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])ln\s+(\d+(?:\.\d+)?)/g,
-            (m, pre, num) => `${pre}Math.log(${num})`
-        );
-
-        // Logarithmus zur Basis 10 - mit und ohne Klammern
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])log\s*\(([^)]+)\)/g,
-            (m, pre, arg) => `${pre}Math.log10(${arg})`
-        );
-        // log ohne Klammern
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])log\s+(\d+(?:\.\d+)?)/g,
-            (m, pre, num) => `${pre}Math.log10(${num})`
-        );
-
-        // Winkel-Konvertierung basierend auf Modus
-        const angleConversion = this.angleMode === 'rad' ? '' : '*Math.PI/180';
-        const inverseAngleConversion = this.angleMode === 'rad' ? '' : '*180/Math.PI';
-
-        // Inverse trigonometrische Funktionen (arcsin, arccos, arctan)
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])(arcsin|asin)\s*\(([^)]+)\)/g,
-            (m, pre, fn, arg) => `${pre}(Math.asin(${arg})${inverseAngleConversion})`
-        );
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])(arccos|acos)\s*\(([^)]+)\)/g,
-            (m, pre, fn, arg) => `${pre}(Math.acos(${arg})${inverseAngleConversion})`
-        );
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])(arctan|atan)\s*\(([^)]+)\)/g,
-            (m, pre, fn, arg) => `${pre}(Math.atan(${arg})${inverseAngleConversion})`
-        );
-
-        // Trig-Funktionen mit beliebigem Exponenten: sin^n(x), cos^n(x), tan^n(x)
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])(sin|cos|tan)\^(\d+)\s*\(([^)]+)\)/g,
-            (m, pre, fn, exp, arg) => `${pre}Math.pow(Math.${fn}(${arg}${angleConversion}),${exp})`
-        );
-
-        // Normale trigonometrische Funktionen
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])(sin|cos|tan)\s*\(([^)]+)\)/g,
-            (m, pre, fn, arg) => `${pre}Math.${fn}(${arg}${angleConversion})`
-        );
-
-        // Exponenten-Operator zuletzt
-        parsed = parsed.replace(/\^/g, '**');
-
-        if (window.ecLog) window.ecLog(`Parse Output: "${parsed}"`);
-        return parsed;
+        return math.evaluate(expr, scope);
     }
 
 
@@ -628,7 +512,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * Zu Expression hinzufügen (erweitert mit Smart Exponents)
+     * Zu Expression hinzufügen
      */
     addToExpression(value) {
     // Nach einem Ergebnis bei Ziffer-Eingabe neu starten
@@ -636,16 +520,6 @@ window.ExamCalc.Calculator = class {
         this.lastResult = null;
         this.lastOperator = null;
         this.lastOperand = null;
-    }
-
-    // Smart Exponenten-Verarbeitung
-    if (!isNaN(value) && value !== '.') {
-        const smartExpression = this.processSmartExponent(this.current, value);
-        if (smartExpression !== this.current + value) {
-            this.current = smartExpression;
-            this.display.value = this.formatDisplayExpression(this.current);
-            return;
-        }
     }
 
     // Operator merken
@@ -661,44 +535,12 @@ window.ExamCalc.Calculator = class {
         this.lastOperand = value;
     }
 
+    const MAX_LENGTH = 200;
+    if (this.current.length >= MAX_LENGTH) return;
+
     this.current += value;
     this.display.value = this.formatDisplayExpression(this.current);
 }
-
-    /**
-     *  Smart Exponenten-Verarbeitung (erweitert)
-     *  Fügt automatisch ^( hinzu für e, π, Funktionen
-     */
-    processSmartExponent(currentExpression, newDigit) {
-        // Pattern für automatische Exponenten MIT KLAMMER
-        // User tippt: e 2 → wird zu e^(2
-        // User tippt dann ) → wird zu e^(2)
-        const patterns = [
-            { regex: /e$/, replacement: `e^(${newDigit}` },
-            { regex: /π$/, replacement: `π^(${newDigit}` },
-            { regex: /sin$/, replacement: `sin^(${newDigit}` },
-            { regex: /cos$/, replacement: `cos^(${newDigit}` },
-            { regex: /tan$/, replacement: `tan^(${newDigit}` },
-            { regex: /log$/, replacement: `log^(${newDigit}` },
-            { regex: /ln$/, replacement: `ln^(${newDigit}` },
-            { regex: /x$/, replacement: `x^(${newDigit}` },
-            { regex: /\)$/, replacement: `)^(${newDigit}` }
-        ];
-
-        for (const pattern of patterns) {
-            if (pattern.regex.test(currentExpression)) {
-                const newExpression = currentExpression.replace(pattern.regex, pattern.replacement);
-
-                if (window.ecLog) {
-                    window.ecLog(`🔤 Smart Exponent (mit Klammer): "${currentExpression}" + "${newDigit}" → "${newExpression}"`);
-                }
-
-                return newExpression;
-            }
-        }
-
-        return currentExpression + newDigit;
-    }
 
     /**
      *  Kehrwert hinzufügen (1/x)
@@ -722,12 +564,12 @@ window.ExamCalc.Calculator = class {
                 window.ecLog(`🔄 Kehrwert von Expression: ${this.current}`);
             }
         } else {
-            // Nichts vorhanden - "1/x" als Eingabe starten
-            this.current = '1/x';
-            this.display.value = '1/x';
+            // Nichts vorhanden - "1/(" als Eingabe starten
+            this.current = '1/(';
+            this.display.value = '1/(';
 
             if (window.ecLog) {
-                window.ecLog('🔄 1/x Eingabe gestartet');
+                window.ecLog('🔄 1/( Eingabe gestartet');
             }
         }
     }
@@ -739,7 +581,7 @@ window.ExamCalc.Calculator = class {
         if (this.lastResult !== null && this.current === '') {
             // Fakultät vom letzten Ergebnis
             try {
-                const factorial = window.factorialFunction(Math.floor(this.lastResult));
+                const factorial = math.factorial(Math.floor(this.lastResult));
                 this.lastResult = factorial;
                 this.updateDisplay(factorial);
 
@@ -815,13 +657,8 @@ window.ExamCalc.Calculator = class {
                 window.ecLog(`⏹️ Quadrat hinzugefügt: ${this.current}`);
             }
         } else {
-            // Nichts vorhanden - "x²" als Platzhalter
-            this.current = 'x^2';
-            this.display.value = this.formatDisplayExpression(this.current);
-
-            if (window.ecLog) {
-                window.ecLog('⏹️ x² Eingabe gestartet');
-            }
+            // Nichts vorhanden - Button ignorieren
+            return;
         }
     }
 
@@ -979,7 +816,7 @@ window.ExamCalc.Calculator = class {
             historyHTML += `
                 <div class="history-item" data-index="${index}">
                     <div class="history-expression">${this.escapeHtml(item.expression)}</div>
-                    <div class="history-result">= ${resultDisplay}</div>
+                    <div class="history-result" data-value="${item.result}">= ${resultDisplay}</div>
                 </div>
             `;
         });
@@ -1031,6 +868,12 @@ window.ExamCalc.Calculator = class {
                 : "Zu Grad wechseln";
         }
 
+        const indicator = document.getElementById('angle-mode-display');
+        if (indicator) {
+            indicator.textContent = this.angleMode.toUpperCase();
+            indicator.classList.toggle('rad-active', this.angleMode === 'rad');
+        }
+
         if (window.ecLog) {
             window.ecLog(`📐 Winkel-Modus: ${this.angleMode.toUpperCase()}`);
         }
@@ -1072,34 +915,14 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     *  10^x hinzufügen (POSTFIX-Operator wie x²)
+     *  10^x hinzufügen (PRÄFIX — öffnet Klammer für Exponent-Eingabe)
      */
     addPower10() {
-        if (this.lastResult !== null && this.current === '') {
-            // 10^(letztes Ergebnis) - Postfix auf Ergebnis
-            const result = Math.pow(10, this.lastResult);
-            this.lastResult = result;
-            this.updateDisplay(result);
+        this.current += '10^(';
+        this.display.value = this.formatDisplayExpression(this.current);
 
-            if (window.ecLog) {
-                window.ecLog(`🔟 10^x (Postfix): 10^${this.lastResult} = ${result}`);
-            }
-        } else if (this.current) {
-            // 10^(aktuelle Expression) - Postfix auf Expression
-            this.current = `10^(${this.current})`;
-            this.display.value = this.formatDisplayExpression(this.current);
-
-            if (window.ecLog) {
-                window.ecLog(`🔟 10^x (Postfix): 10^(${this.current})`);
-            }
-        } else {
-            // Nichts vorhanden - zeige Placeholder wie bei x²
-            this.current = '10^x';
-            this.display.value = '10^x';
-
-            if (window.ecLog) {
-                window.ecLog('🔟 10^x Placeholder angezeigt');
-            }
+        if (window.ecLog) {
+            window.ecLog(`🔟 10^( eingefügt`);
         }
     }
 
@@ -1217,13 +1040,15 @@ window.ExamCalc.Calculator = class {
      *  Verlauf-Ergebnis verwenden
      */
     useHistoryResult(result) {
-        const cleanResult = result.replace(/\s+\d+\/\d+/, '').trim();
-        this.current = cleanResult;
-        this.display.value = cleanResult;
-        this.lastResult = parseFloat(cleanResult);
+        // result ist der rohe numerische Wert aus data-value (kein Bruch-String)
+        const numValue = parseFloat(result);
+        const display = isNaN(numValue) ? String(result) : String(numValue);
+        this.current = display;
+        this.display.value = display;
+        this.lastResult = isNaN(numValue) ? null : numValue;
 
         if (window.ecLog) {
-            window.ecLog(`📜 Verlauf-Ergebnis verwendet: ${cleanResult}`);
+            window.ecLog(`📜 Verlauf-Ergebnis verwendet: ${display}`);
         }
     }
 
@@ -1340,8 +1165,7 @@ window.ExamCalc.Calculator = class {
     getCurrentValue() {
         if (this.current !== '' && this.current !== 'Fehler') {
             try {
-                const parsed = this.parseExpression(this.current);
-                return eval(parsed);
+                return this.evaluateWithMathJs(this.current);
             } catch (error) {
                 if (window.ecLog) {
                     window.ecLog(`❌ Fehler beim Auswerten: ${error.message}`);
@@ -1394,13 +1218,10 @@ window.ExamCalc.Calculator = class {
             }
         });
 
-        // Ergebnis anzeigen
+        // Ergebnis anzeigen — NICHT in Verlauf speichern (würde beim nächsten Σ mitsummiert)
         this.lastResult = sum;
         this.current = '';
         this.updateDisplay(sum);
-
-        // In Verlauf hinzufügen
-        this.addToHistory(`Σ(${this.history.length} Werte)`, sum);
 
         if (window.ecLog) {
             window.ecLog(`➕ Verlaufs-Addition: ${expression} = ${sum}`);

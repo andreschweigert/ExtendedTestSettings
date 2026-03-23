@@ -21,18 +21,21 @@
     <div class="calculator-content">
         <!-- Main Calculator -->
         <div class="calculator-main">
-            <!-- Display (editierbar für Keyboard-Eingabe) -->
+            <!-- Display (readonly — Eingabe nur über Buttons) -->
             <input
                 type="text"
                 id="calc-display"
+                readonly
                 placeholder="0"
                 aria-label="Rechenergebnis"
                 autocomplete="off"
                 spellcheck="false"
             />
-
-            <!-- NEU: Speicher-Indikator -->
-            <div id="memory-indicator" style="display: none;">M: 0</div>
+            <!-- Status-Leiste: Badges mit fixer Höhe → kein Layout-Shift -->
+            <div class="display-badges">
+                <span id="angle-mode-display" class="angle-mode-indicator">DEG</span>
+                <span id="memory-indicator" class="memory-indicator" style="display: none;">M: 0</span>
+            </div>
 
             <!-- Button Grid -->
             <div class="buttons" role="grid">
@@ -76,7 +79,7 @@
                 <button type="button" aria-label="Zwei">2</button>
                 <button type="button" aria-label="Drei">3</button>
                 <button type="button" aria-label="Subtraktion" title="Subtraktion (−)">-</button>
-                <button type="button" aria-label="Prozent" title="Prozent (%)">%</button>
+                <button type="button" aria-label="Prozent" title="Prozent (%): teilt durch 100 (z.B. 50% = 0.5, nicht kontextabhängig)">%</button>
 
                 <!-- ROW 6: 0 . + -->
                 <button type="button" aria-label="Null">0</button>
@@ -97,7 +100,9 @@
                 <button type="button" aria-label="Sinus" class="trig-btn" id="sin-btn" data-primary="sin" data-secondary="asin" title="Sinus / Arcussinus (2nd)"><span class="primary-label">sin</span><span class="secondary-label">asin</span></button>
                 <button type="button" aria-label="Cosinus" class="trig-btn" id="cos-btn" data-primary="cos" data-secondary="acos" title="Cosinus / Arcuscosinus (2nd)"><span class="primary-label">cos</span><span class="secondary-label">acos</span></button>
                 <button type="button" aria-label="Tangens" class="trig-btn" id="tan-btn" data-primary="tan" data-secondary="atan" title="Tangens / Arcustangens (2nd)"><span class="primary-label">tan</span><span class="secondary-label">atan</span></button>
-                <button type="button" aria-label="Hyperbolische Funktionen" class="hyp-toggle" id="hyp-toggle" title="Hyperbolische Funktionen (sinh, cosh, tanh)">hyp</button>
+                <button type="button" aria-label="Hyperbolische Funktionen" class="hyp-toggle" id="hyp-toggle"
+                        title="Hyperbolische Funktionen (noch nicht verfügbar)"
+                        disabled style="opacity: 0.4; cursor: not-allowed;">hyp</button>
                 <!-- Spalte 5 ist durch "=" belegt -->
             </div>
 

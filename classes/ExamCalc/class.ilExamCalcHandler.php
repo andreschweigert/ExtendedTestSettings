@@ -98,6 +98,8 @@ class ilExamCalcHandler
         if ($calculator_mode === 'simple') {
             $js_calc_path = $this->plugin_path . "/js/examcalc/calculator-simple.js";
         } else {
+            // math.js muss vor calculator.js geladen werden (kein CDN — Prüfungskontext)
+            $tpl->addJavaScript($this->plugin_path . "/js/examcalc/math.min.js");
             $js_calc_path = $this->plugin_path . "/js/examcalc/calculator.js";
         }
 
