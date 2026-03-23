@@ -96,18 +96,8 @@ window.ExamCalc.Calculator = class {
             clearHistory.addEventListener('click', () => this.clearHistory());
         }
 
-        // Keyboard-Eingabe für Display-Feld (mit Sicherheits-Validierung)
+        // Enter-Taste zum Berechnen (Display ist readonly — kein input-Listener nötig)
         if (this.display) {
-            this.display.addEventListener('input', (e) => {
-                const value = e.target.value;
-                this.current = value;
-
-                if (window.ecLog) {
-                    window.ecLog(`⌨️ Keyboard-Eingabe: "${value}"`);
-                }
-            });
-
-            // Enter-Taste zum Berechnen
             this.display.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
