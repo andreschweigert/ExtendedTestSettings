@@ -319,8 +319,8 @@ window.ExamCalc.Calculator = class {
             return rounded;
         }
 
-        // Ansonsten: Original-Wert beibehalten
-        return value;
+        // Auf 10 signifikante Stellen runden (eliminiert Floating-Point-Rauschen wie 0.49999999999999994)
+        return parseFloat(value.toPrecision(10));
     }
 
     /**
