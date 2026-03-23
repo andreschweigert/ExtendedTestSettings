@@ -481,11 +481,19 @@ window.ExamCalc.Calculator = class {
         // % → /100 (Prozent als Teilen durch 100)
         expr = expr.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
 
-        math.config({ angleUnit: this.angleMode });
-
         if (window.ecLog) window.ecLog(`🔧 evaluateWithMathJs Output: "${expr}"`);
 
         const scope = { pi: Math.PI, e: Math.E };
+        if (this.angleMode === 'deg') {
+            const toRad = x => x * Math.PI / 180;
+            const toDeg = x => x * 180 / Math.PI;
+            scope.sin  = x => Math.sin(toRad(x));
+            scope.cos  = x => Math.cos(toRad(x));
+            scope.tan  = x => Math.tan(toRad(x));
+            scope.asin = x => toDeg(Math.asin(x));
+            scope.acos = x => toDeg(Math.acos(x));
+            scope.atan = x => toDeg(Math.atan(x));
+        }
         return math.evaluate(expr, scope);
     }
 
