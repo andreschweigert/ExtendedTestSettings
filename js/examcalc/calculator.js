@@ -713,12 +713,12 @@ window.ExamCalc.Calculator = class {
                 window.ecLog(`🔄 Kehrwert von Expression: ${this.current}`);
             }
         } else {
-            // Nichts vorhanden - "1/x" als Eingabe starten
-            this.current = '1/x';
-            this.display.value = '1/x';
+            // Nichts vorhanden - "1/(" als Eingabe starten
+            this.current = '1/(';
+            this.display.value = '1/(';
 
             if (window.ecLog) {
-                window.ecLog('🔄 1/x Eingabe gestartet');
+                window.ecLog('🔄 1/( Eingabe gestartet');
             }
         }
     }
@@ -806,13 +806,8 @@ window.ExamCalc.Calculator = class {
                 window.ecLog(`⏹️ Quadrat hinzugefügt: ${this.current}`);
             }
         } else {
-            // Nichts vorhanden - "x²" als Platzhalter
-            this.current = 'x^2';
-            this.display.value = this.formatDisplayExpression(this.current);
-
-            if (window.ecLog) {
-                window.ecLog('⏹️ x² Eingabe gestartet');
-            }
+            // Nichts vorhanden - Button ignorieren
+            return;
         }
     }
 
