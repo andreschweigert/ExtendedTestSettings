@@ -1,10 +1,10 @@
 # ExtendedTestSettings Plugin für ILIAS
 
 ![ILIAS](https://img.shields.io/badge/ILIAS-9.x-blue)
-![Version](https://img.shields.io/badge/version-1.0.2-success)
+![Version](https://img.shields.io/badge/version-1.1.0-success)
 ![License](https://img.shields.io/badge/license-TBA-lightgrey)
 
-**Version:** 1.0.2
+**Version:** 1.1.0
 **Für ILIAS:** 9.0 - 9.999
 
 Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Online-Prüfungen. Es bietet ein modulares System mit fünf spezialisierten Tools, die individuell pro Test aktiviert werden können.
@@ -266,6 +266,23 @@ Das ExtendedTestSettings Plugin wird "wie gesehen" bereitgestellt, ohne jegliche
 
 ## Changelog
 
+### Version 1.1.0 (2026-03-23)
+
+**GUI-Refactoring:**
+- ConfigGUI und AdvancedGUI vollständig auf ILIAS KitchenSink UI-Komponenten umgestellt (kein rohes HTML mehr)
+- Statistik-Seite: Panel/Report-Layout mit Modul-Details und klickbaren Test-Links
+- Benutzer-Verwaltung: Item-Listen mit Avataren und Interruptive-Modals
+- Test-Einstellungen: ILIAS-Standard-Formularelemente mit Checkbox-Sub-Items
+
+**Neue Features:**
+- ExamAlert Auto-Aktivierungs-Einstellung in der globalen Konfiguration
+
+**Verbesserungen:**
+- Statistiken ohne systemweite Gesamtanzahl (Performance)
+- Modul-Sektionen mit Icons in den Test-Einstellungen
+
+---
+
 ### Version 1.0.2 (2024-12-04)
 
 **Neue Features:**
@@ -296,4 +313,4 @@ Das ExtendedTestSettings Plugin wird "wie gesehen" bereitgestellt, ohne jegliche
 
 **Hinweis:** Dieses Plugin wird aktiv weiterentwickelt. Feedback und Verbesserungsvorschläge sind willkommen!
 
-**Stand:** Dez/2025
+**Stand:** März/2026

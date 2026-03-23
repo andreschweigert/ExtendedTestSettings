@@ -174,6 +174,27 @@ class ilExamCalcHandler
     }
 
     /**
+     * Gibt ILIAS-Formular-Elemente zurück (kein HTML)
+     */
+    public function getFormItems(int $ref_id): array
+    {
+        $cb = new ilCheckboxInputGUI('Taschenrechner aktivieren', 'examcalc_enabled');
+        $cb->setChecked($this->isEnabled($ref_id));
+        $cb->setInfo('Stellt einen Taschenrechner während der Prüfung zur Verfügung. Shortcut: Alt + R');
+
+        $sel = new ilSelectInputGUI('Taschenrechner-Typ', 'examcalc_mode');
+        $sel->setOptions([
+            'simple'   => 'Einfach (Grundrechenarten) – Standard',
+            'advanced' => 'Wissenschaftlich (Work in Progress)',
+        ]);
+        $sel->setValue($this->getCalculatorMode($ref_id));
+        $sel->setInfo('Einfach: nur + − × ÷ (empfohlen). Wissenschaftlich: sin, cos, tan, √ usw. — noch in Entwicklung.');
+        $cb->addSubItem($sel);
+
+        return [$cb];
+    }
+
+    /**
      * Generiert HTML für Einstellungs-Formular
      */
     public function getSettingsHTML(int $ref_id): string
@@ -185,32 +206,25 @@ class ilExamCalcHandler
         $advanced_selected = ($current_mode === 'advanced') ? 'selected' : '';
 
         return <<<HTML
-        <div class="form-group">
-            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                <input type="checkbox" name="examcalc_enabled" value="1" $enabled style="transform: scale(1.2);">
-                <strong>Taschenrechner aktivieren</strong>
-            </label>
-            <p style="margin: 0.5rem 0 1rem 1.7rem; color: #666; font-size: 0.9rem;">
-                Stellt einen Taschenrechner während der Prüfung zur Verfügung.
-                <br><em>Shortcut: Alt + R</em>
-            </p>
-
-            <label for="examcalc_mode" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
-                Taschenrechner-Typ:
-            </label>
-            <select name="examcalc_mode" id="examcalc_mode"
-                    style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
-                <option value="simple" $simple_selected>🔢 Einfach (Grundrechenarten) - Standard</option>
-                <option value="advanced" $advanced_selected>🧮 Wissenschaftlich (🚧 Work in Progress)</option>
-            </select>
-            <p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">
-                <strong>Einfach:</strong> Nur + − × ÷ (empfohlen)<br>
-                <strong>Wissenschaftlich:</strong> sin, cos, tan, √, ^, log, ln, π, e, !, %, etc. 
-                <span style="background: #fff3cd; padding: 0.15rem 0.4rem; border-radius: 3px; color: #856404; font-size: 0.8rem;">
-                    ⚠️ Noch in Entwicklung - kann Fehler enthalten
-                </span>
-            </p>
-        </div>
+<div class="mb-3">
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="examcalc_enabled" value="1" id="examcalc_enabled" $enabled>
+        <label class="form-check-label fw-bold" for="examcalc_enabled">Taschenrechner aktivieren</label>
+    </div>
+    <div class="form-text">Stellt einen Taschenrechner während der Prüfung zur Verfügung. <em>Shortcut: Alt + R</em></div>
+</div>
+<div class="mb-3">
+    <label for="examcalc_mode" class="form-label fw-semibold">Taschenrechner-Typ:</label>
+    <select name="examcalc_mode" id="examcalc_mode" class="form-select">
+        <option value="simple" $simple_selected>Einfach (Grundrechenarten) – Standard</option>
+        <option value="advanced" $advanced_selected>Wissenschaftlich (Work in Progress)</option>
+    </select>
+    <div class="form-text">
+        <strong>Einfach:</strong> Nur + − × ÷ (empfohlen)<br>
+        <strong>Wissenschaftlich:</strong> sin, cos, tan, √, ^ usw.
+        <span class="badge text-bg-warning">In Entwicklung – kann Fehler enthalten</span>
+    </div>
+</div>
 HTML;
     }
 

@@ -26,49 +26,26 @@ class ilExamCheckerHandler
      */
     public function getSettingsHTML(int $ref_id): string
     {
-        $html = '<div class="examchecker-container">
-            <div class="form-group" style="margin-bottom: 1.5rem;">
-                <label for="exam_type" style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #495057;">
-                    Prüfungstyp:
-                </label>
-                <select name="exam_type" id="exam_type" style="width: 200px; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.375rem;">
-                    <option value="praesenz">📍 Präsenzprüfung</option>
-                    <option value="fern">🏠 Fernprüfung</option>
-                </select>
-            </div>
-
-            <div class="form-group" style="margin-bottom: 1.5rem;">
-                <button type="button" id="start-exam-check" class="btn btn-primary" style="
-                    background: #28a745; 
-                    color: white; 
-                    padding: 0.75rem 1.5rem; 
-                    border: none; 
-                    border-radius: 0.375rem; 
-                    font-weight: 500; 
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                ">
-                    <span>🔍</span>
-                    <span>Exam-Prüfungs-Check starten</span>
-                </button>
-            </div>
-
-            <div id="check-results" style="display: none; margin-top: 1.5rem;">
-                <!-- Ergebnisse werden hier per AJAX eingefügt -->
-            </div>
-
-            <div id="check-loading" style="display: none; text-align: center; padding: 2rem; color: #6c757d;">
-                <div style="font-size: 2rem; margin-bottom: 1rem;">⏳</div>
-                <div>Prüfungseinstellungen werden überprüft...</div>
-            </div>
+        $html = '<div class="mb-3">
+            <label for="exam_type" class="form-label fw-semibold">Prüfungstyp:</label>
+            <select name="exam_type" id="exam_type" class="form-select" style="max-width: 250px;">
+                <option value="praesenz">Präsenzprüfung</option>
+                <option value="fern">Fernprüfung</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <button type="button" id="start-exam-check" class="btn btn-success">
+                Exam-Prüfungs-Check starten
+            </button>
+        </div>
+        <div id="check-loading" class="d-none text-center py-4 text-muted">
+            Prüfungseinstellungen werden überprüft...
+        </div>
+        <div id="check-results" class="d-none mt-3">
+            <!-- Ergebnisse werden hier per AJAX eingefügt -->
         </div>';
 
-        // JavaScript separat hinzufügen
         $html .= $this->getJavaScriptCode($ref_id);
-        $html .= $this->getCSSCode();
 
         return $html;
     }
@@ -157,26 +134,6 @@ class ilExamCheckerHandler
         </script>';
     }
 
-    /**
-     * CSS-Code separat
-     */
-    private function getCSSCode(): string
-    {
-        return '
-        <style>
-        .examchecker-container .btn:hover {
-            background: #218838 !important;
-            transform: translateY(-1px);
-            box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
-        }
-        
-        .examchecker-container .btn:disabled {
-            background: #6c757d !important;
-            cursor: not-allowed;
-            transform: none;
-        }
-        </style>';
-    }
 
     /**
      * Speichert ExamChecker-Einstellungen und führt Check durch
