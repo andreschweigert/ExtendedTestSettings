@@ -1204,13 +1204,10 @@ window.ExamCalc.Calculator = class {
             }
         });
 
-        // Ergebnis anzeigen
+        // Ergebnis anzeigen — NICHT in Verlauf speichern (würde beim nächsten Σ mitsummiert)
         this.lastResult = sum;
         this.current = '';
         this.updateDisplay(sum);
-
-        // In Verlauf hinzufügen
-        this.addToHistory(`Σ(${this.history.length} Werte)`, sum);
 
         if (window.ecLog) {
             window.ecLog(`➕ Verlaufs-Addition: ${expression} = ${sum}`);
