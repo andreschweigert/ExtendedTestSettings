@@ -438,17 +438,15 @@ window.ExamCalc.Calculator = class {
                 expression = this.lastResult + this.lastOperator + this.lastOperand;
             }
 
-            // AUTO-COMPLETE: Fehlende schließende Klammern hinzufügen
-            expression = this.autoCompleteParentheses(expression);
-
-            // Aktualisiere current und Display mit vervollständigter Expression
-            if (expression !== this.current) {
-                this.current = expression;
-                this.display.value = this.formatDisplayExpression(expression);
-
+            // KLAMMER-BALANCE: Unbalancierte Ausdrücke ablehnen statt still korrigieren
+            const openCount = (expression.match(/\(/g) || []).length;
+            const closeCount = (expression.match(/\)/g) || []).length;
+            if (openCount !== closeCount) {
+                this.display.value = `Fehler: ${openCount - closeCount} Klammer(n) offen`;
                 if (window.ecLog) {
-                    window.ecLog(`🔧 Auto-Complete: Klammern ergänzt → "${expression}"`);
+                    window.ecLog(`❌ Klammer-Fehler: ${openCount} offen, ${closeCount} geschlossen`);
                 }
+                return;
             }
 
             // SICHERHEIT: Input-Validierung VOR eval()
