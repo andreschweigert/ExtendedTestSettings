@@ -619,7 +619,7 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * Zu Expression hinzufügen (erweitert mit Smart Exponents)
+     * Zu Expression hinzufügen
      */
     addToExpression(value) {
     // Nach einem Ergebnis bei Ziffer-Eingabe neu starten
@@ -627,16 +627,6 @@ window.ExamCalc.Calculator = class {
         this.lastResult = null;
         this.lastOperator = null;
         this.lastOperand = null;
-    }
-
-    // Smart Exponenten-Verarbeitung
-    if (!isNaN(value) && value !== '.') {
-        const smartExpression = this.processSmartExponent(this.current, value);
-        if (smartExpression !== this.current + value) {
-            this.current = smartExpression;
-            this.display.value = this.formatDisplayExpression(this.current);
-            return;
-        }
     }
 
     // Operator merken
@@ -655,41 +645,6 @@ window.ExamCalc.Calculator = class {
     this.current += value;
     this.display.value = this.formatDisplayExpression(this.current);
 }
-
-    /**
-     *  Smart Exponenten-Verarbeitung (erweitert)
-     *  Fügt automatisch ^( hinzu für e, π, Funktionen
-     */
-    processSmartExponent(currentExpression, newDigit) {
-        // Pattern für automatische Exponenten MIT KLAMMER
-        // User tippt: e 2 → wird zu e^(2
-        // User tippt dann ) → wird zu e^(2)
-        const patterns = [
-            { regex: /e$/, replacement: `e^(${newDigit}` },
-            { regex: /π$/, replacement: `π^(${newDigit}` },
-            { regex: /sin$/, replacement: `sin^(${newDigit}` },
-            { regex: /cos$/, replacement: `cos^(${newDigit}` },
-            { regex: /tan$/, replacement: `tan^(${newDigit}` },
-            { regex: /log$/, replacement: `log^(${newDigit}` },
-            { regex: /ln$/, replacement: `ln^(${newDigit}` },
-            { regex: /x$/, replacement: `x^(${newDigit}` },
-            { regex: /\)$/, replacement: `)^(${newDigit}` }
-        ];
-
-        for (const pattern of patterns) {
-            if (pattern.regex.test(currentExpression)) {
-                const newExpression = currentExpression.replace(pattern.regex, pattern.replacement);
-
-                if (window.ecLog) {
-                    window.ecLog(`🔤 Smart Exponent (mit Klammer): "${currentExpression}" + "${newDigit}" → "${newExpression}"`);
-                }
-
-                return newExpression;
-            }
-        }
-
-        return currentExpression + newDigit;
-    }
 
     /**
      *  Kehrwert hinzufügen (1/x)
