@@ -326,14 +326,14 @@ window.ExamCalc.Calculator = class {
 
     /**
      * Input-Validierung: Schützt vor Code-Injection
-     * Multi-Layer Security Ansatz
+     * (Layer 4 / Zeichenallowlist entfernt — math.js wirft bei ungültigem Ausdruck selbst)
      */
     validateInput(input) {
         if (!input || input.trim() === '') {
-            return true; // Leere Eingabe ist ok
+            return true;
         }
 
-        // Layer 1: Gefährliche Keywords blocken (höchste Priorität)
+        // Layer 1: Gefährliche Keywords blocken
         const dangerousKeywords = /constructor|__proto__|prototype|eval|function|window|document|alert|console|import|require|this\.|globalThis|process|exec/i;
         if (dangerousKeywords.test(input)) {
             if (window.ecLog) {
@@ -350,7 +350,7 @@ window.ExamCalc.Calculator = class {
             return false;
         }
 
-        // Layer 3: Keine Semikolons (Code-Chaining verhindern)
+        // Layer 3: Keine Semikolons
         if (/;/.test(input)) {
             if (window.ecLog) {
                 window.ecLog(`🛡️ SECURITY: Semikolon blockiert in: "${input}"`);
@@ -358,24 +358,6 @@ window.ExamCalc.Calculator = class {
             return false;
         }
 
-        // Layer 4: Nur erlaubte Zeichen und Funktionsnamen
-        // Erlaubte Zeichen: 0-9, +, -, *, /, ^, !, %, ., (, ), π, e, √, Leerzeichen
-        // Erlaubte Funktionen: sin, cos, tan, arcsin, arccos, arctan, asin, acos, atan, ln, log, exp, sqrt
-        const allowedPattern = /^[0-9+\-*/().πe√^!%\s,]+$|sin|cos|tan|arcsin|arccos|arctan|asin|acos|atan|ln|log|exp|sqrt/;
-
-        // Entferne alle erlaubten Funktionsnamen temporär
-        let testInput = input;
-        testInput = testInput.replace(/sin|cos|tan|arcsin|arccos|arctan|asin|acos|atan|ln|log|exp|sqrt/g, '');
-
-        // Prüfe ob nur erlaubte Zeichen übrig bleiben
-        if (!/^[0-9+\-*/().πe√^!%\s,]*$/.test(testInput)) {
-            if (window.ecLog) {
-                window.ecLog(`🛡️ SECURITY: Unerlaubte Zeichen blockiert in: "${input}"`);
-            }
-            return false;
-        }
-
-        // Alles ok!
         if (window.ecLog) {
             window.ecLog(`✅ SECURITY: Input validiert: "${input}"`);
         }
@@ -449,9 +431,8 @@ window.ExamCalc.Calculator = class {
                 return;
             }
 
-            // Expression für eval() vorbereiten
-            const parsed = this.parseExpression(expression);
-            let result = eval(parsed);
+            // Ausdruck mit math.js auswerten (kein eval() mehr)
+            let result = this.evaluateWithMathJs(expression);
 
             // Epsilon-Cleanup anwenden
             result = this.applyEpsilonCleanup(result);
@@ -480,126 +461,32 @@ window.ExamCalc.Calculator = class {
     }
 
     /**
-     * Expression für JavaScript eval() umwandeln (ERWEITERTE VERSION)
+     * Ausdruck mit math.js auswerten
+     * Ersetzt den alten Regex-Parser + eval()-Ansatz vollständig.
+     * Unterstützt verschachtelte Funktionen: sin(cos(30)), ln(sqrt(x)) etc.
      */
-    parseExpression(expression) {
-        let parsed = expression;
-        if (window.ecLog) window.ecLog(`🔧 Parse Input: "${expression}"`);
+    evaluateWithMathJs(expression) {
+        let expr = expression;
 
-        //  Fakultät-Funktion definieren (muss vor anderen Ersetzungen stehen)
-        if (!window.factorialFunction) {
-            window.factorialFunction = (n) => {
-                if (n < 0) return NaN;
-                if (n === 0 || n === 1) return 1;
-                let result = 1;
-                for (let i = 2; i <= n; i++) {
-                    result *= i;
-                }
-                return result;
-            };
-        }
+        if (window.ecLog) window.ecLog(`🔧 evaluateWithMathJs Input: "${expr}"`);
 
-        //  Fakultät-Operator (!) verarbeiten - ZUERST
-        parsed = parsed.replace(/(\d+(?:\.\d+)?)!/g, 'factorialFunction($1)');
+        // log( → log10( ZUERST (Basis-10), damit ln( nicht versehentlich erfasst wird
+        expr = expr.replace(/(^|[^A-Za-z0-9_])log\s*\(/g, (m, pre) => pre + 'log10(');
+        // ln( → log( (natürlicher Logarithmus in math.js)
+        expr = expr.replace(/(^|[^A-Za-z0-9_])ln\s*\(/g, (m, pre) => pre + 'log(');
+        // √ → sqrt
+        expr = expr.replace(/√/g, 'sqrt');
+        // π → pi
+        expr = expr.replace(/π/g, 'pi');
+        // % → /100 (Prozent als Teilen durch 100)
+        expr = expr.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
 
-        //  Prozent-Operator (%) verarbeiten
-        // Pattern: Zahl% wird zu (Zahl/100)
-        parsed = parsed.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)');
+        math.config({ angleUnit: this.angleMode });
 
-        //  Kehrwert 1/x - wenn 1/x als Token gefunden wird
-        parsed = parsed.replace(/1\/x/g, '(1/x)');
+        if (window.ecLog) window.ecLog(`🔧 evaluateWithMathJs Output: "${expr}"`);
 
-        // e^(...) zu exp(...) konvertieren - MUSS VOR der e→Math.E Ersetzung stehen!
-        // Matcht: e^(0.5) → exp(0.5)
-        parsed = parsed.replace(/(^|[^A-Za-z0-9_.])e\^\(([^)]+)\)/g, (match, pre, arg) => {
-            if (window.ecLog) window.ecLog(`🔧 e^(...)-Ersetzung: "${match.trim()}" → "exp(${arg})"`);
-            return `${pre}exp(${arg})`;
-        });
-
-        // Konstanten nur als eigenständige Tokens ersetzen (verhindert 1e5 -> 1Math.E5)
-        parsed = parsed
-            .replace(/(^|[^A-Za-z0-9_.])π(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.PI)
-            .replace(/(^|[^A-Za-z0-9_.])e(?![A-Za-z0-9_])/g, (_, pre) => pre + Math.E);
-
-        // √ Wurzel-Funktion (vor anderen Funktionen)
-        // WICHTIG: Ohne Klammern ZUERST, damit √2 nicht als √ + 2 geparst wird
-        // Ohne Klammern: √2 oder √16 (nimmt die nächste Zahl)
-        parsed = parsed.replace(/√(\d+(?:\.\d+)?)/g, (match, num) => {
-            if (window.ecLog) window.ecLog(`🔧 √-Ersetzung ohne Klammern: "${match}" → "Math.sqrt(${num})"`);
-            return `Math.sqrt(${num})`;
-        });
-        // Mit Klammern: √(2+3)
-        parsed = parsed.replace(/√\(([^)]+)\)/g, (match, arg) => {
-            if (window.ecLog) window.ecLog(`🔧 √-Ersetzung mit Klammern: "${match}" → "Math.sqrt(${arg})"`);
-            return `Math.sqrt(${arg})`;
-        });
-        // sqrt() - aber NUR wenn NICHT bereits Math.sqrt() ist
-        // Negative Lookbehind: (?<!Math\.) verhindert Doppel-Ersetzung
-        parsed = parsed.replace(/(?<!Math\.)sqrt\(([^)]+)\)/g, (match, arg) => {
-            if (window.ecLog) window.ecLog(`🔧 sqrt-Ersetzung: "${match}" → "Math.sqrt(${arg})"`);
-            return `Math.sqrt(${arg})`;
-        });
-
-        // exp() Funktion - Exponentialfunktion
-        parsed = parsed.replace(/exp\s*\(([^)]+)\)/g, (m, arg) => `Math.exp(${arg})`);
-
-        //  Natürlicher Logarithmus ln() - mit und ohne Klammern
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])ln\s*\(([^)]+)\)/g,
-            (m, pre, arg) => `${pre}Math.log(${arg})`
-        );
-        // ln ohne Klammern (nimmt nächste Zahl)
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])ln\s+(\d+(?:\.\d+)?)/g,
-            (m, pre, num) => `${pre}Math.log(${num})`
-        );
-
-        // Logarithmus zur Basis 10 - mit und ohne Klammern
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])log\s*\(([^)]+)\)/g,
-            (m, pre, arg) => `${pre}Math.log10(${arg})`
-        );
-        // log ohne Klammern
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])log\s+(\d+(?:\.\d+)?)/g,
-            (m, pre, num) => `${pre}Math.log10(${num})`
-        );
-
-        // Winkel-Konvertierung basierend auf Modus
-        const angleConversion = this.angleMode === 'rad' ? '' : '*Math.PI/180';
-        const inverseAngleConversion = this.angleMode === 'rad' ? '' : '*180/Math.PI';
-
-        // Inverse trigonometrische Funktionen (arcsin, arccos, arctan)
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])(arcsin|asin)\s*\(([^)]+)\)/g,
-            (m, pre, fn, arg) => `${pre}(Math.asin(${arg})${inverseAngleConversion})`
-        );
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])(arccos|acos)\s*\(([^)]+)\)/g,
-            (m, pre, fn, arg) => `${pre}(Math.acos(${arg})${inverseAngleConversion})`
-        );
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])(arctan|atan)\s*\(([^)]+)\)/g,
-            (m, pre, fn, arg) => `${pre}(Math.atan(${arg})${inverseAngleConversion})`
-        );
-
-        // Trig-Funktionen mit beliebigem Exponenten: sin^n(x), cos^n(x), tan^n(x)
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])(sin|cos|tan)\^(\d+)\s*\(([^)]+)\)/g,
-            (m, pre, fn, exp, arg) => `${pre}Math.pow(Math.${fn}(${arg}${angleConversion}),${exp})`
-        );
-
-        // Normale trigonometrische Funktionen
-        parsed = parsed.replace(
-            /(^|[^A-Za-z0-9_.])(sin|cos|tan)\s*\(([^)]+)\)/g,
-            (m, pre, fn, arg) => `${pre}Math.${fn}(${arg}${angleConversion})`
-        );
-
-        // Exponenten-Operator zuletzt
-        parsed = parsed.replace(/\^/g, '**');
-
-        if (window.ecLog) window.ecLog(`Parse Output: "${parsed}"`);
-        return parsed;
+        const scope = { pi: Math.PI, e: Math.E };
+        return math.evaluate(expr, scope);
     }
 
 
@@ -685,7 +572,7 @@ window.ExamCalc.Calculator = class {
         if (this.lastResult !== null && this.current === '') {
             // Fakultät vom letzten Ergebnis
             try {
-                const factorial = window.factorialFunction(Math.floor(this.lastResult));
+                const factorial = math.factorial(Math.floor(this.lastResult));
                 this.lastResult = factorial;
                 this.updateDisplay(factorial);
 
@@ -1267,8 +1154,7 @@ window.ExamCalc.Calculator = class {
     getCurrentValue() {
         if (this.current !== '' && this.current !== 'Fehler') {
             try {
-                const parsed = this.parseExpression(this.current);
-                return eval(parsed);
+                return this.evaluateWithMathJs(this.current);
             } catch (error) {
                 if (window.ecLog) {
                     window.ecLog(`❌ Fehler beim Auswerten: ${error.message}`);
