@@ -137,9 +137,21 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
     private function renderGeneralTab(): string
     {
-        $form = $this->buildGeneralSettingsForm();
+        $form        = $this->buildGeneralSettingsForm();
         $users_panel = $this->renderAuthorizedUsersPanel();
-        return $form->getHTML() . $users_panel;
+        return $this->renderPluginHeader() . $form->getHTML() . $users_panel;
+    }
+
+    private function renderPluginHeader(): string
+    {
+        global $DIC;
+        $factory  = $DIC->ui()->factory();
+        $renderer = $DIC->ui()->renderer();
+        return $renderer->render(
+            $factory->messageBox()->info(
+                '⚙️ ExtendedTestSettings · ILIAS 9 Plugin · Erweiterte Prüfungseinstellungen für Tests'
+            )
+        );
     }
 
     private function buildGeneralSettingsForm(): ilPropertyFormGUI
@@ -182,7 +194,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     }
 
     /**
-     * Zeigt die berechtigten Benutzer als ILIAS UI Panel
+     * Zeigt die berechtigten Benutzer als ILIAS UI Panel mit Item-Liste
      */
     private function renderAuthorizedUsersPanel(): string
     {
@@ -191,48 +203,66 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $renderer = $DIC->ui()->renderer();
 
         $authorized_users = $this->getAuthorizedUsers();
-        $add_user_url = $this->ctrl->getLinkTarget($this, 'showUserSearch');
-        $remove_url   = $this->ctrl->getLinkTarget($this, 'removeUser');
-
-        $add_button = $renderer->render($factory->button()->standard('Benutzer hinzufügen', $add_user_url));
+        $add_user_url     = $this->ctrl->getLinkTarget($this, 'showUserSearch');
+        $add_button       = $factory->button()->standard('Benutzer hinzufügen', $add_user_url);
 
         if (empty($authorized_users)) {
-            $list_html = '<p class="text-muted mt-2">Noch keine Benutzer hinzugefügt.</p>';
-        } else {
-            $list_html = '<table class="table table-striped mt-3">'
-                . '<thead><tr><th>Name</th><th>Login</th><th>Hinzugefügt von</th><th>Datum</th><th></th></tr></thead>'
-                . '<tbody>';
-            foreach ($authorized_users as $user) {
-                $fullname = htmlspecialchars($user['firstname'] . ' ' . $user['lastname']);
-                $login    = htmlspecialchars($user['login']);
-                $added_by = htmlspecialchars($user['added_by_name']);
-                $added_at = htmlspecialchars($user['added_at_formatted']);
-                $user_id  = (int) $user['user_id'];
-                $confirm_msg = addslashes('Benutzer @' . $user['login'] . ' wirklich entfernen?');
-
-                $remove_btn = '<form method="post" action="' . $remove_url . '">'
-                    . '<input type="hidden" name="user_id" value="' . $user_id . '">'
-                    . '<button type="submit" class="btn btn-sm btn-danger"'
-                    . ' onclick="return confirm(\'' . $confirm_msg . '\')">'
-                    . 'Entfernen</button></form>';
-
-                $list_html .= '<tr>'
-                    . '<td>' . $fullname . '</td>'
-                    . '<td>@' . $login . '</td>'
-                    . '<td>' . $added_by . '</td>'
-                    . '<td>' . $added_at . '</td>'
-                    . '<td>' . $remove_btn . '</td>'
-                    . '</tr>';
-            }
-            $list_html .= '</tbody></table>';
+            $panel = $factory->panel()->standard(
+                'Berechtigte Benutzer (0)',
+                [
+                    $factory->messageBox()->info('Noch keine Benutzer hinzugefügt.'),
+                    $add_button,
+                ]
+            );
+            return $renderer->render($panel);
         }
+
+        $items  = [];
+        $modals = [];
+
+        foreach ($authorized_users as $user) {
+            $fullname = trim($user['firstname'] . ' ' . $user['lastname']) ?: $user['login'];
+            $login    = $user['login'];
+            $avatar   = $factory->symbol()->avatar()->letter($login);
+
+            $this->ctrl->setParameter($this, 'user_id', (int) $user['user_id']);
+            $remove_url = $this->ctrl->getLinkTarget($this, 'removeUser');
+            $this->ctrl->setParameter($this, 'user_id', '');
+
+            $modal = $factory->modal()->interruptive(
+                'Benutzer entfernen',
+                'Benutzer @' . htmlspecialchars($login) . ' wirklich aus der Berechtigungsliste entfernen?',
+                $remove_url
+            );
+            $modals[] = $modal;
+
+            $item = $factory->item()->standard($fullname)
+                ->withLeadAvatar($avatar)
+                ->withDescription('@' . $login)
+                ->withProperties([
+                    'Hinzugefügt von' => htmlspecialchars($user['added_by_name']),
+                    'Datum'           => htmlspecialchars($user['added_at_formatted']),
+                ])
+                ->withActions(
+                    $factory->dropdown()->standard([
+                        $factory->button()->shy('Entfernen', $modal->getShowSignal()),
+                    ])
+                );
+
+            $items[] = $item;
+        }
+
+        $item_group = $factory->item()->group(
+            count($authorized_users) . ' Benutzer berechtigt',
+            $items
+        );
 
         $panel = $factory->panel()->standard(
             'Berechtigte Benutzer (' . count($authorized_users) . ')',
-            $factory->legacy($add_button . $list_html)
+            $item_group
         );
 
-        return $renderer->render($panel);
+        return $renderer->render(array_merge([$panel, $add_button], $modals));
     }
 
 
@@ -264,20 +294,28 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $form->addCommandButton('showUserSearch', 'Suchen');
         $form->addCommandButton('showGeneral', 'Zurück');
 
+        global $DIC;
+        $factory  = $DIC->ui()->factory();
+        $renderer = $DIC->ui()->renderer();
+
         $results_html = '';
         if (!empty($search_query) && strlen($search_query) >= 2) {
-            $results_html = $this->renderUserSearchResults($db, $search_query);
+            $results_html = $this->renderUserSearchResults($db, $search_query, $factory, $renderer);
         } elseif (!empty($search_query)) {
-            $results_html = '<div class="alert alert-info mt-3">Bitte mindestens 2 Zeichen eingeben.</div>';
+            $results_html = $renderer->render(
+                $factory->messageBox()->info('Bitte mindestens 2 Zeichen eingeben.')
+            );
         }
 
         $this->tpl->setContent($form->getHTML() . $results_html);
     }
 
     /**
-     * Rendert die Suchergebnisse als Tabelle
+     * Rendert die Suchergebnisse als ILIAS Item-Liste
+     * @param mixed $factory
+     * @param mixed $renderer
      */
-    private function renderUserSearchResults($db, string $search_query): string
+    private function renderUserSearchResults($db, string $search_query, $factory, $renderer): string
     {
         $search_pattern = '%' . $search_query . '%';
         $sql = "
@@ -296,36 +334,42 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         );
 
         if ($db->numRows($result) === 0) {
-            return '<div class="alert alert-info mt-3">Keine Benutzer gefunden für "'
-                . htmlspecialchars($search_query) . '".</div>';
+            return $renderer->render(
+                $factory->messageBox()->info(
+                    'Keine Benutzer gefunden für "' . htmlspecialchars($search_query) . '".'
+                )
+            );
         }
 
-        $add_url = $this->ctrl->getLinkTarget($this, 'addSingleUser');
-
-        $html = '<div class="mt-3"><h5>Gefundene Benutzer (' . $db->numRows($result) . '):</h5>'
-            . '<table class="table table-striped table-hover"><thead>'
-            . '<tr><th>Name</th><th>Login</th><th>E-Mail</th><th></th></tr>'
-            . '</thead><tbody>';
-
+        $items = [];
         while ($row = $db->fetchAssoc($result)) {
-            $fullname = htmlspecialchars(trim($row['firstname'] . ' ' . $row['lastname']));
-            $login    = htmlspecialchars($row['login']);
-            $email    = htmlspecialchars($row['email'] ?? '');
+            $fullname = trim($row['firstname'] . ' ' . $row['lastname']) ?: $row['login'];
+            $login    = $row['login'];
+            $email    = $row['email'] ?? '';
+            $avatar   = $factory->symbol()->avatar()->letter($login);
 
-            $html .= '<tr>'
-                . '<td>' . $fullname . '</td>'
-                . '<td>@' . $login . '</td>'
-                . '<td>' . $email . '</td>'
-                . '<td><form method="post" action="' . $add_url . '">'
-                . '<input type="hidden" name="user_id" value="' . (int)$row['usr_id'] . '">'
-                . '<input type="hidden" name="search_query" value="' . htmlspecialchars($search_query) . '">'
-                . '<button type="submit" class="btn btn-sm btn-success">Hinzufügen</button>'
-                . '</form></td>'
-                . '</tr>';
+            $this->ctrl->setParameter($this, 'user_id', (int) $row['usr_id']);
+            $this->ctrl->setParameter($this, 'search_query', $search_query);
+            $add_url = $this->ctrl->getLinkTarget($this, 'addSingleUser');
+            $this->ctrl->setParameter($this, 'user_id', '');
+            $this->ctrl->setParameter($this, 'search_query', '');
+
+            $add_btn = $factory->button()->standard('Hinzufügen', $add_url);
+
+            $item = $factory->item()->standard(htmlspecialchars($fullname))
+                ->withLeadAvatar($avatar)
+                ->withDescription('@' . htmlspecialchars($login))
+                ->withProperties(['E-Mail' => htmlspecialchars($email)])
+                ->withMainAction($add_btn);
+
+            $items[] = $item;
         }
 
-        $html .= '</tbody></table></div>';
-        return $html;
+        $count       = count($items);
+        $item_group  = $factory->item()->group($count . ' Benutzer gefunden', $items);
+        $panel       = $factory->panel()->standard('Suchergebnisse', $item_group);
+
+        return $renderer->render($panel);
     }
 
     /**
@@ -336,8 +380,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         global $DIC;
         $db = $DIC->database();
 
-        $user_id = (int)($_POST['user_id'] ?? 0);
-        $search_query = $_POST['search_query'] ?? '';
+        $user_id      = (int) ($_POST['user_id'] ?? $_GET['user_id'] ?? 0);
+        $search_query = $_POST['search_query'] ?? $_GET['search_query'] ?? '';
 
         if ($user_id <= 0) {
             $this->tpl->setOnScreenMessage('failure', 'Ungültige Benutzer-ID');
@@ -629,12 +673,16 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     /**
      * Entfernt einen Benutzer aus der Berechtigungsliste
      */
+    /**
+     * Entfernt einen Benutzer aus der Berechtigungsliste
+     */
     public function removeUser(): void
     {
         global $DIC;
         $db = $DIC->database();
 
-        $user_id = (int)($_POST['user_id'] ?? 0);
+        // user_id kann per POST (Formular) oder GET (Interruptive Modal URL) kommen
+        $user_id = (int) ($_POST['user_id'] ?? $_GET['user_id'] ?? 0);
 
         if ($user_id <= 0) {
             $this->tpl->setOnScreenMessage('failure', 'Ungültige Benutzer-ID');
@@ -667,18 +715,20 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
             $this->tpl->setOnScreenMessage(
                 'success',
-                "✅ Benutzer $user_name wurde entfernt."
+                "Benutzer $user_name wurde entfernt."
             );
         } catch (Exception $e) {
             error_log("[ExtendedTestSettings] Fehler beim Entfernen: " . $e->getMessage());
             $this->tpl->setOnScreenMessage(
                 'failure',
-                '❌ Fehler beim Entfernen: ' . $e->getMessage()
+                'Fehler beim Entfernen: ' . $e->getMessage()
             );
         }
 
         $this->ctrl->redirect($this, 'showGeneral');
     }
+
+
 
     /**
      * Speichert die allgemeinen Einstellungen (erweitert)
@@ -735,21 +785,85 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $stats         = $this->getPluginStatistics();
         $module_status = $this->getModuleStatus();
 
+        // Statistiken als CharacteristicValue-Listing
+        $stats_items = [
+            '🧮 Taschenrechner aktiv'     => (string) ($stats['examcalc_enabled_tests'] ?? 0),
+            '📝 Sonderzeichen aktiv'       => (string) ($stats['examsymbols_enabled_tests'] ?? 0),
+            '🔒 Prüfungsschutz aktiv'      => (string) ($stats['examguard_enabled_tests'] ?? 0),
+            '⏰ Zeit-Warnung aktiv'        => (string) ($stats['examalert_enabled_tests'] ?? 0),
+            '📊 Tests gesamt konfiguriert' => (string) ($stats['total_configured_tests'] ?? 0),
+        ];
         $stats_panel = $factory->panel()->standard(
             'Plugin-Statistiken',
-            $factory->legacy($this->renderStatisticsCards($stats))
-        );
-        $modules_panel = $factory->panel()->standard(
-            'Module-Status',
-            $factory->legacy($this->renderModuleStatusCards($module_status))
-        );
-        $cleanup_panel = $factory->panel()->standard(
-            'Wartung',
-            $factory->legacy($this->renderCleanupSection())
+            $factory->listing()->characteristicValue()->text($stats_items)
         );
 
-        return $renderer->render([$stats_panel, $modules_panel, $cleanup_panel]);
+        // Module als Report-Panel mit Sub-Panels
+        $sub_panels = [];
+        foreach ($module_status as $module => $data) {
+            $status_label = $data['exists'] ? 'Verfügbar' : 'Nicht gefunden';
+            $title        = ($data['icon'] ?? '') . ' ' . $data['title'] . '  —  ' . $status_label;
+
+            if ($data['exists']) {
+                $detailed_stats = $this->getDetailedModuleStats($module);
+                $content        = $this->buildModuleDetailsContent($module, $detailed_stats, $factory);
+            } else {
+                $content = [$factory->messageBox()->info('Modul-Datei nicht gefunden.')];
+            }
+            $sub_panels[] = $factory->panel()->sub($title, $content);
+        }
+        $modules_panel = $factory->panel()->report('Modul-Status', $sub_panels);
+
+        // Wartung / Bereinigung
+        $cleanup_url = $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries');
+        $preview_url = $this->ctrl->getLinkTarget($this, 'previewCleanup');
+        $cleanup_panel = $factory->panel()->standard(
+            'Wartung',
+            [
+                $factory->messageBox()->info(
+                    'Entfernt Einstellungen von Tests, die in ILIAS gelöscht wurden.'
+                ),
+                $factory->button()->standard('Vorschau anzeigen', $preview_url),
+                $factory->button()->standard('Jetzt bereinigen', $cleanup_url),
+            ]
+        );
+
+        return $this->renderPluginHeader()
+            . $renderer->render([$stats_panel, $modules_panel, $cleanup_panel]);
     }
+
+    /**
+     * Baut den Inhalt eines Modul-Sub-Panels (Detailliste der aktiven Tests)
+     * @param mixed $factory
+     */
+    private function buildModuleDetailsContent(string $module, array $tests, $factory): array
+    {
+        $module_names = [
+            'examcalc'    => 'Taschenrechner',
+            'examsymbols' => 'Sonderzeichen',
+            'examguard'   => 'Prüfungsschutz',
+            'examalert'   => 'Zeit-Warnung',
+        ];
+        $module_name = $module_names[$module] ?? ucfirst($module);
+        $count       = count($tests);
+
+        if ($count === 0) {
+            return [$factory->messageBox()->info('Keine aktiven Tests für dieses Modul gefunden.')];
+        }
+
+        $items = [];
+        foreach ($tests as $test) {
+            $key         = htmlspecialchars($test['title']) . '  (ID ' . (int) $test['test_id'] . ')';
+            $items[$key] = htmlspecialchars($test['owner_name']) . '  —  ' . htmlspecialchars($test['created']);
+        }
+
+        return [
+            $factory->messageBox()->info($count . ' Tests verwenden ' . $module_name . '.'),
+            $factory->listing()->descriptive($items),
+        ];
+    }
+
+
 
     /**
      * ILIAS 9 kompatible Plugin-Statistiken
@@ -877,69 +991,9 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         return $stats;
     }
 
-    private function renderStatisticsCards(array $stats): string
-    {
-        if (empty($stats)) {
-            return '<p class="text-muted">Keine Statistiken verfügbar.</p>';
-        }
 
-        $stat_configs = [
-            'examcalc_enabled_tests'    => ['title' => 'Taschenrechner',      'badge' => 'primary'],
-            'examsymbols_enabled_tests' => ['title' => 'Sonderzeichen',        'badge' => 'success'],
-            'examguard_enabled_tests'   => ['title' => 'Prüfungsschutz',      'badge' => 'danger'],
-            'examalert_enabled_tests'   => ['title' => 'Zeit-Warnung',         'badge' => 'warning'],
-            'total_configured_tests'    => ['title' => 'Gesamt konfiguriert',  'badge' => 'secondary'],
-        ];
 
-        $cards = '';
-        foreach ($stat_configs as $key => $config) {
-            $value  = $stats[$key] ?? 0;
-            $cards .= '<div class="col">'
-                . '<div class="card text-center h-100"><div class="card-body">'
-                . '<span class="badge text-bg-' . $config['badge'] . ' fs-4 mb-2">' . $value . '</span>'
-                . '<p class="card-text small text-muted mb-0">' . htmlspecialchars($config['title']) . '</p>'
-                . '</div></div></div>';
-        }
 
-        return '<div class="row row-cols-2 row-cols-md-5 g-3">' . $cards . '</div>';
-    }
-
-    private function renderModuleStatusCards(array $module_status): string
-    {
-        $accordion_id = 'moduleStatusAccordion';
-        $html = '<div class="accordion" id="' . $accordion_id . '">';
-
-        foreach ($module_status as $module => $data) {
-            $status_class = $data['exists'] ? 'text-success' : 'text-danger';
-            $status_text  = $data['exists'] ? 'Verfügbar' : 'Nicht gefunden';
-            $collapse_id  = 'collapse-' . $module;
-            $header_id    = 'heading-' . $module;
-
-            $html .= '<div class="accordion-item">'
-                . '<h2 class="accordion-header" id="' . $header_id . '">'
-                . '<button class="accordion-button collapsed" type="button"'
-                . ' data-bs-toggle="collapse" data-bs-target="#' . $collapse_id . '"'
-                . ' aria-expanded="false" aria-controls="' . $collapse_id . '">'
-                . '<span class="fw-semibold me-auto">' . htmlspecialchars($data['title']) . '</span>'
-                . '<small class="' . $status_class . ' ms-3">' . $status_text . '</small>'
-                . '</button></h2>';
-
-            if ($data['exists']) {
-                $detailed_stats = $this->getDetailedModuleStats($module);
-                $details_html   = $this->renderModuleDetails($module, $detailed_stats);
-
-                $html .= '<div id="' . $collapse_id . '" class="accordion-collapse collapse"'
-                    . ' aria-labelledby="' . $header_id . '">'
-                    . '<div class="accordion-body">' . $details_html . '</div>'
-                    . '</div>';
-            }
-
-            $html .= '</div>';
-        }
-
-        $html .= '</div>';
-        return $html;
-    }
 
     /**
      * Lädt detaillierte Statistiken für ein Modul
@@ -1066,64 +1120,9 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     /**
      * Rendert die Detail-Ansicht für ein Modul
      */
-    private function renderModuleDetails(string $module, array $tests): string
-    {
-        if (empty($tests)) {
-            return '<p class="text-muted fst-italic">Keine aktiven Tests gefunden.</p>';
-        }
 
-        $module_names = [
-            'examcalc'    => 'Taschenrechner',
-            'examsymbols' => 'Sonderzeichen',
-            'examguard'   => 'Prüfungsschutz',
-            'examalert'   => 'Zeit-Warnung',
-        ];
-        $module_name = $module_names[$module] ?? ucfirst($module);
-        $count       = count($tests);
 
-        $html = '<p class="mb-2"><strong>' . $count . ' Tests verwenden '
-            . htmlspecialchars($module_name) . '</strong></p>'
-            . '<div class="table-responsive" style="max-height:300px;overflow-y:auto;">'
-            . '<table class="table table-sm table-striped">'
-            . '<thead><tr><th>Test</th><th>Eigentümer</th><th>Erstellt</th></tr></thead>'
-            . '<tbody>';
 
-        foreach ($tests as $test) {
-            $test_url    = 'ilias.php?ref_id=' . (int)$test['ref_id'] . '&baseClass=ilRepositoryGUI';
-            $test_title  = htmlspecialchars($test['title']);
-            $owner_name  = htmlspecialchars($test['owner_name']);
-            $owner_login = htmlspecialchars($test['owner_login']);
-            $created     = htmlspecialchars($test['created']);
-
-            $html .= '<tr>'
-                . '<td><a href="' . $test_url . '" target="_blank">' . $test_title . '</a>'
-                . '<br><small class="text-muted">ID: ' . (int)$test['test_id'] . '</small></td>'
-                . '<td>' . $owner_name . '<br><small class="text-muted">@' . $owner_login . '</small></td>'
-                . '<td><small>' . $created . '</small></td>'
-                . '</tr>';
-        }
-
-        $html .= '</tbody></table></div>';
-        return $html;
-    }
-
-    private function renderCleanupSection(): string
-    {
-        global $DIC;
-        $factory  = $DIC->ui()->factory();
-        $renderer = $DIC->ui()->renderer();
-
-        $cleanup_url = $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries');
-        $preview_url = $this->ctrl->getLinkTarget($this, 'previewCleanup');
-
-        $buttons = $renderer->render([
-            $factory->button()->standard('Vorschau', $preview_url),
-            $factory->button()->standard('Jetzt bereinigen', $cleanup_url),
-        ]);
-
-        return '<p class="text-muted mb-3">Entfernt Einstellungen von Tests, die gelöscht wurden.</p>'
-            . $buttons;
-    }
 
     private function getModuleStatus(): array
     {
@@ -1184,7 +1183,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function renderExamCheckerTab(): string
     {
         $form = $this->buildExamCheckerForm();
-        return $form->getHTML();
+        return $this->renderPluginHeader() . $form->getHTML();
     }
 
     private function buildExamCheckerForm(): ilPropertyFormGUI
@@ -1497,12 +1496,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         $back_url    = $this->ctrl->getLinkTarget($this, 'showStatistics');
         $cleanup_url = $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries');
-
-        $back_button = $renderer->render($factory->button()->standard('Zurück zu Statistiken', $back_url));
+        $back_button = $factory->button()->standard('Zurück zu Statistiken', $back_url);
 
         if (empty($orphaned_entries)) {
-            return $back_button
-                . '<div class="alert alert-success mt-3">Keine verwaisten Einträge – alles in Ordnung.</div>';
+            return $renderer->render([
+                $back_button,
+                $factory->messageBox()->success('Keine verwaisten Einträge – alles in Ordnung.'),
+            ]);
         }
 
         $total_count = array_sum(array_map('count', $orphaned_entries));
@@ -1513,37 +1513,42 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             'examalert_settings'   => 'Zeit-Warnung',
         ];
 
-        $details_html = '';
+        $sub_panels = [];
         foreach ($orphaned_entries as $table => $entries) {
             $table_name = $table_names[$table] ?? $table;
             $count      = count($entries);
 
-            $details_html .= '<h6 class="mt-3">' . htmlspecialchars($table_name)
-                . ' (' . $count . ' Einträge)</h6>'
-                . '<table class="table table-sm table-bordered"><thead>'
-                . '<tr><th>Test-ID</th><th>Test-Name</th><th>Status</th></tr>'
-                . '</thead><tbody>';
-
+            $items = [];
             foreach ($entries as $entry) {
-                $status_class = $entry['status'] === 'Gelöscht' ? 'text-danger' : 'text-muted';
-                $details_html .= '<tr>'
-                    . '<td>' . (int)$entry['test_id'] . '</td>'
-                    . '<td>' . htmlspecialchars($entry['title']) . '</td>'
-                    . '<td class="' . $status_class . '">' . htmlspecialchars($entry['status']) . '</td>'
-                    . '</tr>';
+                $key         = htmlspecialchars($entry['title']) . '  (ID ' . (int) $entry['test_id'] . ')';
+                $items[$key] = htmlspecialchars($entry['status']);
             }
-            $details_html .= '</tbody></table>';
+
+            $sub_panels[] = $factory->panel()->sub(
+                $table_name . ' (' . $count . ' Einträge)',
+                $factory->listing()->descriptive($items)
+            );
         }
 
-        $confirm_button = $renderer->render(
-            $factory->button()->standard($total_count . ' Einträge jetzt löschen', $cleanup_url)
+        $confirm_modal = $factory->modal()->interruptive(
+            'Bereinigung bestätigen',
+            $total_count . ' verwaiste Einträge werden unwiderruflich gelöscht. Fortfahren?',
+            $cleanup_url
+        );
+        $confirm_button = $factory->button()->standard(
+            $total_count . ' Einträge jetzt löschen',
+            $confirm_modal->getShowSignal()
         );
 
-        return $back_button
-            . '<div class="alert alert-warning mt-3"><strong>' . $total_count
-            . ' verwaiste Einträge</strong> werden beim Bereinigen entfernt.</div>'
-            . $details_html
-            . '<div class="mt-3">' . $confirm_button . '</div>';
+        return $renderer->render([
+            $back_button,
+            $factory->messageBox()->confirmation(
+                $total_count . ' verwaiste Einträge gefunden. Bereinigung empfohlen.'
+            ),
+            $factory->panel()->report('Details', $sub_panels),
+            $confirm_button,
+            $confirm_modal,
+        ]);
     }
 
     /**
