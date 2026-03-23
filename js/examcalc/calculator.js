@@ -150,9 +150,6 @@ window.ExamCalc.Calculator = class {
                 if (button.classList.contains('trig-btn')) {
                     const func = this.shiftMode ? button.dataset.secondary : button.dataset.primary;
                     this.addFunction(func);
-                    if (this.shiftMode) {
-                        this.toggleShiftMode(); // Auto-deaktivieren nach Verwendung
-                    }
                     return;
                 }
 
