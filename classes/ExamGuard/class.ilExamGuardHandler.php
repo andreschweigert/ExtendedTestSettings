@@ -115,6 +115,18 @@ class ilExamGuardHandler
     }
 
     /**
+     * Gibt ILIAS-Formular-Elemente zurück (kein HTML)
+     */
+    public function getFormItems(int $ref_id): array
+    {
+        $cb = new ilCheckboxInputGUI('Prüfungsschutz aktivieren', 'examguard_enabled');
+        $cb->setChecked($this->isEnabled($ref_id));
+        $cb->setInfo('Blockiert Copy&Paste, Rechtsklick und kritische Tastenkombinationen während der Prüfung. Läuft unsichtbar im Hintergrund.');
+
+        return [$cb];
+    }
+
+    /**
      * Generiert HTML für Einstellungs-Formular
      */
     public function getSettingsHTML(int $ref_id): string

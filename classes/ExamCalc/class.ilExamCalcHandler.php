@@ -172,6 +172,27 @@ class ilExamCalcHandler
     }
 
     /**
+     * Gibt ILIAS-Formular-Elemente zurück (kein HTML)
+     */
+    public function getFormItems(int $ref_id): array
+    {
+        $cb = new ilCheckboxInputGUI('Taschenrechner aktivieren', 'examcalc_enabled');
+        $cb->setChecked($this->isEnabled($ref_id));
+        $cb->setInfo('Stellt einen Taschenrechner während der Prüfung zur Verfügung. Shortcut: Alt + R');
+
+        $sel = new ilSelectInputGUI('Taschenrechner-Typ', 'examcalc_mode');
+        $sel->setOptions([
+            'simple'   => 'Einfach (Grundrechenarten) – Standard',
+            'advanced' => 'Wissenschaftlich (Work in Progress)',
+        ]);
+        $sel->setValue($this->getCalculatorMode($ref_id));
+        $sel->setInfo('Einfach: nur + − × ÷ (empfohlen). Wissenschaftlich: sin, cos, tan, √ usw. — noch in Entwicklung.');
+        $cb->addSubItem($sel);
+
+        return [$cb];
+    }
+
+    /**
      * Generiert HTML für Einstellungs-Formular
      */
     public function getSettingsHTML(int $ref_id): string

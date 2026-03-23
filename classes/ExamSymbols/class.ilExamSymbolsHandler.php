@@ -184,6 +184,28 @@ HTML;
     }
 
     /**
+     * Gibt ILIAS-Formular-Elemente zurück (kein HTML)
+     */
+    public function getFormItems(int $ref_id): array
+    {
+        $cb = new ilCheckboxInputGUI('Sonderzeichen-Palette aktivieren', 'examsymbols_enabled');
+        $cb->setChecked($this->isEnabled($ref_id));
+        $cb->setInfo('Aktiviert die Spezialzeichen-Auswahl für diesen Test. Shortcut: Alt + S');
+
+        $options = [];
+        foreach ($this->config->getAvailableTemplates() as $key => $data) {
+            $options[$key] = $data['label'];
+        }
+        $sel = new ilSelectInputGUI('Symbol-Vorlage', 'examsymbols_template');
+        $sel->setOptions($options);
+        $sel->setValue($this->getSymbolTemplate($ref_id));
+        $sel->setInfo('Wähle eine Vorlage für die Spezialzeichen, die im Test eingeblendet werden sollen.');
+        $cb->addSubItem($sel);
+
+        return [$cb];
+    }
+
+    /**
      * Lädt das Symbol-Template für einen Test
      */
     private function getSymbolTemplate(int $ref_id): string

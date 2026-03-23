@@ -170,9 +170,13 @@ class ilExtendedTestSettingsAdvancedGUI
 
         // Formular generieren
         $form = $this->buildModuleForm($ref_id);
-        $debug_link = !$show_debug
-            ? '<p class="text-end mt-2"><a href="' . $_SERVER['REQUEST_URI'] . '&debug=1" class="text-muted small">Debug-Informationen anzeigen</a></p>'
-            : '';
+
+        global $DIC;
+        $factory  = $DIC->ui()->factory();
+        $renderer = $DIC->ui()->renderer();
+        $debug_url = $_SERVER['REQUEST_URI'] . ($show_debug ? '&debug=0' : '&debug=1');
+        $debug_label = $show_debug ? 'Debug ausblenden' : 'Debug-Informationen anzeigen';
+        $debug_link = $renderer->render($factory->link()->standard($debug_label, $debug_url));
 
         $this->tpl->setTitle('Erweiterte Test-Einstellungen');
         $this->tpl->setDescription('Konfiguration für alle verfügbaren Prüfungs-Features');
@@ -434,27 +438,33 @@ HTML;
             $module_handlers = $this->loadModuleHandlersDirect();
 
             if (empty($module_handlers)) {
-                $no_modules = new ilCustomInputGUI();
-                $no_modules->setHtml('<div class="alert alert-warning">Keine Prüfungs-Module gefunden. Bitte sicherstellen, dass die Handler-Klassen installiert sind.</div>');
-                $form->addItem($no_modules);
+                $msg = new ilCustomInputGUI();
+                $msg->setHtml('<p>Keine Prüfungs-Module gefunden.</p>');
+                $form->addItem($msg);
             } else {
                 foreach ($module_handlers as $moduleName => $handler) {
-                    if (!method_exists($handler, 'getInfo') || !method_exists($handler, 'getSettingsHTML')) {
+                    if (!method_exists($handler, 'getInfo')) {
                         continue;
                     }
                     try {
                         $info = $handler->getInfo();
 
                         $section = new ilFormSectionHeaderGUI();
-                        $section->setTitle(htmlspecialchars($info['title'] ?? $moduleName));
+                        $section->setTitle(($info['icon'] ?? '') . ' ' . htmlspecialchars($info['title'] ?? $moduleName));
                         $form->addItem($section);
 
-                        $custom = new ilCustomInputGUI(
-                            htmlspecialchars($info['description'] ?? ''),
-                            ''
-                        );
-                        $custom->setHtml($handler->getSettingsHTML($ref_id));
-                        $form->addItem($custom);
+                        if (method_exists($handler, 'getFormItems')) {
+                            foreach ($handler->getFormItems($ref_id) as $item) {
+                                $form->addItem($item);
+                            }
+                        } elseif (method_exists($handler, 'getSettingsHTML')) {
+                            $custom = new ilCustomInputGUI(
+                                htmlspecialchars($info['description'] ?? ''),
+                                ''
+                            );
+                            $custom->setHtml($handler->getSettingsHTML($ref_id));
+                            $form->addItem($custom);
+                        }
                     } catch (Exception $e) {
                         error_log("[ExtendedTestSettings] Fehler beim Laden von Modul '$moduleName': " . $e->getMessage());
                     }
@@ -538,81 +548,61 @@ HTML;
     {
         // ExamCalc Fallback
         $examcalc_data = $this->getFallbackExamCalcStatus($ref_id);
-        $simple_selected = ($examcalc_data['mode'] === 'simple') ? 'selected' : '';
-        $advanced_selected = ($examcalc_data['mode'] === 'advanced') ? 'selected' : '';
-        $examcalc_checked = $examcalc_data['enabled'] ? 'checked' : '';
 
         $section_calc = new ilFormSectionHeaderGUI();
-        $section_calc->setTitle('Taschenrechner');
+        $section_calc->setTitle('🧮 Taschenrechner');
         $form->addItem($section_calc);
 
-        $custom_calc = new ilCustomInputGUI('Taschenrechner für Prüfungen', '');
-        $custom_calc->setHtml('<div class="mb-3"><div class="form-check">
-            <input class="form-check-input" type="checkbox" name="examcalc_enabled" value="1" id="examcalc_enabled" ' . $examcalc_checked . '>
-            <label class="form-check-label fw-bold" for="examcalc_enabled">Taschenrechner aktivieren</label>
-        </div></div>
-        <div class="mb-3">
-            <label for="examcalc_mode" class="form-label fw-semibold">Taschenrechner-Typ:</label>
-            <select name="examcalc_mode" id="examcalc_mode" class="form-select">
-                <option value="simple" ' . $simple_selected . '>Einfach (Grundrechenarten) – Standard</option>
-                <option value="advanced" ' . $advanced_selected . '>Wissenschaftlich (Work in Progress)</option>
-            </select>
-        </div>');
-        $form->addItem($custom_calc);
+        $cb_calc = new ilCheckboxInputGUI('Taschenrechner aktivieren', 'examcalc_enabled');
+        $cb_calc->setChecked($examcalc_data['enabled']);
+        $sel_calc = new ilSelectInputGUI('Taschenrechner-Typ', 'examcalc_mode');
+        $sel_calc->setOptions([
+            'simple'   => 'Einfach (Grundrechenarten) – Standard',
+            'advanced' => 'Wissenschaftlich (Work in Progress)',
+        ]);
+        $sel_calc->setValue($examcalc_data['mode']);
+        $cb_calc->addSubItem($sel_calc);
+        $form->addItem($cb_calc);
 
         // ExamSymbols Fallback
         $examsymbols_data = $this->getFallbackExamSymbolsStatus($ref_id);
-        $examsymbols_checked = $examsymbols_data['enabled'] ? 'checked' : '';
-        $math_sel = ($examsymbols_data['template'] === 'math') ? 'selected' : '';
-        $german_sel = ($examsymbols_data['template'] === 'german') ? 'selected' : '';
-        $spanish_sel = ($examsymbols_data['template'] === 'spanish') ? 'selected' : '';
 
         $section_sym = new ilFormSectionHeaderGUI();
-        $section_sym->setTitle('Sonderzeichen-Palette');
+        $section_sym->setTitle('📝 Sonderzeichen-Palette');
         $form->addItem($section_sym);
 
-        $custom_sym = new ilCustomInputGUI('Palette mit Sonderzeichen', '');
-        $custom_sym->setHtml('<div class="mb-3"><div class="form-check">
-            <input class="form-check-input" type="checkbox" name="examsymbols_enabled" value="1" id="examsymbols_enabled" ' . $examsymbols_checked . '>
-            <label class="form-check-label fw-bold" for="examsymbols_enabled">Sonderzeichen aktivieren</label>
-        </div></div>
-        <div class="mb-3">
-            <label for="examsymbols_template" class="form-label fw-semibold">Vorlage:</label>
-            <select name="examsymbols_template" id="examsymbols_template" class="form-select">
-                <option value="math" ' . $math_sel . '>Mathematik/Wissenschaft</option>
-                <option value="german" ' . $german_sel . '>Deutsch</option>
-                <option value="spanish" ' . $spanish_sel . '>Spanisch</option>
-            </select>
-        </div>');
-        $form->addItem($custom_sym);
+        $cb_sym = new ilCheckboxInputGUI('Sonderzeichen-Palette aktivieren', 'examsymbols_enabled');
+        $cb_sym->setChecked($examsymbols_data['enabled']);
+        $sel_sym = new ilSelectInputGUI('Symbol-Vorlage', 'examsymbols_template');
+        $sel_sym->setOptions([
+            'math'    => 'Mathematik/Wissenschaft',
+            'german'  => 'Deutsch',
+            'spanish' => 'Spanisch',
+        ]);
+        $sel_sym->setValue($examsymbols_data['template']);
+        $cb_sym->addSubItem($sel_sym);
+        $form->addItem($cb_sym);
 
         // ExamAlert Fallback
         $examalert_data = $this->getFallbackExamAlertStatus($ref_id);
-        $examalert_checked = $examalert_data['enabled'] ? 'checked' : '';
-        $examalert_time = (int) $examalert_data['alert_time'];
-        $examalert_message = htmlspecialchars($examalert_data['alert_message'], ENT_QUOTES);
 
         $section_alert = new ilFormSectionHeaderGUI();
-        $section_alert->setTitle('Zeit-Warnung');
+        $section_alert->setTitle('⏰ Zeit-Warnung');
         $form->addItem($section_alert);
 
-        $custom_alert = new ilCustomInputGUI('Zeitbasierte Warnungen', '');
-        $custom_alert->setHtml('<div class="mb-3"><div class="form-check">
-            <input class="form-check-input" type="checkbox" name="examalert_enabled" value="1" id="examalert_enabled" ' . $examalert_checked . '>
-            <label class="form-check-label fw-bold" for="examalert_enabled">Zeit-Warnung aktivieren</label>
-        </div></div>
-        <div class="mb-3">
-            <label for="examalert_time" class="form-label fw-semibold">Warnung anzeigen:</label>
-            <div class="input-group" style="max-width:300px;">
-                <input type="number" class="form-control" name="examalert_time" id="examalert_time" value="' . $examalert_time . '" min="5" max="3600">
-                <span class="input-group-text">Sekunden vor Testende</span>
-            </div>
-        </div>
-        <div class="mb-3">
-            <label for="examalert_message" class="form-label fw-semibold">Nachricht:</label>
-            <textarea name="examalert_message" id="examalert_message" rows="3" class="form-control">' . $examalert_message . '</textarea>
-        </div>');
-        $form->addItem($custom_alert);
+        $cb_alert = new ilCheckboxInputGUI('Zeit-Warnung aktivieren', 'examalert_enabled');
+        $cb_alert->setChecked($examalert_data['enabled']);
+        $num_alert = new ilNumberInputGUI('Warnung anzeigen', 'examalert_time');
+        $num_alert->setValue((string) (int) $examalert_data['alert_time']);
+        $num_alert->setMinValue(5);
+        $num_alert->setMaxValue(3600);
+        $num_alert->setSuffix('Sekunden vor Testende');
+        $cb_alert->addSubItem($num_alert);
+        $ta_alert = new ilTextAreaInputGUI('Nachricht', 'examalert_message');
+        $ta_alert->setValue($examalert_data['alert_message']);
+        $ta_alert->setRows(6);
+        $cb_alert->addSubItem($ta_alert);
+        $form->addItem($cb_alert);
     }
 
     /**

@@ -807,16 +807,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $stats         = $this->getPluginStatistics();
         $module_status = $this->getModuleStatus();
 
-        // Statistiken als CharacteristicValue-Listing mit Kontext-Zahl
-        $total = $stats['total_tests_in_system'] ?? 0;
-        $of    = $total > 0 ? ' von ' . $total : '';
+        // Statistiken als CharacteristicValue-Listing
         $stats_items = [
-            '🧮 Taschenrechner aktiv'     => ($stats['examcalc_enabled_tests'] ?? 0)   . $of . ' Tests',
-            '📝 Sonderzeichen aktiv'       => ($stats['examsymbols_enabled_tests'] ?? 0) . $of . ' Tests',
-            '🔒 Prüfungsschutz aktiv'      => ($stats['examguard_enabled_tests'] ?? 0)  . $of . ' Tests',
-            '⏰ Zeit-Warnung aktiv'        => ($stats['examalert_enabled_tests'] ?? 0)  . $of . ' Tests',
-            '📊 Mit min. 1 Modul konfiguriert' => ($stats['total_configured_tests'] ?? 0) . $of . ' Tests',
-            '🗂️ Tests im System gesamt'    => (string) $total,
+            '🧮 Taschenrechner aktiv'          => ($stats['examcalc_enabled_tests'] ?? 0)   . ' Tests',
+            '📝 Sonderzeichen aktiv'            => ($stats['examsymbols_enabled_tests'] ?? 0) . ' Tests',
+            '🔒 Prüfungsschutz aktiv'           => ($stats['examguard_enabled_tests'] ?? 0)  . ' Tests',
+            '⏰ Zeit-Warnung aktiv'             => ($stats['examalert_enabled_tests'] ?? 0)  . ' Tests',
+
         ];
         $stats_panel = $factory->panel()->standard(
             'Plugin-Statistiken',
@@ -915,8 +912,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             'examsymbols_enabled_tests'  => 0,
             'examguard_enabled_tests'    => 0,
             'examalert_enabled_tests'    => 0,
-            'total_configured_tests'     => 0,
-            'total_tests_in_system'      => 0,
+
         ];
 
         try {
@@ -974,64 +970,6 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 if ($row = $db->fetchAssoc($result)) {
                     $stats['examalert_enabled_tests'] = (int) $row['cnt'];
                 }
-            }
-
-            // Totale konfigurierte Tests (mindestens ein Feature aktiviert) - nur aktive
-            $union_queries = [];
-            if ($db->tableExists('examcalc_settings')) {
-                $union_queries[] = "
-                    SELECT s.test_id 
-                    FROM examcalc_settings s
-                    JOIN object_data od ON s.test_id = od.obj_id
-                    JOIN object_reference ref ON od.obj_id = ref.obj_id
-                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
-                ";
-            }
-            if ($db->tableExists('examsymbols_settings')) {
-                $union_queries[] = "
-                    SELECT s.test_id 
-                    FROM examsymbols_settings s
-                    JOIN object_data od ON s.test_id = od.obj_id
-                    JOIN object_reference ref ON od.obj_id = ref.obj_id
-                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
-                ";
-            }
-            if ($db->tableExists('examguard_settings')) {
-                $union_queries[] = "
-                    SELECT s.test_id 
-                    FROM examguard_settings s
-                    JOIN object_data od ON s.test_id = od.obj_id
-                    JOIN object_reference ref ON od.obj_id = ref.obj_id
-                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
-                ";
-            }
-            if ($db->tableExists('examalert_settings')) {
-                $union_queries[] = "
-                    SELECT s.test_id 
-                    FROM examalert_settings s
-                    JOIN object_data od ON s.test_id = od.obj_id
-                    JOIN object_reference ref ON od.obj_id = ref.obj_id
-                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
-                ";
-            }
-
-            if (!empty($union_queries)) {
-                $union_query = implode(" UNION ", $union_queries);
-                $result = $db->query("SELECT COUNT(DISTINCT test_id) as cnt FROM ($union_query) as combined");
-                if ($row = $db->fetchAssoc($result)) {
-                    $stats['total_configured_tests'] = (int) $row['cnt'];
-                }
-            }
-
-            // Gesamtzahl aktiver Tests im System (für Kontext)
-            $result = $db->query("
-                SELECT COUNT(DISTINCT od.obj_id) as cnt
-                FROM object_data od
-                JOIN object_reference ref ON od.obj_id = ref.obj_id
-                WHERE od.type = 'tst' AND ref.deleted IS NULL
-            ");
-            if ($row = $db->fetchAssoc($result)) {
-                $stats['total_tests_in_system'] = (int) $row['cnt'];
             }
 
         } catch (Exception $e) {

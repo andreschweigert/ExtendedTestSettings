@@ -233,6 +233,33 @@ class ilExamAlertHandler
     }
 
     /**
+     * Gibt ILIAS-Formular-Elemente zurück (kein HTML)
+     */
+    public function getFormItems(int $ref_id): array
+    {
+        $config = $this->getAlertConfig($ref_id);
+
+        $cb = new ilCheckboxInputGUI('Zeit-Warnung aktivieren', 'examalert_enabled');
+        $cb->setChecked($config['enabled']);
+        $cb->setInfo('Zeigt eine Warnung zu einer bestimmten Zeit vor Testende an.');
+
+        $num = new ilNumberInputGUI('Warnung anzeigen', 'examalert_time');
+        $num->setValue((string) ($config['alert_time'] ?? 30));
+        $num->setMinValue(5);
+        $num->setMaxValue(3600);
+        $num->setSuffix('Sekunden vor Testende');
+        $cb->addSubItem($num);
+
+        $ta = new ilTextAreaInputGUI('Nachricht', 'examalert_message');
+        $ta->setValue($config['alert_message'] ?? '');
+        $ta->setRows(6);
+        $ta->setInfo('Diese Nachricht wird den Teilnehmern zur eingestellten Zeit angezeigt. HTML erlaubt: &lt;strong&gt;, &lt;u&gt;, &lt;br&gt;');
+        $cb->addSubItem($ta);
+
+        return [$cb];
+    }
+
+    /**
      * Generiert HTML für Einstellungs-Formular
      */
     public function getSettingsHTML(int $ref_id): string
