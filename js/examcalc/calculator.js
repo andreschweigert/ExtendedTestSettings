@@ -528,6 +528,9 @@ window.ExamCalc.Calculator = class {
         this.lastOperand = value;
     }
 
+    const MAX_LENGTH = 200;
+    if (this.current.length >= MAX_LENGTH) return;
+
     this.current += value;
     this.display.value = this.formatDisplayExpression(this.current);
 }
