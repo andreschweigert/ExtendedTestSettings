@@ -115,23 +115,32 @@ class ilExamGuardHandler
     }
 
     /**
+     * Gibt ILIAS-Formular-Elemente zurück (kein HTML)
+     */
+    public function getFormItems(int $ref_id): array
+    {
+        $cb = new ilCheckboxInputGUI('Prüfungsschutz aktivieren', 'examguard_enabled');
+        $cb->setChecked($this->isEnabled($ref_id));
+        $cb->setInfo('Blockiert Copy&Paste, Rechtsklick und kritische Tastenkombinationen während der Prüfung. Läuft unsichtbar im Hintergrund.');
+
+        return [$cb];
+    }
+
+    /**
      * Generiert HTML für Einstellungs-Formular
      */
     public function getSettingsHTML(int $ref_id): string
     {
         $enabled = $this->isEnabled($ref_id) ? 'checked' : '';
-        
+
         return <<<HTML
-            <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                    <input type="checkbox" name="examguard_enabled" value="1" $enabled style="transform: scale(1.2);">
-                    <strong>Prüfungsschutz aktivieren</strong>
-                </label>
-                <p style="margin: 0.5rem 0 0 1.7rem; color: #666; font-size: 0.9rem;">
-                    Blockiert Copy&Paste, Rechtsklick und kritische Tastenkombinationen während der Prüfung.
-                    <br><em>Läuft unsichtbar im Hintergrund</em>
-                </p>
-            </div>
+<div class="mb-3">
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="examguard_enabled" value="1" id="examguard_enabled" $enabled>
+        <label class="form-check-label fw-bold" for="examguard_enabled">Prüfungsschutz aktivieren</label>
+    </div>
+    <div class="form-text">Blockiert Copy&amp;Paste, Rechtsklick und kritische Tastenkombinationen während der Prüfung. <em>Läuft unsichtbar im Hintergrund.</em></div>
+</div>
 HTML;
     }
 

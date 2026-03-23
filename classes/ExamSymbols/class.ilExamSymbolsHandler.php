@@ -166,28 +166,43 @@ class ilExamSymbolsHandler
         }
 
         return <<<HTML
-            <div class="form-group">
-                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                    <input type="checkbox" name="examsymbols_enabled" value="1" $enabled style="transform: scale(1.2);">
-                    <strong>Sonderzeichen-Palette aktivieren</strong>
-                </label>
-                <p style="margin: 0.5rem 0 1rem 1.7rem; color: #666; font-size: 0.9rem;">
-                    Aktiviert die Spezialzeichen-Auswahl für diesen Test.
-                    <br><em>Shortcut: Alt + S</em>
-                </p>
-
-                <label for="examsymbols_template" style="display: block; font-weight: bold; margin-bottom: 0.5rem;">
-                    Symbol-Vorlage wählen:
-                </label>
-                <select name="examsymbols_template" id="examsymbols_template"
-                        style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
-                    $options
-                </select>
-                <p style="margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;">
-                    Wähle eine Vorlage für die Spezialzeichen, die im Test eingeblendet werden sollen.
-                </p>
-            </div>
+<div class="mb-3">
+    <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="examsymbols_enabled" value="1" id="examsymbols_enabled" $enabled>
+        <label class="form-check-label fw-bold" for="examsymbols_enabled">Sonderzeichen-Palette aktivieren</label>
+    </div>
+    <div class="form-text">Aktiviert die Spezialzeichen-Auswahl für diesen Test. <em>Shortcut: Alt + S</em></div>
+</div>
+<div class="mb-3">
+    <label for="examsymbols_template" class="form-label fw-semibold">Symbol-Vorlage wählen:</label>
+    <select name="examsymbols_template" id="examsymbols_template" class="form-select">
+        $options
+    </select>
+    <div class="form-text">Wähle eine Vorlage für die Spezialzeichen, die im Test eingeblendet werden sollen.</div>
+</div>
 HTML;
+    }
+
+    /**
+     * Gibt ILIAS-Formular-Elemente zurück (kein HTML)
+     */
+    public function getFormItems(int $ref_id): array
+    {
+        $cb = new ilCheckboxInputGUI('Sonderzeichen-Palette aktivieren', 'examsymbols_enabled');
+        $cb->setChecked($this->isEnabled($ref_id));
+        $cb->setInfo('Aktiviert die Spezialzeichen-Auswahl für diesen Test. Shortcut: Alt + S');
+
+        $options = [];
+        foreach ($this->config->getAvailableTemplates() as $key => $data) {
+            $options[$key] = $data['label'];
+        }
+        $sel = new ilSelectInputGUI('Symbol-Vorlage', 'examsymbols_template');
+        $sel->setOptions($options);
+        $sel->setValue($this->getSymbolTemplate($ref_id));
+        $sel->setInfo('Wähle eine Vorlage für die Spezialzeichen, die im Test eingeblendet werden sollen.');
+        $cb->addSubItem($sel);
+
+        return [$cb];
     }
 
     /**

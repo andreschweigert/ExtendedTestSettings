@@ -150,14 +150,14 @@ class ilExtendedTestSettingsAdvancedGUI
     {
         $ref_id = (int) ($_GET["ref_id"] ?? 0);
         if ($ref_id <= 0) {
-            $this->tpl->setContent('<div class="alert alert-danger">❌ Kein gültiger Test ausgewählt.</div>');
+            $this->tpl->setOnScreenMessage('failure', 'Kein gültiger Test ausgewählt.');
             return;
         }
 
         // Prüfe ob es ein Test-Objekt ist
         $obj_id = ilObject::_lookupObjectId($ref_id);
         if (ilObject::_lookupType($obj_id) !== 'tst') {
-            $this->tpl->setContent('<div class="alert alert-danger">❌ Das ausgewählte Objekt ist kein Test.</div>');
+            $this->tpl->setOnScreenMessage('failure', 'Das ausgewählte Objekt ist kein Test.');
             return;
         }
 
@@ -169,11 +169,18 @@ class ilExtendedTestSettingsAdvancedGUI
         $this->setupNavigation($ref_id);
 
         // Formular generieren
-        $html = $debug_info . $this->generateCompleteForm($ref_id);
+        $form = $this->buildModuleForm($ref_id);
 
-        $this->tpl->setTitle("Erweiterte Test-Einstellungen");
-        $this->tpl->setDescription("Konfiguration für alle verfügbaren Prüfungs-Features");
-        $this->tpl->setContent($html);
+        global $DIC;
+        $factory  = $DIC->ui()->factory();
+        $renderer = $DIC->ui()->renderer();
+        $debug_url = $_SERVER['REQUEST_URI'] . ($show_debug ? '&debug=0' : '&debug=1');
+        $debug_label = $show_debug ? 'Debug ausblenden' : 'Debug-Informationen anzeigen';
+        $debug_link = $renderer->render($factory->link()->standard($debug_label, $debug_url));
+
+        $this->tpl->setTitle('Erweiterte Test-Einstellungen');
+        $this->tpl->setDescription('Konfiguration für alle verfügbaren Prüfungs-Features');
+        $this->tpl->setContent($debug_info . $form->getHTML() . $debug_link);
     }
 
 
@@ -417,173 +424,66 @@ HTML;
     }
 
     /**
-     * Generiert das komplette Formular mit allen Modulen
+     * Baut das ILIAS-Standard-Formular mit allen Modulen auf
      */
-    private function generateCompleteForm(int $ref_id): string
+    private function buildModuleForm(int $ref_id): ilPropertyFormGUI
     {
-        $form_action = "ilias.php?baseClass=iluipluginroutergui&cmdClass=ilExtendedTestSettingsAdvancedGUI&cmd=saveSettings&ref_id=$ref_id";
+        $form = new ilPropertyFormGUI();
 
-        // Header-Info
-        $header_info = $this->generateHeaderInfo();
-
-        // Module-Sektionen generieren
-        $modules_html = $this->generateAllModuleSections($ref_id);
-
-        // Debug-Link
-        $debug_link = !isset($_GET['debug']) || $_GET['debug'] !== '1'
-            ? "<p style='text-align: right; margin-top: 1rem;'><a href='{$_SERVER['REQUEST_URI']}&debug=1' style='color: #6c757d; font-size: 0.9em;'>🔍 Debug-Informationen anzeigen</a></p>"
-            : '';
-
-        return <<<HTML
-<div class="exam-settings-container">
-    $header_info
-
-    <form method="post" action="$form_action" id="extended-test-settings-form">
-        $modules_html
-        
-        <div class="form-actions" style="text-align: right; padding: 1.5rem 0; border-top: 1px solid #dee2e6; margin-top: 2rem;">
-            <button type="submit" class="btn btn-primary" style="background: #0d6efd; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; font-weight: 500; cursor: pointer; transition: all 0.2s;">
-                💾 Einstellungen speichern
-            </button>
-        </div>
-        
-        <input type="hidden" name="ref_id" value="$ref_id">
-    </form>
-    
-    $debug_link
-</div>
-
-<style>
-.exam-settings-container {
-    max-width: 1000px;
-    margin: 0;
-    padding: 0;
-}
-
-.btn:hover {
-    background: #0b5ed7 !important;
-    transform: translateY(-1px);
-    box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075) !important;
-}
-
-.plugin-section {
-    transition: all 0.15s ease;
-    margin-bottom: 1.5rem;
-    padding: 1.5rem;
-    border: 1px solid #dee2e6;
-    border-radius: 0.5rem;
-    background: #ffffff;
-}
-
-.plugin-section:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 0.125rem 0.5rem rgba(0,0,0,0.15);
-    border-color: #0d6efd;
-}
-</style>
-
-<script>
-// Form-Verbesserungen
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('extended-test-settings-form');
-    if (form) {
-        // Loading-State für Submit-Button
-        form.addEventListener('submit', function(e) {
-            const submitBtn = form.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.innerHTML = '⏳ Speichere...';
-                submitBtn.style.background = '#6c757d';
-                submitBtn.disabled = true;
-            }
-        });
-        
-        // Änderungen visuell markieren
-        const inputs = form.querySelectorAll('input[type="checkbox"], select');
-        inputs.forEach(input => {
-            input.addEventListener('change', function() {
-                const section = this.closest('.plugin-section');
-                if (section && !section.classList.contains('changed')) {
-                    section.style.borderLeftColor = '#ffc107';
-                    section.style.borderLeftWidth = '4px';
-                    section.classList.add('changed');
-                }
-            });
-        });
-    }
-});
-</script>
-HTML;
-    }
-
-    /**
-     * Header-Info generieren - Dezentes Design
-     */
-    private function generateHeaderInfo(): string
-    {
-        $feature_count = 0;
-        try {
-            $module_handlers = $this->loadModuleHandlersDirect();
-            $feature_count = count($module_handlers);
-        } catch (Exception $e) {
-            // Fallback - jetzt sind es 4 Module
-            $feature_count = 4; // ExamCalc + ExamSymbols + ExamGuard + ExamAlert
-        }
-
-        return <<<HTML
-<div style="margin-bottom: 2rem; padding: 1.5rem; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-        <h4 style="margin: 0; color: #495057; font-size: 1.1rem;">⚙️ Erweiterte Test-Einstellungen</h4>
-        <small style="color: #6c757d; background: #e9ecef; padding: 0.25rem 0.5rem; border-radius: 3px; font-weight: 500;">
-            ExtendedTestSettings v1.0
-        </small>
-    </div>
-    <p style="color: #6c757d; margin: 0; font-size: 0.9rem;">
-        Hier können Sie spezielle Funktionen für diese Prüfung aktivieren. 
-        <strong>$feature_count Module</strong> sind verfügbar und die Einstellungen gelten nur für diesen Test.
-    </p>
-</div>
-HTML;
-    }
-
-    /**
-     * Alle Modul-Sektionen generieren
-     */
-    private function generateAllModuleSections(int $ref_id): string
-    {
-        $html_sections = '';
+        $this->ctrl->setParameter($this, 'ref_id', $ref_id);
+        $form->setFormAction($this->ctrl->getFormAction($this, 'saveSettings'));
+        $form->setTitle('Erweiterte Test-Einstellungen');
 
         try {
-            // Module-Handler direkt laden (ohne UIHookGUI)
             $module_handlers = $this->loadModuleHandlersDirect();
 
             if (empty($module_handlers)) {
-                return $this->generateNoModulesMessage();
-            }
+                $msg = new ilCustomInputGUI();
+                $msg->setHtml('<p>Keine Prüfungs-Module gefunden.</p>');
+                $form->addItem($msg);
+            } else {
+                foreach ($module_handlers as $moduleName => $handler) {
+                    if (!method_exists($handler, 'getInfo')) {
+                        continue;
+                    }
+                    try {
+                        $info = $handler->getInfo();
 
-            // Jedes verfügbare Modul durchgehen
-            foreach ($module_handlers as $moduleName => $handler) {
-                if (!$handler || !method_exists($handler, 'getInfo') || !method_exists($handler, 'getSettingsHTML')) {
-                    continue;
-                }
+                        $section = new ilFormSectionHeaderGUI();
+                        $section->setTitle(($info['icon'] ?? '') . ' ' . htmlspecialchars($info['title'] ?? $moduleName));
+                        $form->addItem($section);
 
-                try {
-                    $info = $handler->getInfo();
-                    $settings_html = $handler->getSettingsHTML($ref_id);
-                    $html_sections .= $this->generateModuleSection($info, $settings_html);
-                } catch (Exception $e) {
-                    error_log("[ExtendedTestSettings] Fehler beim Laden von Modul '$moduleName': " . $e->getMessage());
+                        if (method_exists($handler, 'getFormItems')) {
+                            foreach ($handler->getFormItems($ref_id) as $item) {
+                                $form->addItem($item);
+                            }
+                        } elseif (method_exists($handler, 'getSettingsHTML')) {
+                            $custom = new ilCustomInputGUI(
+                                htmlspecialchars($info['description'] ?? ''),
+                                ''
+                            );
+                            $custom->setHtml($handler->getSettingsHTML($ref_id));
+                            $form->addItem($custom);
+                        }
+                    } catch (Exception $e) {
+                        error_log("[ExtendedTestSettings] Fehler beim Laden von Modul '$moduleName': " . $e->getMessage());
+                    }
                 }
             }
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Fehler beim Generieren der Module: " . $e->getMessage());
             }
-
-            // Fallback: Manuelle Module
-            $html_sections .= $this->generateFallbackModules($ref_id);
+            $this->addFallbackFormItems($form, $ref_id);
         }
 
-        return $html_sections ?: $this->generateNoModulesMessage();
+        $ref_hidden = new ilHiddenInputGUI('ref_id');
+        $ref_hidden->setValue((string) $ref_id);
+        $form->addItem($ref_hidden);
+
+        $form->addCommandButton('saveSettings', 'Einstellungen speichern');
+
+        return $form;
     }
 
     /**
@@ -642,174 +542,67 @@ HTML;
     }
 
     /**
-     * Einzelne Modul-Sektion generieren
+     * Fügt Fallback-Formularfelder hinzu wenn Module-Handler nicht geladen werden konnten
      */
-    private function generateModuleSection(array $info, string $settings_html): string
-    {
-        $title = htmlspecialchars($info['title'] ?? 'Unbekanntes Modul');
-        $icon = $info['icon'] ?? '⚙️';
-        $description = htmlspecialchars($info['description'] ?? '');
-        $version = $info['version'] ?? '1.0';
-
-        // Features-Liste (falls vorhanden)
-        $features_html = '';
-        if (!empty($info['features']) && is_array($info['features'])) {
-            $features_html = '<div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e9ecef;"><small style="color: #6c757d; font-weight: 500;">Verfügbare Features:</small><ul style="margin: 0.5rem 0 0 1rem; color: #6c757d; font-size: 0.85rem;">';
-            foreach ($info['features'] as $feature) {
-                $features_html .= '<li style="margin-bottom: 0.15rem;">✓ ' . htmlspecialchars($feature) . '</li>';
-            }
-            $features_html .= '</ul></div>';
-        }
-
-        return <<<HTML
-        <div class="plugin-section">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-                <h3 style="margin: 0; color: #495057; display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 600;">
-                    <span style="font-size: 1.25rem;">$icon</span> 
-                    $title
-                </h3>
-                <span style="background: #f8f9fa; color: #6c757d; padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500;">
-                    $version
-                </span>
-            </div>
-            
-            <p style="color: #6c757d; margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.4;">
-                $description
-            </p>
-            
-            <div style="background: #f8f9fa; padding: 1.25rem; border-radius: 0.375rem; border-left: 3px solid #0d6efd;">
-                $settings_html
-            </div>
-            
-            $features_html
-        </div>
-HTML;
-    }
-
-    /**
-     * Fallback wenn keine Module gefunden
-     */
-    private function generateNoModulesMessage(): string
-    {
-        return <<<HTML
-        <div style="text-align: center; padding: 3rem 2rem; background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 0.5rem; color: #6c757d;">
-            <h4 style="color: #495057; margin-bottom: 1rem;">⚠️ Keine Module verfügbar</h4>
-            <p style="margin-bottom: 1.5rem;">Es wurden keine Prüfungs-Module gefunden. Stellen Sie sicher, dass die Handler-Klassen korrekt installiert sind:</p>
-            <div style="text-align: left; display: inline-block; background: white; padding: 1rem; border-radius: 0.375rem; border: 1px solid #e9ecef;">
-                <code style="display: block; margin-bottom: 0.5rem;">classes/ExamCalc/class.ilExamCalcHandler.php</code>
-                <code style="display: block; margin-bottom: 0.5rem;">classes/ExamSymbols/class.ilExamSymbolsHandler.php</code>
-                <code style="display: block; margin-bottom: 0.5rem;">classes/ExamGuard/class.ilExamGuardHandler.php</code>
-                <code style="display: block;">classes/ExamAlert/class.ilExamAlertHandler.php</code>
-            </div>
-        </div>
-HTML;
-    }
-
-    /**
-     * Fallback Module (falls UIHookGUI nicht funktioniert)
-     */
-    /**
-     * Fallback Module (falls UIHookGUI nicht funktioniert)
-     */
-    private function generateFallbackModules(int $ref_id): string
+    private function addFallbackFormItems(ilPropertyFormGUI $form, int $ref_id): void
     {
         // ExamCalc Fallback
         $examcalc_data = $this->getFallbackExamCalcStatus($ref_id);
-        $examcalc_checked = $examcalc_data['enabled'] ? 'checked' : '';
-        $examcalc_mode = $examcalc_data['mode'];
 
-        $simple_selected = ($examcalc_mode === 'simple') ? 'selected' : '';
-        $advanced_selected = ($examcalc_mode === 'advanced') ? 'selected' : '';
+        $section_calc = new ilFormSectionHeaderGUI();
+        $section_calc->setTitle('🧮 Taschenrechner');
+        $form->addItem($section_calc);
+
+        $cb_calc = new ilCheckboxInputGUI('Taschenrechner aktivieren', 'examcalc_enabled');
+        $cb_calc->setChecked($examcalc_data['enabled']);
+        $sel_calc = new ilSelectInputGUI('Taschenrechner-Typ', 'examcalc_mode');
+        $sel_calc->setOptions([
+            'simple'   => 'Einfach (Grundrechenarten) – Standard',
+            'advanced' => 'Wissenschaftlich (Work in Progress)',
+        ]);
+        $sel_calc->setValue($examcalc_data['mode']);
+        $cb_calc->addSubItem($sel_calc);
+        $form->addItem($cb_calc);
 
         // ExamSymbols Fallback
         $examsymbols_data = $this->getFallbackExamSymbolsStatus($ref_id);
-        $examsymbols_checked = $examsymbols_data['enabled'] ? 'checked' : '';
-        $examsymbols_template = $examsymbols_data['template'];
 
-        // ExamAlert Fallback - NEU
+        $section_sym = new ilFormSectionHeaderGUI();
+        $section_sym->setTitle('📝 Sonderzeichen-Palette');
+        $form->addItem($section_sym);
+
+        $cb_sym = new ilCheckboxInputGUI('Sonderzeichen-Palette aktivieren', 'examsymbols_enabled');
+        $cb_sym->setChecked($examsymbols_data['enabled']);
+        $sel_sym = new ilSelectInputGUI('Symbol-Vorlage', 'examsymbols_template');
+        $sel_sym->setOptions([
+            'math'    => 'Mathematik/Wissenschaft',
+            'german'  => 'Deutsch',
+            'spanish' => 'Spanisch',
+        ]);
+        $sel_sym->setValue($examsymbols_data['template']);
+        $cb_sym->addSubItem($sel_sym);
+        $form->addItem($cb_sym);
+
+        // ExamAlert Fallback
         $examalert_data = $this->getFallbackExamAlertStatus($ref_id);
-        $examalert_checked = $examalert_data['enabled'] ? 'checked' : '';
-        $examalert_time = $examalert_data['alert_time'];
-        $examalert_message = htmlspecialchars($examalert_data['alert_message'], ENT_QUOTES);
 
-        // Template-Optionen für ExamSymbols generieren
-        $math_selected = ($examsymbols_template === 'math') ? 'selected' : '';
-        $german_selected = ($examsymbols_template === 'german') ? 'selected' : '';
-        $spanish_selected = ($examsymbols_template === 'spanish') ? 'selected' : '';
+        $section_alert = new ilFormSectionHeaderGUI();
+        $section_alert->setTitle('⏰ Zeit-Warnung');
+        $form->addItem($section_alert);
 
-        return <<<HTML
-        <div class="plugin-section">
-            <h3 style="margin-top: 0; color: #495057; font-size: 1.1rem; font-weight: 600;">🧮 Taschenrechner</h3>
-            <p style="color: #6c757d; margin-bottom: 1rem; font-size: 0.9rem;">Taschenrechner für Prüfungen</p>
-            <div style="background: #f8f9fa; padding: 1.25rem; border-radius: 0.375rem;">
-                <div class="form-group" style="margin-bottom: 1rem;">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                        <input type="checkbox" name="examcalc_enabled" value="1" $examcalc_checked style="transform: scale(1.1);">
-                        <strong>Taschenrechner aktivieren</strong>
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label for="examcalc_mode" style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #495057;">Taschenrechner-Typ:</label>
-                    <select name="examcalc_mode" id="examcalc_mode" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.375rem;">
-                        <option value="simple" $simple_selected>🔢 Einfach (Grundrechenarten) - Standard</option>
-                        <option value="advanced" $advanced_selected>🧮 Wissenschaftlich (🚧 WIP)</option>
-                    </select>
-                    <p style="margin: 0.5rem 0 0 0; color: #6c757d; font-size: 0.85rem;">
-                        <strong>Einfach:</strong> Nur + − × ÷<br>
-                        <strong>Wissenschaftlich:</strong> 
-                        <span style="background: #fff3cd; padding: 0.15rem 0.4rem; border-radius: 3px; color: #856404;">
-                            ⚠️ Noch in Entwicklung
-                        </span>
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <div class="plugin-section">
-            <h3 style="margin-top: 0; color: #495057; font-size: 1.1rem; font-weight: 600;">📝 Sonderzeichen-Palette</h3>
-            <p style="color: #6c757d; margin-bottom: 1rem; font-size: 0.9rem;">Palette mit Sonderzeichen für verschiedene Fachbereiche</p>
-            <div style="background: #f8f9fa; padding: 1.25rem; border-radius: 0.375rem;">
-                <div class="form-group" style="margin-bottom: 1rem;">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                        <input type="checkbox" name="examsymbols_enabled" value="1" $examsymbols_checked style="transform: scale(1.1);">
-                        <strong>Sonderzeichen aktivieren</strong>
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label for="examsymbols_template" style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #495057;">Vorlage wählen:</label>
-                    <select name="examsymbols_template" id="examsymbols_template" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.375rem;">
-                        <option value="math" $math_selected>Mathematik/Wissenschaft</option>
-                        <option value="german" $german_selected>Deutsch</option>
-                        <option value="spanish" $spanish_selected>Spanisch</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <div class="plugin-section">
-            <h3 style="margin-top: 0; color: #495057; font-size: 1.1rem; font-weight: 600;">⏰ Zeit-Warnung</h3>
-            <p style="color: #6c757d; margin-bottom: 1rem; font-size: 0.9rem;">Zeigt zeitbasierte Warnungen mit benutzerdefinierten Nachrichten während des Tests an</p>
-            <div style="background: #f8f9fa; padding: 1.25rem; border-radius: 0.375rem;">
-                <div class="form-group" style="margin-bottom: 1rem;">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                        <input type="checkbox" name="examalert_enabled" value="1" $examalert_checked style="transform: scale(1.1);">
-                        <strong>Zeit-Warnung aktivieren</strong>
-                    </label>
-                </div>
-                <div class="form-group" style="margin-bottom: 1rem;">
-                    <label for="examalert_time" style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #495057;">Warnung anzeigen:</label>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <input type="number" name="examalert_time" id="examalert_time" value="$examalert_time" min="5" max="3600" style="width: 80px; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.375rem;">
-                        <span>Sekunden vor Testende</span>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="examalert_message" style="display: block; font-weight: 500; margin-bottom: 0.5rem; color: #495057;">Nachricht:</label>
-                    <textarea name="examalert_message" id="examalert_message" rows="3" placeholder="Achtung: Der Test endet bald!" style="width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 0.375rem; resize: vertical;">$examalert_message</textarea>
-                </div>
-            </div>
-        </div>
-HTML;
+        $cb_alert = new ilCheckboxInputGUI('Zeit-Warnung aktivieren', 'examalert_enabled');
+        $cb_alert->setChecked($examalert_data['enabled']);
+        $num_alert = new ilNumberInputGUI('Warnung anzeigen', 'examalert_time');
+        $num_alert->setValue((string) (int) $examalert_data['alert_time']);
+        $num_alert->setMinValue(5);
+        $num_alert->setMaxValue(3600);
+        $num_alert->setSuffix('Sekunden vor Testende');
+        $cb_alert->addSubItem($num_alert);
+        $ta_alert = new ilTextAreaInputGUI('Nachricht', 'examalert_message');
+        $ta_alert->setValue($examalert_data['alert_message']);
+        $ta_alert->setRows(6);
+        $cb_alert->addSubItem($ta_alert);
+        $form->addItem($cb_alert);
     }
 
     /**
