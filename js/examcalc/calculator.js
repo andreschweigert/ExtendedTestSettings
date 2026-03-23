@@ -121,6 +121,9 @@ window.ExamCalc.Calculator = class {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
 
+                // hyp-Button hat keine Implementierung — ignorieren
+                if (button.id === 'hyp-toggle') return;
+
                 // SPEZIAL-BEHANDLUNG: Toggle Buttons
                 if (button.classList.contains('fraction-toggle')) {
                     this.toggleFractionMode();
