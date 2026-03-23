@@ -409,16 +409,8 @@ window.ExamCalc.Calculator = class {
                 expression = this.lastResult + this.lastOperator + this.lastOperand;
             }
 
-            // KLAMMER-BALANCE: Unbalancierte Ausdrücke ablehnen statt still korrigieren
-            const openCount = (expression.match(/\(/g) || []).length;
-            const closeCount = (expression.match(/\)/g) || []).length;
-            if (openCount !== closeCount) {
-                this.display.value = `Fehler: ${openCount - closeCount} Klammer(n) offen`;
-                if (window.ecLog) {
-                    window.ecLog(`❌ Klammer-Fehler: ${openCount} offen, ${closeCount} geschlossen`);
-                }
-                return;
-            }
+            // Fehlende schließende Klammern am Ende ergänzen
+            expression = this.autoCompleteParentheses(expression);
 
             // SICHERHEIT: Input-Validierung VOR eval()
             if (!this.validateInput(expression)) {
