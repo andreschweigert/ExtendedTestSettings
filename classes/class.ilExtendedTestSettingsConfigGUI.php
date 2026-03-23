@@ -807,31 +807,37 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $stats         = $this->getPluginStatistics();
         $module_status = $this->getModuleStatus();
 
-        // Statistiken als CharacteristicValue-Listing
+        // Statistiken als CharacteristicValue-Listing mit Kontext-Zahl
+        $total = $stats['total_tests_in_system'] ?? 0;
+        $of    = $total > 0 ? ' von ' . $total : '';
         $stats_items = [
-            '🧮 Taschenrechner aktiv'     => (string) ($stats['examcalc_enabled_tests'] ?? 0),
-            '📝 Sonderzeichen aktiv'       => (string) ($stats['examsymbols_enabled_tests'] ?? 0),
-            '🔒 Prüfungsschutz aktiv'      => (string) ($stats['examguard_enabled_tests'] ?? 0),
-            '⏰ Zeit-Warnung aktiv'        => (string) ($stats['examalert_enabled_tests'] ?? 0),
-            '📊 Tests gesamt konfiguriert' => (string) ($stats['total_configured_tests'] ?? 0),
+            '🧮 Taschenrechner aktiv'     => ($stats['examcalc_enabled_tests'] ?? 0)   . $of . ' Tests',
+            '📝 Sonderzeichen aktiv'       => ($stats['examsymbols_enabled_tests'] ?? 0) . $of . ' Tests',
+            '🔒 Prüfungsschutz aktiv'      => ($stats['examguard_enabled_tests'] ?? 0)  . $of . ' Tests',
+            '⏰ Zeit-Warnung aktiv'        => ($stats['examalert_enabled_tests'] ?? 0)  . $of . ' Tests',
+            '📊 Mit min. 1 Modul konfiguriert' => ($stats['total_configured_tests'] ?? 0) . $of . ' Tests',
+            '🗂️ Tests im System gesamt'    => (string) $total,
         ];
         $stats_panel = $factory->panel()->standard(
             'Plugin-Statistiken',
             $factory->listing()->characteristicValue()->text($stats_items)
         );
 
-        // Module als Report-Panel mit Sub-Panels
+        // Module als Report-Panel — Anzahl aktiver Tests direkt im Sub-Panel-Titel sichtbar
         $sub_panels = [];
         foreach ($module_status as $module => $data) {
-            $status_label = $data['exists'] ? 'Verfügbar' : 'Nicht gefunden';
-            $title        = ($data['icon'] ?? '') . ' ' . $data['title'] . '  —  ' . $status_label;
-
             if ($data['exists']) {
                 $detailed_stats = $this->getDetailedModuleStats($module);
-                $content        = $this->buildModuleDetailsContent($module, $detailed_stats, $factory);
+                $count          = count($detailed_stats);
+                $status_label   = $count > 0
+                    ? $count . ($count === 1 ? ' Test aktiv' : ' Tests aktiv')
+                    : 'Kein Test aktiv';
+                $content = $this->buildModuleDetailsContent($module, $detailed_stats, $factory);
             } else {
-                $content = [$factory->messageBox()->info('Modul-Datei nicht gefunden.')];
+                $status_label = 'Nicht gefunden';
+                $content      = [$factory->messageBox()->info('Modul-Datei nicht gefunden.')];
             }
+            $title        = ($data['icon'] ?? '') . ' ' . $data['title'] . '  —  ' . $status_label;
             $sub_panels[] = $factory->panel()->sub($title, $content);
         }
         $modules_panel = $factory->panel()->report('Modul-Status', $sub_panels);
@@ -875,13 +881,22 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         $items = [];
         foreach ($tests as $test) {
-            $key         = htmlspecialchars($test['title']) . '  (ID ' . (int) $test['test_id'] . ')';
-            $items[$key] = htmlspecialchars($test['owner_name']) . '  —  ' . htmlspecialchars($test['created']);
+            $test_url = 'ilias.php?ref_id=' . (int) $test['ref_id'] . '&baseClass=ilRepositoryGUI';
+            $link     = $factory->link()->standard(htmlspecialchars($test['title']), $test_url);
+
+            $items[] = $factory->item()->standard($link)
+                ->withDescription(htmlspecialchars($test['owner_name']))
+                ->withProperties([
+                    'Erstellt' => htmlspecialchars($test['created']),
+                    'Test-ID'  => (string) (int) $test['test_id'],
+                ]);
         }
 
         return [
-            $factory->messageBox()->info($count . ' Tests verwenden ' . $module_name . '.'),
-            $factory->listing()->descriptive($items),
+            $factory->item()->group(
+                $count . ($count === 1 ? ' Test verwendet ' : ' Tests verwenden ') . $module_name,
+                $items
+            ),
         ];
     }
 
@@ -896,11 +911,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $db = $DIC->database();
 
         $stats = [
-            'examcalc_enabled_tests' => 0,
-            'examsymbols_enabled_tests' => 0,
-            'examguard_enabled_tests' => 0,
-            'examalert_enabled_tests' => 0,
-            'total_configured_tests' => 0
+            'examcalc_enabled_tests'    => 0,
+            'examsymbols_enabled_tests'  => 0,
+            'examguard_enabled_tests'    => 0,
+            'examalert_enabled_tests'    => 0,
+            'total_configured_tests'     => 0,
+            'total_tests_in_system'      => 0,
         ];
 
         try {
@@ -1006,6 +1022,18 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                     $stats['total_configured_tests'] = (int) $row['cnt'];
                 }
             }
+
+            // Gesamtzahl aktiver Tests im System (für Kontext)
+            $result = $db->query("
+                SELECT COUNT(DISTINCT od.obj_id) as cnt
+                FROM object_data od
+                JOIN object_reference ref ON od.obj_id = ref.obj_id
+                WHERE od.type = 'tst' AND ref.deleted IS NULL
+            ");
+            if ($row = $db->fetchAssoc($result)) {
+                $stats['total_tests_in_system'] = (int) $row['cnt'];
+            }
+
         } catch (Exception $e) {
             error_log("[ExtendedTestSettings] Fehler bei Statistik-Abfrage: " . $e->getMessage());
         }
