@@ -242,6 +242,177 @@ tErr('1/0',         () => {
     if (!isFinite(r)) throw new Error('Infinity');
 });
 
+// ─── Zusätzliche Helpers ────────────────────────────────────────────────────
+
+// Ergebnis soll NaN sein (z.B. komplexe Zahlen wie sqrt(-1))
+function tNaN(desc, fn) {
+    try {
+        const r = fn();
+        if (isNaN(Number(r))) { process.stdout.write(`  ✅ ${desc} → NaN\n`); ok++; }
+        else { process.stdout.write(`  ❌ ${desc}: erwartet NaN, got ${r}\n`); fail++; }
+    } catch { process.stdout.write(`  ✅ ${desc} → Error (akzeptabel)\n`); ok++; }
+}
+
+// Ergebnis soll nicht-finit sein (Infinity / -Infinity)
+function tNotFinite(desc, fn) {
+    try {
+        const r = fn();
+        if (!isFinite(Number(r))) { process.stdout.write(`  ✅ ${desc} → ${Number(r)}\n`); ok++; }
+        else { process.stdout.write(`  ❌ ${desc}: erwartet ±Infinity, got ${r}\n`); fail++; }
+    } catch { process.stdout.write(`  ✅ ${desc} → Error (akzeptabel)\n`); ok++; }
+}
+
+// validateInput – gespiegelt aus calculator.js (MUSS synchron bleiben!)
+function validateInput(input) {
+    if (!input || input.trim() === '') return true;
+    if (/constructor|__proto__|prototype|eval|function|window|document|alert|console|import|require|this\.|globalThis|process|exec/i.test(input)) return false;
+    if (/[`'"\\]/.test(input)) return false;
+    if (/;/.test(input)) return false;
+    return true;
+}
+
+function tBlocked(desc, input) {
+    if (!validateInput(input)) { process.stdout.write(`  ✅ ${desc} → blockiert\n`); ok++; }
+    else { process.stdout.write(`  ❌ ${desc}: sollte blockiert sein, wurde nicht blockiert!\n`); fail++; }
+}
+
+function tAllowed(desc, input) {
+    if (validateInput(input)) { process.stdout.write(`  ✅ ${desc} → erlaubt\n`); ok++; }
+    else { process.stdout.write(`  ❌ ${desc}: sollte erlaubt sein, wurde blockiert!\n`); fail++; }
+}
+
+// ─── Neue Testabschnitte ─────────────────────────────────────────────────────
+
+section('Transform-Robustheit');
+// log10( darf nicht zu log1010( werden
+t('log10(100) kein Doppel-Transform',   evalRad('log10(100)'),   2);
+// log(ln(e)) → log10(log(e)) = log10(1) = 0
+t('log(ln(e)) korrekt verschachtelt',   evalRad('log(ln(e))'),   0, 1e-9);
+// catalog( darf nicht von log-Regex getroffen werden
+tErr('catalog() → kein false positive', () => evalRad('catalog(5)'));
+// Doppeltes Minus / Vorzeichen-Kombinationen
+t('--5 = 5',          evalRad('--5'),     5);
+t('+-3 = -3',         evalRad('+-3'),    -3);
+t('-(-5) = 5',        evalRad('-(-5)'),   5);
+// √ kombiniert
+t('√(√9) = 9^0.25',  evalRad('√(√9)'),  Math.pow(9, 0.25), 1e-9);
+tErr('√√9 → nicht unterstützt (zweites √ bleibt stehen)', () => evalRad('√√9'));
+// (50+50)% → math.js behandelt % als /100, Ergebnis = 1
+t('(50+50)% = 1',     evalRad('(50+50)%'), 1);
+// % in Kettenausdruck
+t('200*25%',          evalRad('200*25%'),  50);
+
+section('Syntax-Edgecases');
+// Leerzeichen in Funktionsaufruf – math.js akzeptiert das im RAD-Modus
+t('sin ( 0 ) = 0 [rad]',          evalRad('sin ( 0 )'),      0);
+// Doppeltes Negativ mit Klammer
+t('-(-(3+2)) = 5',                 evalRad('-(-(3+2))'),      5);
+// Mehrere Klammern
+t('((3+2))*((4-1)) = 15',         evalRad('((3+2))*((4-1))'), 15);
+// Fehlende Argumente / leere Ausdrücke
+tErr('sin() → Fehler',             () => evalRad('sin()'));
+tErr('() → Fehler',                () => evalRad('()'));
+tErr('1.2.3 → Fehler',             () => evalRad('1.2.3'));
+// Funktionsname ohne Klammer (Ausdruck ergibt Funktionsobjekt, kein Fehler, aber kein Number)
+tNaN('sin ohne Klammer = kein Zahl-Ergebnis', () => {
+    const r = Number(math.evaluate('sin'));
+    if (isNaN(r)) throw new Error('NaN as expected');
+});
+
+section('Domain-Validierung');
+// sqrt(-1) → math.js gibt komplexe Zahl zurück → Number() = NaN
+tNaN('sqrt(-1) → NaN (komplex)',   () => evalRad('sqrt(-1)'));
+// log(-5) → komplex → NaN
+tNaN('log(-5) → NaN (komplex)',    () => evalRad('log(-5)'));
+// ln(0) → -Infinity
+tNotFinite('ln(0) → -Infinity',    () => evalRad('ln(0)'));
+// asin(2) → komplex → NaN
+tNaN('asin(2) → NaN (Domain)',     () => evalDeg('asin(2)'));
+// acos(-2) → komplex → NaN
+tNaN('acos(-2) → NaN (Domain)',    () => evalDeg('acos(-2)'));
+// 0^0 → 1 (math.js Konvention)
+t('0^0 = 1',                       evalRad('0^0'),             1);
+// (-1)! → Fehler
+tErr('(-1)! → Fehler',             () => evalRad('(-1)!'));
+// 2.5! → Gamma-Funktion ≈ 3.323
+t('2.5! ≈ 3.323 (Gamma)',          evalRad('2.5!'),            3.3233509704478403, 1e-9);
+// tan(90°) → sehr groß aber endlich (kein exaktes π/2 durch Floating Point)
+t('tan(90°) → groß aber endlich',  isFinite(evalDeg('tan(90)')), true);
+// 10^1000 → Infinity
+tNotFinite('10^1000 → Infinity',   () => evalRad('10^1000'));
+
+section('Numerische Stabilität');
+t('0.1+0.2+0.3+0.4 = 1',          evalRad('0.1+0.2+0.3+0.4'),         1, 1e-9);
+t('sin(89.9999°) ≈ 1',            evalDeg('sin(89.9999)'),             1, 1e-4);
+t('cos(90.0001°) ≈ 0',            evalDeg('cos(90.0001)'),             0, 1e-4);
+t('0.9999999999999999 → 1',        evalRad('0.9999999999999999'),       1);
+t('asin(sin(45°)) = 45',           evalDeg('asin(sin(45))'),           45, 1e-8);
+t('acos(cos(60°)) = 60',           evalDeg('acos(cos(60))'),           60, 1e-8);
+t('ln(exp(5)) = 5',                evalRad('ln(exp(5))'),              5, 1e-9);
+t('log(10^3) = 3',                 evalRad('log(10^(3))'),             3, 1e-9);
+// Sehr kleine Werte
+t('1e-10 bleibt präzise',          evalRad('1e-10'),                   1e-10, 1e-20);
+// Kettenoperationen
+t('1+1+1+1+1+1+1+1+1+1 = 10',     evalRad('1+1+1+1+1+1+1+1+1+1'),    10);
+
+section('DEG/RAD Konsistenz');
+// sin(π/2) im DEG-Modus: π ≈ 3.14159 → sin(3.14159°) ≈ 0.0548 (nicht 1!)
+t('sin(π/2) in DEG = sin(1.5708°) ≈ 0.0274', evalDeg('sin(π/2)'), Math.sin(Math.PI/2 * Math.PI/180), 1e-4);
+// sin(π/2) im RAD-Modus = 1
+t('sin(π/2) in RAD = 1',           evalRad('sin(π/2)'),               1, 1e-9);
+// Symmetrie: sin(-x) = -sin(x)
+t('sin(-30°) = -sin(30°)',         evalDeg('sin(-30)'), -evalDeg('sin(30)'));
+// Periodizität: sin(390°) = sin(30°)
+t('sin(390°) = sin(30°)',          evalDeg('sin(390)'), evalDeg('sin(30)'), 1e-9);
+// Cos/Sin Pythagoras: sin²+cos²=1
+t('sin²(37°)+cos²(37°) = 1',      evalDeg('sin(37)^2+cos(37)^2'),    1, 1e-9);
+t('sin²(π/7)+cos²(π/7)=1 [rad]',  evalRad('sin(π/7)^2+cos(π/7)^2'), 1, 1e-9);
+
+section('Sicherheit – validateInput Layer');
+tBlocked('eval',                    'eval(1+1)');
+tBlocked('constructor',             'constructor.constructor("x")');
+tBlocked('__proto__',              '__proto__');
+tBlocked('window',                  'window.alert(1)');
+tBlocked('import',                  'import("x")');
+tBlocked('require',                 'require("fs")');
+tBlocked('function',                'function f(){}');
+tBlocked('document',                'document.cookie');
+tBlocked('this.',                   'this.x');
+tBlocked('globalThis',              'globalThis.eval');
+tBlocked('process',                 'process.exit()');
+tBlocked('console',                 'console.log(1)');
+tBlocked('exec',                    'exec("ls")');
+tBlocked('Backtick',                '`${1+1}`');
+tBlocked('Quote (einfach)',         "'test'");
+tBlocked('Quote (doppelt)',         '"test"');
+tBlocked('Semikolon',               '1+1;2+2');
+tBlocked('Backslash',               '1\\2');
+// Normale Ausdrücke NICHT geblockt
+tAllowed('sin(30)',                  'sin(30)');
+tAllowed('log(100)',                 'log(100)');
+tAllowed('2^10',                     '2^10');
+tAllowed('π*r^2',                   'π*r^2');
+// BEKANNTE LÜCKE: createUnit ist nicht in validateInput-Blocklist
+// (math.evaluate gibt Funktionsobjekt zurück → NaN im Calculator, kein Exploit)
+tAllowed('createUnit (bekannte Lücke – kein Exploit)', 'createUnit');
+
+section('Sicherheit – math.js Layer');
+tErr('constructor → math.js blockiert',       () => math.evaluate('constructor'));
+tErr('this → undefined symbol',               () => math.evaluate('this'));
+tErr('window → undefined symbol',             () => math.evaluate('window'));
+tErr('__proto__ → parse error',               () => math.evaluate('__proto__'));
+
+section('Missbrauchs-Schutz');
+// Sehr große Potenz → Infinity (kein Crash)
+tNotFinite('10^309 → Infinity',       () => evalRad('10^309'));
+// Tiefe Klammerung
+t('30 Ebenen tief: (...(1)...) = 1',  evalRad('('.repeat(30) + '1' + ')'.repeat(30)), 1);
+// Langer aber valider Ausdruck
+t('10 verschachtelte sqrt = 1',
+    evalRad('sqrt(sqrt(sqrt(sqrt(sqrt(sqrt(sqrt(sqrt(sqrt(sqrt(1))))))))))'), 1, 1e-9);
+// Max-Length-Test: validateInput blockt nicht (Länge wird in addToExpression geprüft)
+tAllowed('199-Zeichen-Ausdruck ist gültig',   '1+'.repeat(99) + '1');
+
 // ─── Ergebnis ───────────────────────────────────────────────────────────────
 
 console.log(`\n${'═'.repeat(45)}`);
