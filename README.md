@@ -1,10 +1,10 @@
 # ExtendedTestSettings Plugin für ILIAS
 
 ![ILIAS](https://img.shields.io/badge/ILIAS-9.x-blue)
-![Version](https://img.shields.io/badge/version-1.1.0-success)
+![Version](https://img.shields.io/badge/version-1.1.2-success)
 ![License](https://img.shields.io/badge/license-TBA-lightgrey)
 
-**Version:** 1.1.0
+**Version:** 1.1.2
 **Für ILIAS:** 9.0 - 9.999
 
 Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Online-Prüfungen. Es bietet ein modulares System mit fünf spezialisierten Tools, die individuell pro Test aktiviert werden können.
@@ -83,10 +83,22 @@ composer install --no-dev
 Stellt einen Taschenrechner während der Prüfung bereit.
 
 **Modi:**
-- **Einfach**: Grundrechenarten (+ − × ÷) 
-- **Wissenschaftlich**: Erweiterte Funktionen (sin, cos, tan, √, ^, log, ln, π, e) - noch in Entwicklung
+- **Einfach**: Grundrechenarten (+ − × ÷)
+- **Wissenschaftlich**: Vollständiger wissenschaftlicher Taschenrechner auf Basis von math.js
 
-**Hinweis:** Der wissenschaftliche Modus ist noch in der Entwicklung und nicht für den Produktivbetrieb geeignet.
+**Funktionen des wissenschaftlichen Modus:**
+- Trigonometrie: `sin`, `cos`, `tan` und Umkehrfunktionen (`asin`, `acos`, `atan`) – DEG/RAD-umschaltbar
+- Logarithmen: `ln` (natürlich), `log` (Basis 10)
+- Exponentialfunktionen: `exp(x)` (e^x), `10^x`, `√`, `x²`, `x^y`
+- Konstanten: `π` (Pi), `e` (Eulersche Zahl)
+- Speicher: `M+`, `M−`, `MR`, `MC`
+- Verlauf: Letzte 10 Rechnungen, Σ-Summe, Klick zum Übernehmen
+- Bruchdarstellung: Umschalten zwischen Dezimal- und Bruchanzeige
+- `2nd`-Ebene: Shift-Modus für alternative Tastenbelegungen
+  - `sin/cos/tan` → `asin/acos/atan`
+  - `10^x` → `EE` (wissenschaftliche Notation, z.B. `2 EE 3` = 2.000)
+- Klammern werden bei Berechnung automatisch vervollständigt
+- Ausdruck-Sicherheit: math.js statt `eval()`, mehrstufige Eingabevalidierung
 
 **Bedienung:**
 - Tastenkombination: `Alt + R`
@@ -265,6 +277,20 @@ Das ExtendedTestSettings Plugin wird "wie gesehen" bereitgestellt, ohne jegliche
 ---
 
 ## Changelog
+
+### Version 1.1.2 (2026-03-24)
+
+**ExamCalc – 2nd-Funktionsebene & EE-Notation:**
+- `2nd`-Taste schaltet `10^x`-Button auf `EE` (wissenschaftliche Notation) um
+- `EE`-Operator: `2 EE 3` → `2 × 10³ = 2000`
+- Visuelles Feedback: `2nd`-Badge in der Status-Leiste, Button-Label wechselt zwischen `10^x` und `EE`
+- Shift-Modus setzt sich nach jedem Button-Klick automatisch zurück (wie auf echten Taschenrechnern)
+- `resetShiftMode()`-Methode räumt alle Shift-UI-Elemente zentral auf (auch bei `reset()`)
+
+**Bugfix:**
+- `e` ist jetzt strikt die Eulersche Konstante: `2e6` wird als `2 × e × 6 ≈ 32.6` ausgewertet, nicht als Zahlen-Literal `2000000`. Für wissenschaftliche Notation muss `EE` verwendet werden.
+
+---
 
 ### Version 1.1.0 (2026-03-23)
 
