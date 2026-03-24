@@ -1189,9 +1189,16 @@ window.ExamCalc.Calculator = class {
      */
     memoryRecall() {
         if (this.memory !== 0) {
-            this.current = this.memory.toString();
+            const memStr = this.memory.toString();
+            if (this.current !== '' && this.current !== 'Fehler') {
+                // Aktiver Ausdruck (z.B. "ln(") → Wert anhängen
+                this.current += memStr;
+            } else {
+                // Leeres Display oder Fehler → Wert als neue Eingabe
+                this.current = memStr;
+                this.lastResult = this.memory;
+            }
             this.display.value = this.formatDisplayExpression(this.current);
-            this.lastResult = this.memory;
 
             if (window.ecLog) {
                 window.ecLog(`💾 MR : Speicher abgerufen = ${this.memory}`);
