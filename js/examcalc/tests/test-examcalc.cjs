@@ -413,6 +413,53 @@ t('10 verschachtelte sqrt = 1',
 // Max-Length-Test: validateInput blockt nicht (Länge wird in addToExpression geprüft)
 tAllowed('199-Zeichen-Ausdruck ist gültig',   '1+'.repeat(99) + '1');
 
+section('Eulersche Zahl — Konstante & exp()');
+// e als Konstante
+t('e = Math.E',                   evalRad('e'),              Math.E,        1e-9);
+t('2*e',                          evalRad('2*e'),            2 * Math.E,    1e-9);
+t('e^2',                          evalRad('e^2'),            Math.E ** 2,   1e-9);
+t('1/e',                          evalRad('1/e'),            1 / Math.E,    1e-9);
+t('e^0 = 1',                      evalRad('e^0'),            1);
+t('e^1 = e',                      evalRad('e^1'),            Math.E,        1e-9);
+// exp(x) = e^x
+t('exp(0) = 1',                   evalRad('exp(0)'),         1);
+t('exp(1) = e',                   evalRad('exp(1)'),         Math.E,        1e-9);
+t('exp(2) = e^2',                 evalRad('exp(2)'),         Math.E ** 2,   1e-9);
+t('exp(-1) = 1/e',                evalRad('exp(-1)'),        1 / Math.E,    1e-9);
+t('exp(0.5) = sqrt(e)',           evalRad('exp(0.5)'),       Math.sqrt(Math.E), 1e-9);
+// Umkehrfunktion ln/exp
+t('ln(e) = 1',                    evalRad('ln(e)'),          1,             1e-9);
+t('ln(e^2) = 2',                  evalRad('ln(e^2)'),        2,             1e-9);
+t('ln(e^3) = 3',                  evalRad('ln(e^3)'),        3,             1e-9);
+t('ln(exp(5)) = 5',               evalRad('ln(exp(5))'),     5,             1e-9);
+t('exp(ln(7)) = 7',               evalRad('exp(ln(7))'),     7,             1e-9);
+t('e^ln(4) = 4',                  evalRad('e^ln(4)'),        4,             1e-9);
+// Kombination mit anderen Funktionen
+t('sqrt(exp(2)) = e',             evalRad('sqrt(exp(2))'),   Math.E,        1e-9);
+t('log(exp(1)) = log10(e)',       evalRad('log(exp(1))'),    Math.log10(Math.E), 1e-9);
+t('exp(ln(2)+ln(3)) = 6',        evalRad('exp(ln(2)+ln(3))'), 6,           1e-9);
+
+section('Wissenschaftliche Notation via e-Taste (1e23)');
+// e direkt nach Zahl → math.js parst als scientific notation, NICHT als Euler-Multiplikation
+t('1e3 = 1000',                   evalRad('1e3'),            1000);
+t('2e3 = 2000',                   evalRad('2e3'),            2000);
+t('1.5e6 = 1500000',              evalRad('1.5e6'),          1500000);
+t('1e10',                         evalRad('1e10'),           1e10);
+t('1e23 = 1×10²³',               evalRad('1e23'),           1e23);
+t('2.5e8',                        evalRad('2.5e8'),          2.5e8);
+t('1e-3 = 0.001',                 evalRad('1e-3'),           0.001,         1e-12);
+t('5e-6',                         evalRad('5e-6'),           5e-6,          1e-15);
+// 1e23 sauber (kein Floating-Point-Rauschen wie bei 10^(23))
+t('1e23 sauber (kein Rauschen)',  evalRad('1e23'),           1e23);
+// 2e ohne Ziffern danach → 2 × e (Euler), NICHT 2×10^0
+t('2e ohne Exponent = 2×e',      evalRad('2e'),             2 * Math.E,    1e-9);
+// Rechenoperationen mit scientific notation
+t('1e3 + 1e3 = 2000',             evalRad('1e3+1e3'),        2000);
+t('1e6 / 1e3 = 1000',             evalRad('1e6/1e3'),        1000);
+t('2e3 * 3e2 = 600000',           evalRad('2e3*3e2'),        600000);
+t('sqrt(1e4) = 100',              evalRad('sqrt(1e4)'),      100);
+t('log(1e6) = 6',                 evalRad('log(1e6)'),       6,             1e-9);
+
 // ─── Ergebnis ───────────────────────────────────────────────────────────────
 
 console.log(`\n${'═'.repeat(45)}`);
