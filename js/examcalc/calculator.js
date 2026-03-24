@@ -453,6 +453,14 @@ window.ExamCalc.Calculator = class {
         // Muss VOR allen anderen Ersetzungen stehen, damit EE nicht mit e verwechselt wird
         expr = expr.replace(/(\d+(?:\.\d+)?)EE(-?\d+(?:\.\d+)?)/g, (m, mantissa, exp) => `(${mantissa}*10^${exp})`);
 
+        // e als Eulersche Zahl schützen:
+        // math.js würde "2e6" als Zahlen-Literal (2000000) parsen.
+        // Wir konvertieren "Ziffer e Ziffer" → "Ziffer*e*Ziffer",
+        // damit e immer als Variable (Math.E) aus dem Scope gilt.
+        // Beispiel: 2e6 → 2*e*6  |  1.5e3 → 1.5*e*3
+        // Ausnahme: exp( bleibt unberührt (kein e allein, sondern Funktionsname)
+        expr = expr.replace(/(\d)e(\d)/g, '$1*e*$2');
+
         // log( → log10( ZUERST (Basis-10), damit ln( nicht versehentlich erfasst wird
         expr = expr.replace(/(^|[^A-Za-z0-9_])log\s*\(/g, (m, pre) => pre + 'log10(');
         // ln( → log( (natürlicher Logarithmus in math.js)
