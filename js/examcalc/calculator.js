@@ -114,61 +114,43 @@ window.ExamCalc.Calculator = class {
                 // hyp-Button hat keine Implementierung — ignorieren
                 if (button.id === 'hyp-toggle') return;
 
-                // SPEZIAL-BEHANDLUNG: Toggle Buttons
-                if (button.classList.contains('fraction-toggle')) {
-                    this.toggleFractionMode();
-                    return;
-                }
-
-                if (button.classList.contains('angle-toggle')) {
-                    this.toggleAngleMode();
-                    return;
-                }
-
+                // shift-toggle: nur umschalten, kein Auto-Reset
                 if (button.classList.contains('shift-toggle')) {
                     this.toggleShiftMode();
                     return;
                 }
 
-                // NEU: Speicher-Buttons
-                if (button.classList.contains('memory-btn')) {
+                // Alle anderen Buttons: Aktion ausführen, danach Shift-Modus zurücksetzen
+                if (button.classList.contains('fraction-toggle')) {
+                    this.toggleFractionMode();
+                } else if (button.classList.contains('angle-toggle')) {
+                    this.toggleAngleMode();
+                } else if (button.classList.contains('memory-btn')) {
                     const action = button.dataset.action;
                     if (action === 'add') this.memoryAdd();
                     else if (action === 'subtract') this.memorySubtract();
                     else if (action === 'recall') this.memoryRecall();
                     else if (action === 'clear') this.memoryClear();
-                    return;
-                }
-
-                // NEU: Verlaufs-Addition Button
-                if (button.classList.contains('history-add-btn')) {
+                } else if (button.classList.contains('history-add-btn')) {
                     this.addHistoryResults();
-                    return;
-                }
-
-                // Trig-Buttons (berücksichtigen Shift-Modus)
-                if (button.classList.contains('trig-btn')) {
+                } else if (button.classList.contains('trig-btn')) {
                     const func = this.shiftMode ? button.dataset.secondary : button.dataset.primary;
                     this.addFunction(func);
-                    return;
-                }
-
-                // Funktions-Buttons (ln, log, exp, etc.)
-                if (button.classList.contains('func-btn')) {
+                } else if (button.classList.contains('func-btn')) {
                     const buttonId = button.id;
                     if (buttonId === 'ln-btn') this.addFunction('ln');
                     else if (buttonId === 'log-btn') this.addFunction('log');
                     else if (buttonId === 'exp-btn') this.addFunction('exp');
                     else if (buttonId === 'pow10-btn') this.addPower10();
-                    return;
+                } else {
+                    if (window.ecLog) {
+                        window.ecLog(`Button geklickt: "${button.textContent}" | Klassen: ${button.className}`);
+                    }
+                    this.handleButtonClick(button.textContent, button.classList);
                 }
 
-                // DEBUG: Welcher Button wurde geklickt?
-                if (window.ecLog) {
-                    window.ecLog(`Button geklickt: "${button.textContent}" | Klassen: ${button.className}`);
-                }
-
-                this.handleButtonClick(button.textContent, button.classList);
+                // Auto-Reset: Shift-Modus nach jeder Aktion zurücksetzen
+                this.resetShiftMode();
             });
         });
 
@@ -466,6 +448,10 @@ window.ExamCalc.Calculator = class {
         let expr = expression;
 
         if (window.ecLog) window.ecLog(`🔧 evaluateWithMathJs Input: "${expr}"`);
+
+        // EE → *10^ (wissenschaftliche Notation, z.B. 2EE3 → 2*10^3)
+        // Muss VOR allen anderen Ersetzungen stehen, damit EE nicht mit e verwechselt wird
+        expr = expr.replace(/(\d+(?:\.\d+)?)EE(-?\d+(?:\.\d+)?)/g, (m, mantissa, exp) => `(${mantissa}*10^${exp})`);
 
         // log( → log10( ZUERST (Basis-10), damit ln( nicht versehentlich erfasst wird
         expr = expr.replace(/(^|[^A-Za-z0-9_])log\s*\(/g, (m, pre) => pre + 'log10(');
@@ -896,8 +882,61 @@ window.ExamCalc.Calculator = class {
             btn.classList.toggle('shift-active', this.shiftMode);
         });
 
+        // pow10-btn visuell umschalten (10^x ↔ EE)
+        const pow10Btn = document.getElementById('pow10-btn');
+        if (pow10Btn) {
+            pow10Btn.classList.toggle('shift-active', this.shiftMode);
+            pow10Btn.title = this.shiftMode
+                ? 'EE – Wissenschaftliche Notation (2nd aktiv)'
+                : '10 hoch x (10^x) / EE = Wissenschaftliche Notation (2nd)';
+        }
+
+        // 2nd-Indikator Badge anzeigen/verstecken
+        const badges = document.querySelector('.display-badges');
+        if (badges) {
+            let badge = document.getElementById('second-mode-indicator');
+            if (this.shiftMode) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.id = 'second-mode-indicator';
+                    badge.className = 'second-mode-indicator';
+                    badge.textContent = '2nd';
+                    badges.appendChild(badge);
+                }
+            } else {
+                if (badge) badge.remove();
+            }
+        }
+
         if (window.ecLog) {
             window.ecLog(`🔄 Shift-Modus ${this.shiftMode ? 'aktiviert' : 'deaktiviert'}`);
+        }
+    }
+
+    /**
+     * Shift-Modus zurücksetzen (nach Button-Klick)
+     */
+    resetShiftMode() {
+        if (!this.shiftMode) return;
+        this.shiftMode = false;
+
+        const shiftToggle = document.getElementById('shift-toggle');
+        if (shiftToggle) shiftToggle.classList.remove('active');
+
+        const trigBtns = this.calc.querySelectorAll('.trig-btn');
+        trigBtns.forEach(btn => btn.classList.remove('shift-active'));
+
+        const pow10Btn = document.getElementById('pow10-btn');
+        if (pow10Btn) {
+            pow10Btn.classList.remove('shift-active');
+            pow10Btn.title = '10 hoch x (10^x) / EE = Wissenschaftliche Notation (2nd)';
+        }
+
+        const badge = document.getElementById('second-mode-indicator');
+        if (badge) badge.remove();
+
+        if (window.ecLog) {
+            window.ecLog('🔄 Shift-Modus auto-reset nach Eingabe');
         }
     }
 
@@ -916,13 +955,17 @@ window.ExamCalc.Calculator = class {
 
     /**
      *  10^x hinzufügen (PRÄFIX — öffnet Klammer für Exponent-Eingabe)
+     *  Im 2nd-Modus: fügt "EE" ein (wissenschaftliche Notation, z.B. 2EE3 = 2×10³)
      */
     addPower10() {
-        this.current += '10^(';
-        this.display.value = this.formatDisplayExpression(this.current);
-
-        if (window.ecLog) {
-            window.ecLog(`🔟 10^( eingefügt`);
+        if (this.shiftMode) {
+            this.current += 'EE';
+            this.display.value = this.formatDisplayExpression(this.current);
+            if (window.ecLog) window.ecLog('🔟 EE eingefügt (2nd-Modus)');
+        } else {
+            this.current += '10^(';
+            this.display.value = this.formatDisplayExpression(this.current);
+            if (window.ecLog) window.ecLog('🔟 10^( eingefügt');
         }
     }
 
@@ -1069,6 +1112,7 @@ window.ExamCalc.Calculator = class {
         this.clearHistory();
         this.showingFraction = false;
         this.historyVisible = false;
+        this.resetShiftMode();
 
         const fractionToggle = document.getElementById('fraction-toggle');
         if (fractionToggle) {
