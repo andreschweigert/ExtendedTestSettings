@@ -421,6 +421,43 @@
     border-color: #fde68a !important;
 }
 
+/* pow10-btn Dual-Label (10^x / EE) – analog zu .trig-btn */
+#pow10-btn {
+    position: relative;
+    overflow: visible;
+}
+
+#pow10-btn .secondary-label {
+    display: none;
+}
+
+#pow10-btn.shift-active .primary-label {
+    display: none;
+}
+
+#pow10-btn.shift-active .secondary-label {
+    display: inline;
+    font-size: 13px;
+}
+
+#pow10-btn.shift-active {
+    background-color: #fef3c7 !important;
+    border-color: #fde68a !important;
+    color: #b45309 !important;
+}
+
+/* 2nd-Indikator Badge in der Status-Leiste */
+.second-mode-indicator {
+    display: inline-block;
+    background-color: #b45309;
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+}
+
 /* Funktions-Buttons (ln, log, exp, etc.) */
 .func-btn {
     font-size: 13px !important;
