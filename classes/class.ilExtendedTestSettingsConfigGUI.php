@@ -1177,17 +1177,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             ]
         ];
 
-        $plugin_dir = "./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/classes";
+        $modules_dir = "./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/modules";
 
         foreach ($modules as $key => &$module) {
-            $subdir = ucfirst($key);
-            if ($key === 'examchecker') $subdir = 'ExamChecker';
-            if ($key === 'examcalc') $subdir = 'ExamCalc';
-            if ($key === 'examsymbols') $subdir = 'ExamSymbols';
-            if ($key === 'examguard') $subdir = 'ExamGuard';
-            if ($key === 'examalert') $subdir = 'ExamAlert';
-
-            $handler_file = "$plugin_dir/$subdir/class.{$module['class']}.php";
+            $handler_file = "$modules_dir/$key/class.{$module['class']}.php";
             $module['exists'] = file_exists($handler_file);
         }
 
