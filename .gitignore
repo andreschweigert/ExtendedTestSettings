@@ -4,3 +4,6 @@
 # Installierte externe Module — verwaltet durch ILIAS-Admin, nicht versioniert
 modules/*
 !modules/.gitkeep
+
+# Separates Modul-Repository (eigenes Git unter modules-zip/)
+modules-zip/
