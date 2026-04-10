@@ -116,6 +116,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $this->updateModule();
                 break;
 
+            case 'doUpdateModule':
+                $this->doUpdateModule();
+                break;
+
             case 'saveModuleRepoUrl':
                 $this->saveModuleRepoUrl();
                 break;
@@ -1683,11 +1687,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         // ---- Modulliste (ggf. mit Update-Check) ----
         $modules    = $registry->getAllModuleInfos();
         $repo_url   = trim((string) $this->settings->get('module_repo_url', ''));
+        $repo_branch = trim((string) $this->settings->get('module_repo_branch', 'ilias9'));
         $with_check = $repo_url !== '';
 
         if ($with_check) {
             require_once __DIR__ . '/Module/ilModuleUpdateChecker.php';
-            $checker = new ilModuleUpdateChecker($repo_url);
+            $checker = new ilModuleUpdateChecker($repo_url, $repo_branch);
             $modules = $checker->checkAll($modules);
         }
 
@@ -1730,8 +1735,9 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                     if (!empty($info['update_available']) && !empty($info['download_url'])) {
                         $update_url = $this->ctrl->getLinkTarget($this, 'updateModule')
                             . '&module_id=' . urlencode($id)
-                            . '&download_url=' . urlencode($info['download_url']);
-                        $update_btn = "<a href=\"$update_url\" class=\"btn btn-sm btn-primary ms-1\" onclick=\"return confirm('Modul $label auf v{$info['latest_version']} aktualisieren?')\">Update installieren</a>";
+                            . '&download_url=' . urlencode($info['download_url'])
+                            . '&latest_version=' . urlencode($info['latest_version']);
+                        $update_btn = "<a href=\"$update_url\" class=\"btn btn-sm btn-primary ms-1\">⬆ Update auf v{$info['latest_version']}</a>";
                     }
                 }
 
@@ -1932,20 +1938,30 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     private function renderRepoUrlForm(): string
     {
-        $repo_url   = htmlspecialchars($this->settings->get('module_repo_url', ''), ENT_QUOTES);
-        $save_url   = $this->ctrl->getLinkTarget($this, 'saveModuleRepoUrl');
+        $repo_url    = htmlspecialchars($this->settings->get('module_repo_url', ''), ENT_QUOTES);
+        $repo_branch = htmlspecialchars($this->settings->get('module_repo_branch', 'ilias9'), ENT_QUOTES);
+        $save_url    = $this->ctrl->getLinkTarget($this, 'saveModuleRepoUrl');
 
         return "
         <div class='card mt-3 mb-3'>
             <div class='card-header'><strong>Modul-Repository</strong></div>
             <div class='card-body'>
                 <p class='text-muted mb-2'>
-                    Raw-URL des GitHub-Branches mit den Modul-ZIPs.<br>
-                    Beispiel: <code>https://raw.githubusercontent.com/andreschweigert/ExtendedTestSettings-Modules/ilias9</code>
+                    GitHub-Repository mit den Modul-ZIPs. Die ZIPs müssen der Namenskonvention
+                    <code>ModulName_v1.0.0.zip</code> folgen.<br>
+                    Beispiel: <code>https://github.com/andreschweigert/ExtendedTestSettings-Modules</code>
                 </p>
-                <form method='post' action='$save_url' class='d-flex gap-2 align-items-center'>
-                    <input type='text' name='module_repo_url' value='$repo_url'
-                           class='form-control' placeholder='https://raw.githubusercontent.com/...' style='max-width:600px;'>
+                <form method='post' action='$save_url'>
+                    <div class='d-flex gap-2 align-items-center mb-2'>
+                        <label style='min-width:80px;'>Repo-URL</label>
+                        <input type='text' name='module_repo_url' value='$repo_url'
+                               class='form-control' placeholder='https://github.com/user/Repo' style='max-width:520px;'>
+                    </div>
+                    <div class='d-flex gap-2 align-items-center mb-2'>
+                        <label style='min-width:80px;'>Branch</label>
+                        <input type='text' name='module_repo_branch' value='$repo_branch'
+                               class='form-control' placeholder='ilias9' style='max-width:200px;'>
+                    </div>
                     <button type='submit' class='btn btn-secondary'>Speichern</button>
                 </form>
             </div>
@@ -1953,71 +1969,172 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     }
 
     /**
-     * Speichert die Modul-Repository-URL.
+     * Speichert die Modul-Repository-Einstellungen.
      */
     protected function saveModuleRepoUrl(): void
     {
-        $url = trim($_POST['module_repo_url'] ?? '');
+        $url    = trim($_POST['module_repo_url'] ?? '');
+        $branch = trim($_POST['module_repo_branch'] ?? 'ilias9');
 
-        // Nur https erlauben
-        if ($url !== '' && !str_starts_with($url, 'https://')) {
-            $this->tpl->setOnScreenMessage('failure', 'Nur HTTPS-URLs sind erlaubt.');
+        if ($url !== '' && !str_starts_with($url, 'https://github.com/')) {
+            $this->tpl->setOnScreenMessage('failure', 'Bitte eine gültige GitHub-URL eingeben (https://github.com/...).');
             $this->ctrl->redirect($this, 'showModules');
             return;
         }
 
         $this->settings->set('module_repo_url', $url);
-        $this->tpl->setOnScreenMessage('success', 'Repository-URL gespeichert.');
+        $this->settings->set('module_repo_branch', $branch ?: 'ilias9');
+        $this->tpl->setOnScreenMessage('success', 'Repository-Einstellungen gespeichert.');
         $this->ctrl->redirect($this, 'showModules');
     }
 
     /**
-     * Lädt ein Update für ein externes Modul direkt aus dem Repository herunter und installiert es.
+     * Zeigt eine Bestätigungsseite vor dem Update — mit Ladeanimation beim Absenden.
      */
     protected function updateModule(): void
     {
-        $module_id    = preg_replace('/[^a-z0-9_]/', '', strtolower($_GET['module_id'] ?? ''));
-        $download_url = $_GET['download_url'] ?? '';
+        $this->tabs->activateTab('modules');
+
+        $module_id      = preg_replace('/[^a-z0-9_]/', '', strtolower($_GET['module_id'] ?? ''));
+        $download_url   = $_GET['download_url'] ?? '';
+        $latest_version = htmlspecialchars($_GET['latest_version'] ?? '', ENT_QUOTES);
 
         if ($module_id === '' || $download_url === '') {
             $this->ctrl->redirect($this, 'showModules');
             return;
         }
 
-        // Nur URLs aus dem konfigurierten Repo erlauben
-        $repo_url = trim((string) $this->settings->get('module_repo_url', ''));
-        if ($repo_url === '' || !str_starts_with($download_url, $repo_url)) {
+        if (!$this->isAllowedDownloadUrl($download_url)) {
             $this->tpl->setOnScreenMessage('failure', 'Ungültige Download-URL.');
             $this->ctrl->redirect($this, 'showModules');
             return;
         }
 
-        try {
-            require_once __DIR__ . '/Module/ilModuleUpdateChecker.php';
-            $checker  = new ilModuleUpdateChecker($repo_url);
-            $tmp_file = $checker->downloadZip($download_url);
+        $do_url     = $this->ctrl->getLinkTarget($this, 'doUpdateModule');
+        $back_url   = $this->ctrl->getLinkTarget($this, 'showModules');
+        $module_esc = htmlspecialchars($module_id, ENT_QUOTES);
+        $dl_esc     = htmlspecialchars($download_url, ENT_QUOTES);
 
-            require_once __DIR__ . '/Module/ilModuleInstaller.php';
-            $installer   = $this->getInstaller();
-            $module_info = $installer->installFromZip($tmp_file);
+        $html = "
+        <div class='card mt-3' style='max-width:600px;'>
+            <div class='card-header'><strong>Modul-Update: $module_esc</strong></div>
+            <div class='card-body'>
+                <p>Das Modul wird auf <strong>v$latest_version</strong> aktualisiert:</p>
+                <ol>
+                    <li>ZIP herunterladen von GitHub</li>
+                    <li>Bestehendes Modul ersetzen</li>
+                    <li>Datenbank-Tabellen aktualisieren (falls nötig)</li>
+                    <li>Modul aktiv lassen</li>
+                </ol>
+                <div id='ets-update-spinner' style='display:none;' class='alert alert-info'>
+                    ⏳ Update wird durchgeführt — bitte warten…
+                </div>
+                <form method='post' action='$do_url' id='ets-update-form'>
+                    <input type='hidden' name='module_id'    value='$module_esc'>
+                    <input type='hidden' name='download_url' value='$dl_esc'>
+                    <button type='submit' class='btn btn-primary' id='ets-update-btn'>
+                        Update jetzt installieren
+                    </button>
+                    <a href='$back_url' class='btn btn-secondary ms-2'>Abbrechen</a>
+                </form>
+            </div>
+        </div>
+        <script>
+        document.getElementById('ets-update-form').addEventListener('submit', function() {
+            document.getElementById('ets-update-spinner').style.display = 'block';
+            document.getElementById('ets-update-btn').disabled = true;
+            document.getElementById('ets-update-btn').textContent = 'Bitte warten…';
+        });
+        </script>";
 
-            @unlink($tmp_file);
+        $this->tpl->setContent($html);
+    }
 
-            // Modul nach Update automatisch aktivieren
-            $registry = $this->getRegistry();
-            $registry->setModuleActive($module_id, true);
+    /**
+     * Führt das eigentliche Update durch (POST von der Bestätigungsseite).
+     */
+    protected function doUpdateModule(): void
+    {
+        $module_id    = preg_replace('/[^a-z0-9_]/', '', strtolower($_POST['module_id'] ?? ''));
+        $download_url = $_POST['download_url'] ?? '';
 
-            $this->tpl->setOnScreenMessage(
-                'success',
-                "Modul '{$module_info['label']}' wurde auf v{$module_info['version']} aktualisiert."
-            );
-        } catch (RuntimeException $e) {
-            $this->tpl->setOnScreenMessage('failure', 'Update fehlgeschlagen: ' . $e->getMessage());
-        } catch (Throwable $e) {
-            error_log('[ExtendedTestSettings] updateModule Fehler: ' . $e->getMessage());
-            $this->tpl->setOnScreenMessage('failure', 'Unerwarteter Fehler: ' . $e->getMessage());
+        if ($module_id === '' || $download_url === '') {
+            $this->ctrl->redirect($this, 'showModules');
+            return;
         }
 
-        $this->ctrl->redirect($this, 'showModules');
+        if (!$this->isAllowedDownloadUrl($download_url)) {
+            $this->tpl->setOnScreenMessage('failure', 'Ungültige Download-URL.');
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
+        $this->tabs->activateTab('modules');
+        $back_url = $this->ctrl->getLinkTarget($this, 'showModules');
+
+        $log   = [];
+        $error = null;
+
+        try {
+            $log[] = '⬇️ ZIP wird heruntergeladen…';
+            require_once __DIR__ . '/Module/ilModuleUpdateChecker.php';
+            $repo_url = trim((string) $this->settings->get('module_repo_url', ''));
+            $branch   = trim((string) $this->settings->get('module_repo_branch', 'ilias9'));
+            $checker  = new ilModuleUpdateChecker($repo_url, $branch);
+            $tmp_file = $checker->downloadZip($download_url);
+            $log[]    = '✅ ZIP heruntergeladen (' . round(filesize($tmp_file) / 1024) . ' KB)';
+
+            $log[] = '📦 Modul wird installiert…';
+            $installer   = $this->getInstaller();
+            $module_info = $installer->installFromZip($tmp_file);
+            @unlink($tmp_file);
+            $log[] = "✅ Modul '{$module_info['label']}' v{$module_info['version']} installiert";
+
+            $log[] = '🔄 Modul wird aktiviert…';
+            $registry = $this->getRegistry();
+            $registry->setModuleActive($module_id, true);
+            $log[] = '✅ Modul aktiv';
+
+        } catch (RuntimeException $e) {
+            $error = $e->getMessage();
+            $log[] = '❌ Fehler: ' . htmlspecialchars($error);
+        } catch (Throwable $e) {
+            error_log('[ExtendedTestSettings] doUpdateModule Fehler: ' . $e->getMessage());
+            $error = $e->getMessage();
+            $log[] = '❌ Unerwarteter Fehler: ' . htmlspecialchars($error);
+        }
+
+        $log_html   = implode('<br>', array_map('htmlspecialchars', $log));
+        // letzte Zeile schon escaped — rebuild ohne doppeltes escaping
+        $log_items  = array_map(fn($l) => "<li>$l</li>", $log);
+        $log_list   = implode('', $log_items);
+        $status     = $error === null ? 'success' : 'danger';
+        $status_txt = $error === null ? '✅ Update erfolgreich abgeschlossen' : '❌ Update fehlgeschlagen';
+
+        $html = "
+        <div class='card mt-3' style='max-width:600px;'>
+            <div class='card-header'><strong>Update-Protokoll</strong></div>
+            <div class='card-body'>
+                <ul class='list-unstyled mb-3'>$log_list</ul>
+                <div class='alert alert-$status'>$status_txt</div>
+                <a href='$back_url' class='btn btn-primary'>Zurück zur Modulübersicht</a>
+            </div>
+        </div>";
+
+        $this->tpl->setContent($html);
+    }
+
+    /**
+     * Prüft ob eine Download-URL aus dem konfigurierten GitHub-Repo stammt.
+     */
+    private function isAllowedDownloadUrl(string $url): bool
+    {
+        if (!str_starts_with($url, 'https://')) {
+            return false;
+        }
+        $repo_url  = trim((string) $this->settings->get('module_repo_url', ''));
+        $repo_path = trim(parse_url($repo_url, PHP_URL_PATH) ?? '', '/');
+        return $repo_path !== '' && str_contains($url, $repo_path);
     }
 }
+

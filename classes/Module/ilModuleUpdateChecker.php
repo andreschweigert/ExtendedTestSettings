@@ -1,88 +1,118 @@
 <?php
 
 /**
- * Prüft ob für installierte externe Module neuere Versionen im konfigurierten
- * Modul-Repository verfügbar sind.
+ * Prüft ob für installierte externe Module neuere Versionen im GitHub-Repository
+ * verfügbar sind. Nutzt die GitHub Contents API — kein extra Manifest-File nötig.
  *
- * Das Repository stellt pro Modul eine module.json bereit:
- *   <repo_base_url>/modules/<id>/module.json
+ * Namenskonvention im Repo: <ModulName>_v<version>.zip  (z.B. ExamGrouping_v1.0.1.zip)
  *
- * Diese enthält mindestens:
- *   { "id": "...", "version": "1.0.2", "download": "ModulName_v1.0.2.zip" }
- *
- * Der Download-Link ergibt sich dann aus:
- *   <repo_base_url>/modules/<id>/<download>
+ * Konfiguration (ilSetting 'extendedtestsettings'):
+ *   module_repo_url    → GitHub Repo-URL, z.B. https://github.com/user/Repo
+ *   module_repo_branch → Branch-Name,     z.B. ilias9
  */
 class ilModuleUpdateChecker
 {
-    private string $repo_base_url;
+    private string $repo_url;
+    private string $branch;
     private int    $timeout;
 
-    public function __construct(string $repo_base_url, int $timeout_seconds = 5)
+    /** Regex um Version aus ZIP-Dateinamen zu extrahieren: Foo_v1.2.3.zip */
+    private const VERSION_REGEX = '/_v(\d+\.\d+(?:\.\d+)?)\.zip$/i';
+
+    public function __construct(string $github_repo_url, string $branch, int $timeout_seconds = 8)
     {
-        $this->repo_base_url = rtrim($repo_base_url, '/');
-        $this->timeout       = $timeout_seconds;
+        $this->repo_url = rtrim($github_repo_url, '/');
+        $this->branch   = $branch;
+        $this->timeout  = $timeout_seconds;
     }
 
     /**
-     * Prüft für eine Liste von Modul-Infos ob Updates verfügbar sind.
+     * Leitet aus der GitHub-Repo-URL die Contents-API-URL für ein Modul ab.
+     * https://github.com/user/Repo  →  https://api.github.com/repos/user/Repo/contents/modules/<id>
+     */
+    private function apiUrl(string $module_id): string
+    {
+        // "https://github.com/user/Repo" → ["user", "Repo"]
+        $path = parse_url($this->repo_url, PHP_URL_PATH);
+        $path = trim($path ?? '', '/');
+
+        return 'https://api.github.com/repos/' . $path
+            . '/contents/modules/' . $module_id
+            . '?ref=' . urlencode($this->branch);
+    }
+
+    /**
+     * Prüft alle nicht-builtin Module auf Updates.
      *
      * @param  array[] $modules  Ergebnis von ilModuleRegistry::getAllModuleInfos()
-     * @return array[]           Gleiche Liste, jedes Element ggf. erweitert um:
+     * @return array[]           Gleiche Liste, externe Module ggf. erweitert um:
      *                           'update_available' => bool
      *                           'latest_version'   => string
-     *                           'download_url'     => string
-     *                           'update_error'     => string (nur bei Fehler)
+     *                           'download_url'     => string  (direkter ZIP-Link)
+     *                           'update_error'     => string  (nur bei Fehler)
      */
     public function checkAll(array $modules): array
     {
         $result = [];
-
         foreach ($modules as $info) {
-            // Nur externe (installierte) Module prüfen — built-ins werden zentral gepflegt
             if ($info['builtin'] ?? true) {
                 $result[] = $info;
                 continue;
             }
-
             $result[] = $this->checkOne($info);
         }
-
         return $result;
     }
 
     /**
-     * Prüft ein einzelnes Modul auf Updates.
+     * Prüft ein einzelnes Modul: holt Dateiliste per API, sucht neueste ZIP-Version.
      */
     public function checkOne(array $info): array
     {
-        $id  = $info['id'];
-        $url = $this->repo_base_url . '/modules/' . $id . '/module.json';
+        $url = $this->apiUrl($info['id']);
 
         try {
             $raw = $this->fetchUrl($url);
 
             if ($raw === null) {
-                $info['update_error'] = 'Nicht erreichbar';
+                $info['update_error'] = 'Repository nicht erreichbar';
                 return $info;
             }
 
-            $remote = json_decode($raw, true);
+            $files = json_decode($raw, true);
 
-            if (!is_array($remote) || empty($remote['version'])) {
-                $info['update_error'] = 'Ungültige module.json im Repository';
+            if (!is_array($files)) {
+                $info['update_error'] = 'Ungültige API-Antwort';
+                return $info;
+            }
+
+            // Alle ZIPs finden und höchste Version ermitteln
+            $latest_version = null;
+            $download_url   = null;
+
+            foreach ($files as $file) {
+                $name = $file['name'] ?? '';
+                if (!preg_match(self::VERSION_REGEX, $name, $m)) {
+                    continue;
+                }
+                $v = $m[1];
+                if ($latest_version === null || version_compare($v, $latest_version, '>')) {
+                    $latest_version = $v;
+                    $download_url   = $file['download_url'] ?? null;
+                }
+            }
+
+            if ($latest_version === null) {
+                $info['update_error'] = 'Keine ZIP-Datei im Repository gefunden';
                 return $info;
             }
 
             $installed = $info['version'] ?? '0.0.0';
-            $latest    = $remote['version'];
 
-            $info['latest_version']   = $latest;
-            $info['update_available'] = version_compare($latest, $installed, '>');
-
-            if ($info['update_available'] && !empty($remote['download'])) {
-                $info['download_url'] = $this->repo_base_url
-                    . '/modules/' . $id . '/' . $remote['download'];
+            $info['latest_version']   = $latest_version;
+            $info['update_available'] = version_compare($latest_version, $installed, '>');
+            if ($info['update_available'] && $download_url) {
+                $info['download_url'] = $download_url;
             }
 
         } catch (Throwable $e) {
@@ -93,15 +123,16 @@ class ilModuleUpdateChecker
     }
 
     /**
-     * Lädt den Inhalt einer URL herunter und gibt ihn zurück, oder null bei Fehler.
+     * Lädt den Inhalt einer URL (text/JSON).
      */
     private function fetchUrl(string $url): ?string
     {
         $context = stream_context_create([
             'http' => [
-                'timeout'        => $this->timeout,
-                'ignore_errors'  => true,
-                'user_agent'     => 'ILIAS-ExtendedTestSettings-UpdateChecker/1.0',
+                'timeout'       => $this->timeout,
+                'ignore_errors' => true,
+                'user_agent'    => 'ILIAS-ExtendedTestSettings-UpdateChecker/1.0',
+                'header'        => "Accept: application/vnd.github+json\r\n",
             ],
             'ssl' => [
                 'verify_peer'      => true,
@@ -110,13 +141,11 @@ class ilModuleUpdateChecker
         ]);
 
         $content = @file_get_contents($url, false, $context);
-
         return $content !== false ? $content : null;
     }
 
     /**
-     * Lädt eine ZIP-Datei von einer URL herunter und speichert sie in eine temporäre Datei.
-     * Gibt den Pfad zur tmp-Datei zurück oder wirft eine Exception.
+     * Lädt eine ZIP-Datei von einer URL in eine temporäre Datei.
      *
      * @throws RuntimeException
      */
