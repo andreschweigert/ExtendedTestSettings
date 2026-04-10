@@ -1,0 +1,292 @@
+<?php
+
+/**
+ * Installiert, deinstalliert und verwaltet Module aus ZIP-Paketen.
+ *
+ * Sicherheit:
+ * - Nur ILIAS-Admins dürfen die Methoden aufrufen (Prüfung obliegt dem Aufrufer / ConfigGUI)
+ * - ZIP-Inhalt wird vor dem Entpacken validiert (module.json, erlaubte Endungen, kein Path-Traversal)
+ * - Dateien werden in modules/<id>/ entpackt (außerhalb des classes/-Autoloaders)
+ */
+class ilModuleInstaller
+{
+    private const ALLOWED_EXTENSIONS = ['php', 'js', 'css', 'sql', 'json', 'html', 'tpl', 'png', 'svg', 'gif', 'jpg'];
+    private const MAX_ZIP_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
+
+    private string $modules_dir;
+    private string $plugin_path;
+
+    public function __construct(string $plugin_path)
+    {
+        $this->plugin_path  = rtrim($plugin_path, '/');
+        $this->modules_dir  = $this->plugin_path . '/modules';
+    }
+
+    // -------------------------------------------------------------------------
+    // Installieren
+    // -------------------------------------------------------------------------
+
+    /**
+     * Installiert ein Modul aus einer hochgeladenen ZIP-Datei.
+     * Gibt bei Erfolg die module.json-Daten zurück, bei Fehler eine Exception.
+     *
+     * @throws RuntimeException Bei Validierungs- oder Dateisystem-Fehlern
+     */
+    public function installFromZip(string $tmp_file_path): array
+    {
+        if (!file_exists($tmp_file_path)) {
+            throw new RuntimeException('Hochgeladene Datei nicht gefunden.');
+        }
+
+        if (filesize($tmp_file_path) > self::MAX_ZIP_SIZE_BYTES) {
+            throw new RuntimeException('ZIP-Datei ist zu groß (max. 20 MB).');
+        }
+
+        $zip = new ZipArchive();
+        if ($zip->open($tmp_file_path) !== true) {
+            throw new RuntimeException('Datei ist kein gültiges ZIP-Archiv.');
+        }
+
+        try {
+            $module_info = $this->validateZip($zip);
+            $module_id   = $module_info['id'];
+
+            $target_dir = $this->modules_dir . '/' . $module_id;
+
+            // Sicherstellen dass modules/ existiert
+            if (!is_dir($this->modules_dir) && !mkdir($this->modules_dir, 0755, true)) {
+                throw new RuntimeException('modules/-Verzeichnis konnte nicht erstellt werden. Bitte Schreibrechte prüfen.');
+            }
+
+            // Altes Modul entfernen falls vorhanden (Update)
+            if (is_dir($target_dir)) {
+                $this->removeDirectory($target_dir);
+            }
+
+            // Entpacken
+            $this->extractZip($zip, $target_dir);
+
+            // DB-Tabellen anlegen
+            $this->runInstallSql($target_dir);
+
+            error_log("[ModuleInstaller] Modul '{$module_id}' erfolgreich installiert in $target_dir");
+
+            return $module_info;
+
+        } finally {
+            $zip->close();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Deinstallieren
+    // -------------------------------------------------------------------------
+
+    /**
+     * Deinstalliert ein Modul: Tabellen löschen + Ordner entfernen.
+     * Nur für uploaded Module (nicht für built-in).
+     *
+     * @throws RuntimeException
+     */
+    public function uninstallModule(string $module_id, array $module_info): void
+    {
+        if ($module_info['builtin'] ?? false) {
+            throw new RuntimeException("Built-in Module können nicht deinstalliert werden (nur deaktivieren).");
+        }
+
+        $module_dir = $this->modules_dir . '/' . $module_id;
+
+        // 1. Uninstall-SQL ausführen (Tabellen löschen)
+        $this->runUninstallSql($module_dir);
+
+        // 2. Modul-Ordner entfernen
+        if (is_dir($module_dir)) {
+            $this->removeDirectory($module_dir);
+        }
+
+        error_log("[ModuleInstaller] Modul '$module_id' deinstalliert.");
+    }
+
+    // -------------------------------------------------------------------------
+    // Validierung
+    // -------------------------------------------------------------------------
+
+    /**
+     * Prüft ZIP-Inhalt vor dem Entpacken.
+     * Gibt module.json-Daten zurück oder wirft eine Exception.
+     */
+    private function validateZip(ZipArchive $zip): array
+    {
+        $module_json_content = null;
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+
+            // Path-Traversal verhindern
+            if (str_contains($name, '..') || str_starts_with($name, '/')) {
+                throw new RuntimeException("Ungültiger Dateipfad im ZIP: '$name'");
+            }
+
+            // Nur erlaubte Dateiendungen
+            $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+            if ($ext !== '' && !in_array($ext, self::ALLOWED_EXTENSIONS, true)) {
+                throw new RuntimeException("Nicht erlaubte Dateiendung '$ext' in: $name");
+            }
+
+            // module.json einlesen (darf in keinem Unterordner liegen)
+            if ($name === 'module.json' || preg_match('#^[^/]+/module\.json$#', $name)) {
+                $module_json_content = $zip->getFromIndex($i);
+            }
+        }
+
+        if ($module_json_content === null) {
+            throw new RuntimeException('module.json fehlt im ZIP-Archiv.');
+        }
+
+        $info = json_decode($module_json_content, true);
+        if (!is_array($info)) {
+            throw new RuntimeException('module.json ist kein gültiges JSON.');
+        }
+
+        foreach (['id', 'handler_file', 'handler_class', 'label'] as $required_field) {
+            if (empty($info[$required_field])) {
+                throw new RuntimeException("Pflichtfeld '$required_field' fehlt in module.json.");
+            }
+        }
+
+        // id darf nur alphanumerisch + Unterstrich sein
+        if (!preg_match('/^[a-z][a-z0-9_]{2,39}$/', $info['id'])) {
+            throw new RuntimeException("Ungültige Modul-ID '{$info['id']}'. Erlaubt: a-z, 0-9, _ (3-40 Zeichen).");
+        }
+
+        return $info;
+    }
+
+    // -------------------------------------------------------------------------
+    // Entpacken
+    // -------------------------------------------------------------------------
+
+    /**
+     * Entpackt ZIP nach $target_dir.
+     * Wenn das ZIP einen Root-Ordner hat (z.B. ExamCalc/...), wird dieser übersprungen.
+     */
+    private function extractZip(ZipArchive $zip, string $target_dir): void
+    {
+        if (!mkdir($target_dir, 0755, true) && !is_dir($target_dir)) {
+            throw new RuntimeException("Konnte Zielverzeichnis nicht anlegen: $target_dir");
+        }
+
+        // Root-Prefix erkennen (falls ZIP einen Wrapper-Ordner hat)
+        $prefix = $this->detectZipPrefix($zip);
+
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+
+            // Root-Prefix entfernen
+            $relative = ($prefix !== '' && str_starts_with($name, $prefix))
+                ? substr($name, strlen($prefix))
+                : $name;
+
+            if ($relative === '' || str_ends_with($relative, '/')) {
+                // Verzeichnis-Eintrag
+                $dir = $target_dir . '/' . $relative;
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0755, true);
+                }
+                continue;
+            }
+
+            $target_file = $target_dir . '/' . $relative;
+            $parent      = dirname($target_file);
+
+            if (!is_dir($parent)) {
+                mkdir($parent, 0755, true);
+            }
+
+            $content = $zip->getFromIndex($i);
+            if ($content === false) {
+                throw new RuntimeException("Konnte Datei nicht lesen: $name");
+            }
+
+            file_put_contents($target_file, $content);
+        }
+    }
+
+    /**
+     * Erkennt ob alle Dateien im ZIP unter einem gemeinsamen Root-Ordner liegen.
+     */
+    private function detectZipPrefix(ZipArchive $zip): string
+    {
+        if ($zip->numFiles === 0) {
+            return '';
+        }
+
+        $first = $zip->getNameIndex(0);
+        $slash = strpos($first, '/');
+
+        if ($slash === false) {
+            return '';
+        }
+
+        $candidate = substr($first, 0, $slash + 1);
+
+        for ($i = 1; $i < $zip->numFiles; $i++) {
+            if (!str_starts_with($zip->getNameIndex($i), $candidate)) {
+                return '';
+            }
+        }
+
+        return $candidate;
+    }
+
+    // -------------------------------------------------------------------------
+    // SQL
+    // -------------------------------------------------------------------------
+
+    private function runInstallSql(string $module_dir): void
+    {
+        $install_file = $module_dir . '/sql/install.php';
+        if (file_exists($install_file)) {
+            try {
+                require $install_file;
+            } catch (Throwable $e) {
+                error_log("[ModuleInstaller] Fehler in install.php: " . $e->getMessage());
+                throw new RuntimeException("DB-Installation fehlgeschlagen: " . $e->getMessage());
+            }
+        }
+    }
+
+    private function runUninstallSql(string $module_dir): void
+    {
+        $uninstall_file = $module_dir . '/sql/uninstall.php';
+        if (file_exists($uninstall_file)) {
+            try {
+                require $uninstall_file;
+            } catch (Throwable $e) {
+                error_log("[ModuleInstaller] Fehler in uninstall.php: " . $e->getMessage());
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Hilfsmethoden
+    // -------------------------------------------------------------------------
+
+    private function removeDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        $items = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($items as $item) {
+            $item->isDir() ? rmdir($item->getRealPath()) : unlink($item->getRealPath());
+        }
+
+        rmdir($dir);
+    }
+}

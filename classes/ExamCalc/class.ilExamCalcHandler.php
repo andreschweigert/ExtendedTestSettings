@@ -5,7 +5,7 @@
  * Part of ExtendedTestSettings Plugin
  */
 
-class ilExamCalcHandler
+class ilExamCalcHandler implements ilExamModuleInterface
 {
     private string $plugin_path;
 

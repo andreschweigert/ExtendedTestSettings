@@ -95,6 +95,23 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $this->removeUser();
                 break;
 
+            // --- Module-Verwaltung ---
+            case 'showModules':
+                $this->showModules();
+                break;
+
+            case 'toggleModule':
+                $this->toggleModule();
+                break;
+
+            case 'uploadModule':
+                $this->uploadModule();
+                break;
+
+            case 'uninstallModule':
+                $this->uninstallModule();
+                break;
+
             default:
                 $this->showGeneral();
                 break;
@@ -111,6 +128,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             'general',
             'Allgemein',
             $this->ctrl->getLinkTarget($this, 'showGeneral')
+        );
+
+        $this->tabs->addTab(
+            'modules',
+            'Module',
+            $this->ctrl->getLinkTarget($this, 'showModules')
         );
 
         $this->tabs->addTab(
@@ -1604,5 +1627,248 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         }
 
         return $cleaned;
+    }
+
+    // =========================================================================
+    // Module-Verwaltung
+    // =========================================================================
+
+    private function getRegistry(): ilModuleRegistry
+    {
+        require_once __DIR__ . '/Module/ilModuleRegistry.php';
+        return new ilModuleRegistry($this->getPluginObject()->getDirectory());
+    }
+
+    private function getInstaller(): ilModuleInstaller
+    {
+        require_once __DIR__ . '/Module/ilModuleInstaller.php';
+        return new ilModuleInstaller($this->getPluginObject()->getDirectory());
+    }
+
+    /**
+     * Tab: Module-Übersicht mit Upload-Formular
+     */
+    protected function showModules(): void
+    {
+        $this->tabs->activateTab('modules');
+        $this->tpl->setContent($this->renderModulesTab());
+    }
+
+    private function renderModulesTab(): string
+    {
+        global $DIC;
+        $factory  = $DIC->ui()->factory();
+        $renderer = $DIC->ui()->renderer();
+        $registry = $this->getRegistry();
+
+        $html = $renderer->render(
+            $factory->messageBox()->info(
+                'Module erweitern das Plugin um zusätzliche Funktionen. '
+                . 'Built-in Module können aktiviert/deaktiviert werden. '
+                . 'Neue Module können als ZIP-Paket hochgeladen werden.'
+            )
+        );
+
+        // ---- Modulliste ----
+        $modules = $registry->getAllModuleInfos();
+
+        if (empty($modules)) {
+            $html .= $renderer->render($factory->messageBox()->info('Keine Module gefunden.'));
+        } else {
+            $rows = '';
+            foreach ($modules as $info) {
+                $id      = htmlspecialchars($info['id'], ENT_QUOTES);
+                $label   = htmlspecialchars($info['label'] ?? $info['id'], ENT_QUOTES);
+                $version = htmlspecialchars($info['version'] ?? '–', ENT_QUOTES);
+                $compat  = htmlspecialchars(($info['ilias_min'] ?? '?') . '–' . ($info['ilias_max'] ?? '?'), ENT_QUOTES);
+                $builtin = $info['builtin'] ? '<span class="badge text-bg-secondary">Built-in</span>' : '<span class="badge text-bg-primary">Installiert</span>';
+                $active  = $info['active'];
+
+                $toggle_label = $active ? 'Deaktivieren' : 'Aktivieren';
+                $toggle_class = $active ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-success';
+                $toggle_url   = $this->ctrl->getLinkTarget($this, 'toggleModule') . '&module_id=' . urlencode($id) . '&active=' . ($active ? '0' : '1');
+
+                $uninstall_btn = '';
+                if (!$info['builtin']) {
+                    $uninstall_url  = $this->ctrl->getLinkTarget($this, 'uninstallModule') . '&module_id=' . urlencode($id);
+                    $uninstall_btn  = "<a href=\"$uninstall_url\" class=\"btn btn-sm btn-danger ms-1\" onclick=\"return confirm('Modul $label wirklich deinstallieren? Alle Daten werden gelöscht.')\">Deinstallieren</a>";
+                }
+
+                $status_badge = $active
+                    ? '<span class="badge text-bg-success">Aktiv</span>'
+                    : '<span class="badge text-bg-danger">Inaktiv</span>';
+
+                $tables_info = implode(', ', $info['tables'] ?? []);
+                $desc        = htmlspecialchars($info['description'] ?? '', ENT_QUOTES);
+
+                $rows .= "
+                <tr>
+                    <td><strong>$label</strong><br><small class='text-muted'>$desc</small></td>
+                    <td>$version</td>
+                    <td>ILIAS $compat</td>
+                    <td>$builtin</td>
+                    <td>$status_badge</td>
+                    <td>
+                        <a href=\"$toggle_url\" class=\"$toggle_class\">$toggle_label</a>
+                        $uninstall_btn
+                    </td>
+                </tr>";
+            }
+
+            $html .= "
+            <table class='table table-bordered table-hover mt-3'>
+                <thead class='table-light'>
+                    <tr>
+                        <th>Modul</th>
+                        <th>Version</th>
+                        <th>Kompatibilität</th>
+                        <th>Typ</th>
+                        <th>Status</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>$rows</tbody>
+            </table>";
+        }
+
+        // ---- Upload-Formular ----
+        $upload_url = $this->ctrl->getLinkTarget($this, 'uploadModule');
+
+        $html .= "
+        <div class='card mt-4'>
+            <div class='card-header'><strong>Neues Modul installieren</strong></div>
+            <div class='card-body'>
+                <p class='text-muted'>
+                    Laden Sie ein Modul-ZIP-Paket hoch. Das Paket muss eine <code>module.json</code> enthalten.
+                    Maximale Größe: 20 MB. Erlaubte Dateitypen: .php, .js, .css, .sql, .json, .html
+                </p>
+                <form method='post' action='$upload_url' enctype='multipart/form-data'>
+                    <div class='mb-3'>
+                        <input type='file' name='module_zip' class='form-control' accept='.zip' required>
+                    </div>
+                    <button type='submit' class='btn btn-primary'>Modul hochladen und installieren</button>
+                </form>
+            </div>
+        </div>";
+
+        return $html;
+    }
+
+    /**
+     * Modul aktivieren / deaktivieren
+     */
+    protected function toggleModule(): void
+    {
+        $module_id = (string) ($_GET['module_id'] ?? '');
+        $active    = (bool) (int) ($_GET['active'] ?? 0);
+
+        if ($module_id === '') {
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
+        $registry = $this->getRegistry();
+
+        if (!$registry->moduleExists($module_id)) {
+            $this->tpl->setOnScreenMessage('failure', "Modul '$module_id' nicht gefunden.");
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
+        $registry->setModuleActive($module_id, $active);
+
+        $msg = $active
+            ? "Modul '$module_id' wurde aktiviert."
+            : "Modul '$module_id' wurde deaktiviert. PHP lädt den Modul-Code nicht mehr.";
+
+        $this->tpl->setOnScreenMessage('success', $msg);
+        $this->ctrl->redirect($this, 'showModules');
+    }
+
+    /**
+     * ZIP hochladen und installieren
+     */
+    protected function uploadModule(): void
+    {
+        $this->tabs->activateTab('modules');
+
+        $file = $_FILES['module_zip'] ?? null;
+
+        if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
+            $errors = [
+                UPLOAD_ERR_INI_SIZE  => 'Datei überschreitet upload_max_filesize.',
+                UPLOAD_ERR_FORM_SIZE => 'Datei überschreitet MAX_FILE_SIZE.',
+                UPLOAD_ERR_NO_FILE   => 'Keine Datei ausgewählt.',
+            ];
+            $msg = $errors[$file['error'] ?? UPLOAD_ERR_NO_FILE] ?? 'Upload-Fehler.';
+            $this->tpl->setOnScreenMessage('failure', $msg);
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
+        try {
+            $installer  = $this->getInstaller();
+            $module_info = $installer->installFromZip($file['tmp_name']);
+
+            // Modul direkt aktivieren nach Installation
+            $registry = $this->getRegistry();
+            $registry->setModuleActive($module_info['id'], true);
+
+            $this->tpl->setOnScreenMessage(
+                'success',
+                "Modul '{$module_info['label']}' (v{$module_info['version']}) erfolgreich installiert und aktiviert."
+            );
+        } catch (RuntimeException $e) {
+            $this->tpl->setOnScreenMessage('failure', 'Installation fehlgeschlagen: ' . $e->getMessage());
+        }
+
+        $this->ctrl->redirect($this, 'showModules');
+    }
+
+    /**
+     * Modul deinstallieren (nur nicht-built-in)
+     */
+    protected function uninstallModule(): void
+    {
+        $module_id = (string) ($_GET['module_id'] ?? '');
+
+        if ($module_id === '') {
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
+        $registry = $this->getRegistry();
+        $infos    = $registry->getAllModuleInfos();
+        $info     = null;
+
+        foreach ($infos as $m) {
+            if ($m['id'] === $module_id) {
+                $info = $m;
+                break;
+            }
+        }
+
+        if ($info === null) {
+            $this->tpl->setOnScreenMessage('failure', "Modul '$module_id' nicht gefunden.");
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
+        if ($info['builtin']) {
+            $this->tpl->setOnScreenMessage('failure', 'Built-in Module können nicht deinstalliert werden.');
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
+        try {
+            $installer = $this->getInstaller();
+            $installer->uninstallModule($module_id, $info);
+
+            $this->tpl->setOnScreenMessage('success', "Modul '$module_id' wurde deinstalliert.");
+        } catch (RuntimeException $e) {
+            $this->tpl->setOnScreenMessage('failure', 'Deinstallation fehlgeschlagen: ' . $e->getMessage());
+        }
+
+        $this->ctrl->redirect($this, 'showModules');
     }
 }

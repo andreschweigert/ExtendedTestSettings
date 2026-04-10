@@ -5,7 +5,7 @@
  * BEREINIGT: Templates nur noch aus Config-Klasse laden
  */
 
-class ilExamSymbolsHandler
+class ilExamSymbolsHandler implements ilExamModuleInterface
 {
     private string $plugin_path;
     private ilExamSymbolsConfig $config;

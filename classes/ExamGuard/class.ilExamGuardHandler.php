@@ -4,7 +4,7 @@
  * Part of ExtendedTestSettings Plugin
  */
 
-class ilExamGuardHandler
+class ilExamGuardHandler implements ilExamModuleInterface
 {
     private string $plugin_path;
     
