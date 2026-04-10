@@ -487,56 +487,17 @@ HTML;
     }
 
     /**
-     * Module-Handler direkt laden (ohne UIHookGUI-Abhängigkeit)
+     * Module-Handler über Registry laden (built-in + externe Module)
      */
     private function loadModuleHandlersDirect(): array
     {
-        $plugin_path = "./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings";
-        $module_handlers = [];
-
-        // ExamCalc Handler laden
-        $examcalc_path = __DIR__ . "/ExamCalc/class.ilExamCalcHandler.php";
-        if (file_exists($examcalc_path)) {
-            require_once $examcalc_path;
-            $module_handlers['examcalc'] = new ilExamCalcHandler($plugin_path);
-        }
-
-        // ExamSymbols Handler laden (mit Config)
-        $examsymbols_path = __DIR__ . "/ExamSymbols/class.ilExamSymbolsHandler.php";
-        $examsymbols_config_path = __DIR__ . "/ExamSymbols/class.ilExamSymbolsConfig.php";
-
-        if (file_exists($examsymbols_path) && file_exists($examsymbols_config_path)) {
-            require_once $examsymbols_config_path;
-            require_once $examsymbols_path;
-            $module_handlers['examsymbols'] = new ilExamSymbolsHandler($plugin_path);
-        }
-
-        // ExamGuard Handler laden (falls vorhanden)
-        $examguard_path = __DIR__ . "/ExamGuard/class.ilExamGuardHandler.php";
-        if (file_exists($examguard_path)) {
-            require_once $examguard_path;
-            $module_handlers['examguard'] = new ilExamGuardHandler($plugin_path);
-        }
-
-        // ExamAlert Handler laden - NEU
-        $examalert_path = __DIR__ . "/ExamAlert/class.ilExamAlertHandler.php";
-        if (file_exists($examalert_path)) {
-            require_once $examalert_path;
-            $module_handlers['examalert'] = new ilExamAlertHandler($plugin_path);
-        }
-
-        // ExamChecker Handler laden
-        $examchecker_path = __DIR__ . "/ExamChecker/class.ilExamCheckerHandler.php";
-        $examchecker_config_path = __DIR__ . "/ExamChecker/class.ilExamCheckerConfig.php";
-
-        if (file_exists($examchecker_path) && file_exists($examchecker_config_path)) {
-            require_once $examchecker_config_path;
-            require_once $examchecker_path;
-            $module_handlers['examchecker'] = new ilExamCheckerHandler($plugin_path);
-        }
+        $plugin_path = __DIR__ . '/..';
+        require_once __DIR__ . '/Module/ilModuleRegistry.php';
+        $registry = new ilModuleRegistry($plugin_path);
+        $module_handlers = $registry->getActiveHandlers();
 
         if (self::DEBUG_ENABLED) {
-            error_log("[ExtendedTestSettings] AdvancedGUI - Module direkt geladen: " . implode(', ', array_keys($module_handlers)));
+            error_log("[ExtendedTestSettings] AdvancedGUI - Module via Registry geladen: " . implode(', ', array_keys($module_handlers)));
         }
         return $module_handlers;
     }

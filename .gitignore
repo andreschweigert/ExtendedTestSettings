@@ -1,0 +1,6 @@
+# Entwicklerdokumentation — nicht im Repo
+.dev/
+
+# Installierte externe Module — verwaltet durch ILIAS-Admin, nicht versioniert
+modules/*
+!modules/.gitkeep
