@@ -1732,12 +1732,22 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         }
 
         // ---- Upload-Formular ----
+        // getLinkTarget() hängt rtoken automatisch an die URL — kein hidden field nötig
         $upload_url = $this->ctrl->getLinkTarget($this, 'uploadModule');
+
+        $modules_dir  = $this->getPluginObject()->getDirectory() . '/modules';
+        $writable     = is_writable($modules_dir);
+        $writable_msg = $writable
+            ? ''
+            : "<div class='alert alert-danger mt-2'>⚠️ Das Verzeichnis <code>modules/</code> ist nicht schreibbar. Bitte auf dem Server <code>chown www-data: modules/</code> ausführen.</div>";
+
+        $disabled = $writable ? '' : ' disabled';
 
         $html .= "
         <div class='card mt-4'>
             <div class='card-header'><strong>Neues Modul installieren</strong></div>
             <div class='card-body'>
+                $writable_msg
                 <p class='text-muted'>
                     Laden Sie ein Modul-ZIP-Paket hoch. Das Paket muss eine <code>module.json</code> enthalten.
                     Maximale Größe: 20 MB. Erlaubte Dateitypen: .php, .js, .css, .sql, .json, .html
@@ -1746,7 +1756,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                     <div class='mb-3'>
                         <input type='file' name='module_zip' class='form-control' accept='.zip' required>
                     </div>
-                    <button type='submit' class='btn btn-primary'>Modul hochladen und installieren</button>
+                    <button type='submit' class='btn btn-primary'$disabled>Modul hochladen und installieren</button>
                 </form>
             </div>
         </div>";
@@ -1819,7 +1829,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 "Modul '{$module_info['label']}' (v{$module_info['version']}) erfolgreich installiert und aktiviert."
             );
         } catch (RuntimeException $e) {
+            error_log('[ExtendedTestSettings] uploadModule Fehler: ' . $e->getMessage());
             $this->tpl->setOnScreenMessage('failure', 'Installation fehlgeschlagen: ' . $e->getMessage());
+        } catch (Throwable $e) {
+            error_log('[ExtendedTestSettings] uploadModule unerwarteter Fehler: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+            $this->tpl->setOnScreenMessage('failure', 'Unerwarteter Fehler: ' . $e->getMessage());
         }
 
         $this->ctrl->redirect($this, 'showModules');

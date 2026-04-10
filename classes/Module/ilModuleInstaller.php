@@ -10,7 +10,7 @@
  */
 class ilModuleInstaller
 {
-    private const ALLOWED_EXTENSIONS = ['php', 'js', 'css', 'sql', 'json', 'html', 'tpl', 'png', 'svg', 'gif', 'jpg'];
+    private const ALLOWED_EXTENSIONS = ['php', 'js', 'css', 'sql', 'json', 'html', 'tpl', 'md', 'txt', 'png', 'svg', 'gif', 'jpg', 'jpeg', 'woff', 'woff2', 'ttf'];
     private const MAX_ZIP_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 
     private string $modules_dir;
@@ -125,6 +125,11 @@ class ilModuleInstaller
             // Path-Traversal verhindern
             if (str_contains($name, '..') || str_starts_with($name, '/')) {
                 throw new RuntimeException("Ungültiger Dateipfad im ZIP: '$name'");
+            }
+
+            // Verzeichnis-Einträge überspringen (haben keine Dateiendung)
+            if (str_ends_with($name, '/')) {
+                continue;
             }
 
             // Nur erlaubte Dateiendungen
