@@ -13,16 +13,16 @@ Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Onl
 
 ## Features
 
-Das Plugin liefert ein **built-in Modul** (direkt im Plugin enthalten) sowie eine **Infrastruktur für externe Module**, die unabhängig installiert und versioniert werden können:
+Das Plugin stellt eine **Infrastruktur für externe Module** bereit, die unabhängig installiert und versioniert werden können. Alle Module leben im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules):
 
-| Modul | Typ | Beschreibung |
-|---|---|---|
-| **ExamGuard** | Built-in | Prüfungsschutz durch Eingabeeinschränkungen |
-| **ExamChecker** | Sonderstatus | Prüfung der Testeinstellungen (eigene Admin-Integration) |
-| **ExamCalc** | Extern | Taschenrechner für Prüfungen (einfach oder wissenschaftlich) |
-| **ExamSymbols** | Extern | Sonderzeichen-Paletten für Fachbereiche |
-| **ExamAlert** | Extern | Zeitbasierte Warnungen vor Prüfungsende |
-| *Eigene Module* | Extern | Über ZIP installierbar, beliebig erweiterbar |
+| Modul | Beschreibung |
+|---|---|
+| **ExamCalc** | Taschenrechner für Prüfungen (einfach oder wissenschaftlich) |
+| **ExamSymbols** | Sonderzeichen-Paletten für Fachbereiche |
+| **ExamGuard** | Prüfungsschutz durch Eingabeeinschränkungen |
+| **ExamAlert** | Zeitbasierte Warnungen vor Prüfungsende |
+| **ExamChecker** | Prüfung der Testeinstellungen gegen konfigurierbare Standards |
+| *Eigene Module* | Über ZIP installierbar, beliebig erweiterbar |
 
 ---
 
@@ -85,11 +85,11 @@ composer dump-autoload
 
 1. Einen beliebigen Test öffnen → **Einstellungen**
 2. Sub-Tab **"Erweiterte Test-Einstellungen"** muss sichtbar sein
-3. **Administration → Plugins → ExtendedTestSettings → Module** – ExamGuard sollte als aktiv angezeigt werden
+3. **Administration → Plugins → ExtendedTestSettings → Module** – die Modulliste sollte erscheinen
 
-### Schritt 6: Externe Module installieren
+### Schritt 6: Module installieren
 
-ExamCalc, ExamSymbols und ExamAlert sind externe Module und müssen separat installiert werden:
+Alle Module (ExamCalc, ExamSymbols, ExamGuard, ExamAlert, ExamChecker) sind extern und müssen separat installiert werden:
 
 ```
 Administration → Plugins → ExtendedTestSettings → Module → ZIP hochladen
@@ -112,12 +112,6 @@ Jedes Modul ist ein eigenständiges Paket, das folgendes liefert:
 Der Plugin-Kern lädt den Code eines Moduls **nur wenn es aktiv ist**. Deaktivierte oder nicht installierte Module sind für PHP vollständig unsichtbar.
 
 ### Built-in vs. Externe Module
-
-**Built-in Module** (`classes/ExamXxx/`) sind im Git-Repo des Plugins enthalten:
-- Standardmäßig aktiv
-- Können nicht deinstalliert werden, nur deaktiviert
-- Update über Plugin-Update (Git)
-- Aktuell: nur **ExamGuard**
 
 **Externe Module** (`modules/<id>/`) werden vom Admin hochgeladen:
 - Standardmäßig inaktiv nach Installation
@@ -287,18 +281,18 @@ ExtendedTestSettings/
 │   ├── Module/
 │   │   ├── ilModuleRegistry.php               ← Discovery + Active-State
 │   │   └── ilModuleInstaller.php              ← ZIP-Upload, DB-Setup
-│   ├── ExamGuard/                             ← Built-in Modul
-│   ├── ExamChecker/                           ← Admin-Integration (Sonderstatus)
 │   ├── class.ilExtendedTestSettingsPlugin.php
 │   ├── class.ilExtendedTestSettingsUIHookGUI.php
 │   ├── class.ilExtendedTestSettingsAdvancedGUI.php
 │   ├── class.ilExtendedTestSettingsConfigGUI.php
 │   └── class.ilExtendedTestSettingsModuleProxyGUI.php  ← Proxy-Router für externe GUIs
 ├── modules/                                   ← Externe installierte Module (nicht versioniert)
-│   ├── examcalc/                              ← Extern: Taschenrechner
-│   ├── examsymbols/                           ← Extern: Sonderzeichen-Palette
-│   ├── examalert/                             ← Extern: Zeit-Warnung
-│   └── examgrouping/                          ← Extern: Fragen-Gruppierung
+│   ├── examcalc/                              ← Taschenrechner
+│   ├── examsymbols/                           ← Sonderzeichen-Palette
+│   ├── examguard/                             ← Prüfungsschutz
+│   ├── examalert/                             ← Zeit-Warnung
+│   ├── examchecker/                           ← Einstellungs-Checker
+│   └── examgrouping/                          ← Fragen-Gruppierung
 └── sql/
     └── dbupdate.php                           ← ILIAS DB-Migrationen
 ```
@@ -349,11 +343,12 @@ Detaillierte Entwicklerdokumentation (inkl. Modul mit eigener GUI-Seite, Proxy-R
 
 ### Version 1.1.3 (2026-04-10)
 
-**Migration Built-in → Externe Module:**
-- ExamCalc, ExamSymbols und ExamAlert aus `classes/` in `modules/` ausgelagert
+**Alle Module zu externen Modulen migriert:**
+- ExamCalc, ExamSymbols, ExamAlert, ExamGuard, ExamChecker aus `classes/` in `modules/` ausgelagert
 - Asset-Pfade je Modul auf `modules/<id>/...` aktualisiert, Versionen auf 1.1.0
+- ExamChecker implementiert nun `ilExamModuleInterface` (erscheint in Test-Einstellungen)
 - ZIPs im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) verfügbar
-- Built-in verbleibend: nur ExamGuard
+- Kein built-in Modul-Code mehr im Plugin-Kern
 
 ### Version 1.1.2 (2026-03-24)
 
