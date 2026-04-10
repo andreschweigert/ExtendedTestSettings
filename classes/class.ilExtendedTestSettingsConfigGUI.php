@@ -112,6 +112,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $this->uninstallModule();
                 break;
 
+            case 'updateModule':
+                $this->updateModule();
+                break;
+
+            case 'saveModuleRepoUrl':
+                $this->saveModuleRepoUrl();
+                break;
+
             default:
                 $this->showGeneral();
                 break;
@@ -1669,8 +1677,19 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             )
         );
 
-        // ---- Modulliste ----
-        $modules = $registry->getAllModuleInfos();
+        // ---- Repo-URL-Einstellung ----
+        $html .= $this->renderRepoUrlForm();
+
+        // ---- Modulliste (ggf. mit Update-Check) ----
+        $modules    = $registry->getAllModuleInfos();
+        $repo_url   = trim((string) $this->settings->get('module_repo_url', ''));
+        $with_check = $repo_url !== '';
+
+        if ($with_check) {
+            require_once __DIR__ . '/Module/ilModuleUpdateChecker.php';
+            $checker = new ilModuleUpdateChecker($repo_url);
+            $modules = $checker->checkAll($modules);
+        }
 
         if (empty($modules)) {
             $html .= $renderer->render($factory->messageBox()->info('Keine Module gefunden.'));
@@ -1684,32 +1703,54 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $builtin = $info['builtin'] ? '<span class="badge text-bg-secondary">Built-in</span>' : '<span class="badge text-bg-primary">Installiert</span>';
                 $active  = $info['active'];
 
+                // Version-Spalte mit Update-Badge
+                $version_cell = $version;
+                if (!($info['builtin'] ?? true)) {
+                    if (!empty($info['update_available'])) {
+                        $latest = htmlspecialchars($info['latest_version'], ENT_QUOTES);
+                        $version_cell = "$version <span class='badge text-bg-warning'>Update: v$latest</span>";
+                    } elseif (isset($info['latest_version'])) {
+                        $version_cell = "$version <span class='badge text-bg-success'>Aktuell</span>";
+                    } elseif (isset($info['update_error'])) {
+                        $err = htmlspecialchars($info['update_error'], ENT_QUOTES);
+                        $version_cell = "$version <span class='badge text-bg-secondary' title='$err'>?</span>";
+                    }
+                }
+
                 $toggle_label = $active ? 'Deaktivieren' : 'Aktivieren';
                 $toggle_class = $active ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-success';
                 $toggle_url   = $this->ctrl->getLinkTarget($this, 'toggleModule') . '&module_id=' . urlencode($id) . '&active=' . ($active ? '0' : '1');
 
                 $uninstall_btn = '';
+                $update_btn    = '';
                 if (!$info['builtin']) {
-                    $uninstall_url  = $this->ctrl->getLinkTarget($this, 'uninstallModule') . '&module_id=' . urlencode($id);
-                    $uninstall_btn  = "<a href=\"$uninstall_url\" class=\"btn btn-sm btn-danger ms-1\" onclick=\"return confirm('Modul $label wirklich deinstallieren? Alle Daten werden gelöscht.')\">Deinstallieren</a>";
+                    $uninstall_url = $this->ctrl->getLinkTarget($this, 'uninstallModule') . '&module_id=' . urlencode($id);
+                    $uninstall_btn = "<a href=\"$uninstall_url\" class=\"btn btn-sm btn-danger ms-1\" onclick=\"return confirm('Modul $label wirklich deinstallieren? Alle Daten werden gelöscht.')\">Deinstallieren</a>";
+
+                    if (!empty($info['update_available']) && !empty($info['download_url'])) {
+                        $update_url = $this->ctrl->getLinkTarget($this, 'updateModule')
+                            . '&module_id=' . urlencode($id)
+                            . '&download_url=' . urlencode($info['download_url']);
+                        $update_btn = "<a href=\"$update_url\" class=\"btn btn-sm btn-primary ms-1\" onclick=\"return confirm('Modul $label auf v{$info['latest_version']} aktualisieren?')\">Update installieren</a>";
+                    }
                 }
 
                 $status_badge = $active
                     ? '<span class="badge text-bg-success">Aktiv</span>'
                     : '<span class="badge text-bg-danger">Inaktiv</span>';
 
-                $tables_info = implode(', ', $info['tables'] ?? []);
-                $desc        = htmlspecialchars($info['description'] ?? '', ENT_QUOTES);
+                $desc = htmlspecialchars($info['description'] ?? '', ENT_QUOTES);
 
                 $rows .= "
                 <tr>
                     <td><strong>$label</strong><br><small class='text-muted'>$desc</small></td>
-                    <td>$version</td>
+                    <td>$version_cell</td>
                     <td>ILIAS $compat</td>
                     <td>$builtin</td>
                     <td>$status_badge</td>
                     <td>
                         <a href=\"$toggle_url\" class=\"$toggle_class\">$toggle_label</a>
+                        $update_btn
                         $uninstall_btn
                     </td>
                 </tr>";
@@ -1881,6 +1922,100 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $this->tpl->setOnScreenMessage('success', "Modul '$module_id' wurde deinstalliert.");
         } catch (RuntimeException $e) {
             $this->tpl->setOnScreenMessage('failure', 'Deinstallation fehlgeschlagen: ' . $e->getMessage());
+        }
+
+        $this->ctrl->redirect($this, 'showModules');
+    }
+
+    /**
+     * Rendert das Formular zur Konfiguration der Modul-Repository-URL.
+     */
+    private function renderRepoUrlForm(): string
+    {
+        $repo_url   = htmlspecialchars($this->settings->get('module_repo_url', ''), ENT_QUOTES);
+        $save_url   = $this->ctrl->getLinkTarget($this, 'saveModuleRepoUrl');
+
+        return "
+        <div class='card mt-3 mb-3'>
+            <div class='card-header'><strong>Modul-Repository</strong></div>
+            <div class='card-body'>
+                <p class='text-muted mb-2'>
+                    Raw-URL des GitHub-Branches mit den Modul-ZIPs.<br>
+                    Beispiel: <code>https://raw.githubusercontent.com/andreschweigert/ExtendedTestSettings-Modules/ilias9</code>
+                </p>
+                <form method='post' action='$save_url' class='d-flex gap-2 align-items-center'>
+                    <input type='text' name='module_repo_url' value='$repo_url'
+                           class='form-control' placeholder='https://raw.githubusercontent.com/...' style='max-width:600px;'>
+                    <button type='submit' class='btn btn-secondary'>Speichern</button>
+                </form>
+            </div>
+        </div>";
+    }
+
+    /**
+     * Speichert die Modul-Repository-URL.
+     */
+    protected function saveModuleRepoUrl(): void
+    {
+        $url = trim($_POST['module_repo_url'] ?? '');
+
+        // Nur https erlauben
+        if ($url !== '' && !str_starts_with($url, 'https://')) {
+            $this->tpl->setOnScreenMessage('failure', 'Nur HTTPS-URLs sind erlaubt.');
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
+        $this->settings->set('module_repo_url', $url);
+        $this->tpl->setOnScreenMessage('success', 'Repository-URL gespeichert.');
+        $this->ctrl->redirect($this, 'showModules');
+    }
+
+    /**
+     * Lädt ein Update für ein externes Modul direkt aus dem Repository herunter und installiert es.
+     */
+    protected function updateModule(): void
+    {
+        $module_id    = preg_replace('/[^a-z0-9_]/', '', strtolower($_GET['module_id'] ?? ''));
+        $download_url = $_GET['download_url'] ?? '';
+
+        if ($module_id === '' || $download_url === '') {
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
+        // Nur URLs aus dem konfigurierten Repo erlauben
+        $repo_url = trim((string) $this->settings->get('module_repo_url', ''));
+        if ($repo_url === '' || !str_starts_with($download_url, $repo_url)) {
+            $this->tpl->setOnScreenMessage('failure', 'Ungültige Download-URL.');
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
+        try {
+            require_once __DIR__ . '/Module/ilModuleUpdateChecker.php';
+            $checker  = new ilModuleUpdateChecker($repo_url);
+            $tmp_file = $checker->downloadZip($download_url);
+
+            require_once __DIR__ . '/Module/ilModuleInstaller.php';
+            $installer   = $this->getInstaller();
+            $module_info = $installer->installFromZip($tmp_file);
+
+            @unlink($tmp_file);
+
+            // Modul nach Update automatisch aktivieren
+            $registry = $this->getRegistry();
+            $registry->setModuleActive($module_id, true);
+
+            $this->tpl->setOnScreenMessage(
+                'success',
+                "Modul '{$module_info['label']}' wurde auf v{$module_info['version']} aktualisiert."
+            );
+        } catch (RuntimeException $e) {
+            $this->tpl->setOnScreenMessage('failure', 'Update fehlgeschlagen: ' . $e->getMessage());
+        } catch (Throwable $e) {
+            error_log('[ExtendedTestSettings] updateModule Fehler: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', 'Unerwarteter Fehler: ' . $e->getMessage());
         }
 
         $this->ctrl->redirect($this, 'showModules');
