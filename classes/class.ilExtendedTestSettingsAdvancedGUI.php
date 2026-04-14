@@ -622,6 +622,14 @@ class ilExtendedTestSettingsAdvancedGUI
             return;
         }
 
+        // Objekttyp-Prüfung: nur Tests erlaubt
+        $obj_id = ilObject::_lookupObjectId($ref_id);
+        if (ilObject::_lookupType($obj_id) !== 'tst') {
+            $this->tpl->setOnScreenMessage('failure', 'Das ausgewaehlte Objekt ist kein Test.');
+            $this->ctrl->redirect($this, "show");
+            return;
+        }
+
         try {
             // Module-Handler direkt laden und speichern
             $module_handlers = $this->loadModuleHandlersDirect();
