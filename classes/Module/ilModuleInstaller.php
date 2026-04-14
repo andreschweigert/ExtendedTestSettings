@@ -164,6 +164,13 @@ class ilModuleInstaller
             throw new RuntimeException("Ungültige Modul-ID '{$info['id']}'. Erlaubt: a-z, 0-9, _ (3-40 Zeichen).");
         }
 
+        // Tabellennamen validieren (SQL-Injection-Schutz)
+        foreach ($info['tables'] ?? [] as $table) {
+            if (!preg_match('/^[a-z][a-z0-9_]{2,63}$/', $table)) {
+                throw new RuntimeException("Ungültiger Tabellenname '$table' in module.json. Erlaubt: a-z, 0-9, _ (3-64 Zeichen).");
+            }
+        }
+
         return $info;
     }
 
