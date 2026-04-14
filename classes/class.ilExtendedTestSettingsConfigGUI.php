@@ -2125,9 +2125,23 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         if (!str_starts_with($url, 'https://')) {
             return false;
         }
-        $repo_url  = trim((string) $this->settings->get('module_repo_url', ''));
-        $repo_path = trim(parse_url($repo_url, PHP_URL_PATH) ?? '', '/');
-        return $repo_path !== '' && str_contains($url, $repo_path);
+
+        $repo_url = trim((string) $this->settings->get('module_repo_url', ''));
+        if ($repo_url === '') {
+            return false;
+        }
+
+        $allowed_host = parse_url($repo_url, PHP_URL_HOST);
+        $actual_host  = parse_url($url, PHP_URL_HOST);
+
+        if ($allowed_host === null || $actual_host !== $allowed_host) {
+            return false;
+        }
+
+        $repo_path = rtrim(parse_url($repo_url, PHP_URL_PATH) ?? '', '/');
+        $url_path  = parse_url($url, PHP_URL_PATH) ?? '';
+
+        return $repo_path !== '' && str_starts_with($url_path, $repo_path . '/');
     }
 }
 
