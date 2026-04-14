@@ -161,26 +161,15 @@ class ilExtendedTestSettingsAdvancedGUI
             return;
         }
 
-        // Debug-Informationen (optional ein/ausblenden)
-        $show_debug = isset($_GET['debug']) && $_GET['debug'] === '1';
-        $debug_info = $show_debug ? $this->generateDebugInfo($ref_id, $obj_id) : '';
-
         // Navigation einrichten
         $this->setupNavigation($ref_id);
 
         // Formular generieren
         $form = $this->buildModuleForm($ref_id);
 
-        global $DIC;
-        $factory  = $DIC->ui()->factory();
-        $renderer = $DIC->ui()->renderer();
-        $debug_url = $_SERVER['REQUEST_URI'] . ($show_debug ? '&debug=0' : '&debug=1');
-        $debug_label = $show_debug ? 'Debug ausblenden' : 'Debug-Informationen anzeigen';
-        $debug_link = $renderer->render($factory->link()->standard($debug_label, $debug_url));
-
         $this->tpl->setTitle('Erweiterte Test-Einstellungen');
         $this->tpl->setDescription('Konfiguration für alle verfügbaren Prüfungs-Features');
-        $this->tpl->setContent($debug_info . $form->getHTML() . $debug_link);
+        $this->tpl->setContent($form->getHTML());
     }
 
 
@@ -259,93 +248,6 @@ class ilExtendedTestSettingsAdvancedGUI
         }
 
         return false;
-    }
-
-    /**
-     * Generiert Debug-Informationen
-     */
-    private function generateDebugInfo(int $ref_id, int $obj_id): string
-    {
-        global $DIC;
-        $db = $DIC->database();
-
-        $debug_lines = [];
-        $debug_lines[] = "🔍 <strong>Debug-Informationen:</strong>";
-        $debug_lines[] = "ref_id: $ref_id";
-        $debug_lines[] = "obj_id (test_id): $obj_id";
-        $debug_lines[] = "Aktueller User: " . ($DIC->user()->getLogin() ?? 'Unbekannt');
-
-        // Prüfe alle Module-Tabellen
-        $tables = [
-            'examcalc_settings' => ['enabled'],
-            'examguard_settings' => ['enabled'],
-            'examsymbols_settings' => ['enabled', 'template'],
-            'examalert_settings' => ['enabled', 'alert_time', 'alert_message'] // NEU
-        ];
-
-        foreach ($tables as $table => $fields) {
-            try {
-                if (count($fields) > 1) {
-                    // Mehrere Felder (z.B. ExamSymbols, ExamAlert)
-                    $field_list = implode(', ', $fields);
-                    $query = "SELECT $field_list FROM $table WHERE test_id = %s";
-                    $result = $db->queryF($query, ['integer'], [$obj_id]);
-
-                    if ($row = $db->fetchAssoc($result)) {
-                        $status_parts = [];
-                        foreach ($fields as $field) {
-                            $value = $row[$field] ?? 'NULL';
-                            if ($field === 'enabled') {
-                                $value = $value ? '✅ aktiviert' : '❌ deaktiviert';
-                            }
-                            $status_parts[] = "$field: $value";
-                        }
-                        $debug_lines[] = "$table: " . implode(', ', $status_parts);
-                    } else {
-                        $debug_lines[] = "$table: ❌ kein Eintrag";
-                    }
-                } else {
-                    // Ein Feld (z.B. ExamCalc, ExamGuard)
-                    $field = $fields[0];
-                    $query = "SELECT $field FROM $table WHERE test_id = %s";
-                    $result = $db->queryF($query, ['integer'], [$obj_id]);
-
-                    if ($row = $db->fetchAssoc($result)) {
-                        $status = $row[$field] ? '✅ aktiviert' : '❌ deaktiviert';
-                        $debug_lines[] = "$table: $status";
-                    } else {
-                        $debug_lines[] = "$table: ❌ kein Eintrag";
-                    }
-                }
-            } catch (Exception $e) {
-                $debug_lines[] = "$table: ❌ Fehler - " . $e->getMessage();
-            }
-        }
-
-        // Module-Handler-Status prüfen
-        try {
-            $module_handlers = $this->loadModuleHandlersDirect();
-            $available_modules = array_keys($module_handlers);
-            $debug_lines[] = "Verfügbare Module: " . (empty($available_modules) ? 'Keine' : implode(', ', $available_modules));
-
-            foreach ($module_handlers as $name => $handler) {
-                $class = get_class($handler);
-                $methods = method_exists($handler, 'getInfo') && method_exists($handler, 'saveSettings') ? '✅' : '❌';
-                $debug_lines[] = "- $name: $class $methods";
-            }
-        } catch (Exception $e) {
-            $debug_lines[] = "Module-Handler: ❌ Fehler - " . $e->getMessage();
-        }
-
-        $debug_text = implode("<br>", $debug_lines);
-
-        return <<<HTML
-<div class="alert alert-warning" style="margin-bottom: 2rem; font-family: monospace; font-size: 12px;">
-    $debug_text
-    <hr>
-    <a href="{$_SERVER['REQUEST_URI']}&debug=0" style="color: #856404;">Debug ausblenden</a>
-</div>
-HTML;
     }
 
     /**
