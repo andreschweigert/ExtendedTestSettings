@@ -1,10 +1,10 @@
 # ExtendedTestSettings Plugin für ILIAS
 
 ![ILIAS](https://img.shields.io/badge/ILIAS-9.x-blue)
-![Version](https://img.shields.io/badge/version-1.1.2-success)
+![Version](https://img.shields.io/badge/version-2.0.0-success)
 ![License](https://img.shields.io/badge/license-TBA-lightgrey)
 
-**Version:** 1.1.2  
+**Version:** 2.0.0  
 **Für ILIAS:** 9.0 – 9.999
 
 Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Online-Prüfungen. Es basiert auf einem **modularen System**: Funktionalität wird in eigenständigen Modulen gebündelt, die über die Plugin-Administration als ZIP hochgeladen, aktiviert und deaktiviert werden können – ohne den Plugin-Kern zu ändern.
@@ -13,16 +13,15 @@ Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Onl
 
 ## Features
 
-Das Plugin stellt eine **Infrastruktur für externe Module** bereit, die unabhängig installiert und versioniert werden können. Alle Module leben im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules):
+- **Modulare Architektur** – Module als eigenständige ZIP-Pakete installier- und aktualisierbar
+- **ExamCalc** – Taschenrechner (einfach oder wissenschaftlich) für Prüfungen
+- **ExamSymbols** – Sonderzeichen-Paletten für Fachbereiche
+- **ExamGuard** – Prüfungsschutz durch Eingabeeinschränkungen
+- **ExamAlert** – Zeitbasierte Warnungen vor Prüfungsende
+- **ExamChecker** – Prüfung der Testeinstellungen gegen konfigurierbare Standards
+- **Eigene Module** – über ZIP installierbar, beliebig erweiterbar
 
-| Modul | Beschreibung |
-|---|---|
-| **ExamCalc** | Taschenrechner für Prüfungen (einfach oder wissenschaftlich) |
-| **ExamSymbols** | Sonderzeichen-Paletten für Fachbereiche |
-| **ExamGuard** | Prüfungsschutz durch Eingabeeinschränkungen |
-| **ExamAlert** | Zeitbasierte Warnungen vor Prüfungsende |
-| **ExamChecker** | Prüfung der Testeinstellungen gegen konfigurierbare Standards |
-| *Eigene Module* | Über ZIP installierbar, beliebig erweiterbar |
+Alle Module sind im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) verfügbar.
 
 ---
 
@@ -30,11 +29,12 @@ Das Plugin stellt eine **Infrastruktur für externe Module** bereit, die unabhä
 
 ```bash
 # 1. Plugin klonen
-cd /pfad/zu/ilias/Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/
+cd <pathtoplugin>
 git clone https://github.com/andreschweigert/ExtendedTestSettings ExtendedTestSettings
 
-# 2. modules/-Verzeichnis für den Web-User beschreibbar machen
-chown www-data: ExtendedTestSettings/modules/
+# 2. ACL setzen: modules/-Verzeichnis für den Web-User beschreibbar machen
+setfacl -R -m u:www-data:rwx <pathtoplugin>/ExtendedTestSettings/modules
+setfacl -dm u:www-data:rwx <pathtoplugin>/ExtendedTestSettings/modules
 
 # 3. In ILIAS installieren und aktivieren
 #    Administration → Plugins → ExtendedTestSettings → Installieren → Aktivieren
@@ -43,6 +43,8 @@ chown www-data: ExtendedTestSettings/modules/
 cd /pfad/zu/ilias
 composer dump-autoload
 ```
+
+> `<pathtoplugin>` = `.../Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/`
 
 Nach der Aktivierung erscheint in jedem ILIAS-Test ein neuer Sub-Tab **"Erweiterte Test-Einstellungen"**, in dem die Module einzeln konfiguriert werden können.
 
@@ -53,17 +55,20 @@ Nach der Aktivierung erscheint in jedem ILIAS-Test ein neuer Sub-Tab **"Erweiter
 ### Schritt 1: Plugin-Dateien herunterladen
 
 ```bash
-cd /pfad/zu/ilias/Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/
+cd <pathtoplugin>
 git clone https://github.com/andreschweigert/ExtendedTestSettings ExtendedTestSettings
 ```
 
-### Schritt 2: Verzeichnis-Rechte setzen
+### Schritt 2: ACL-Rechte setzen
 
 Das `modules/`-Verzeichnis muss vom Web-Server beschreibbar sein, damit Admins Module über die Oberfläche hochladen können:
 
 ```bash
-chown www-data: ExtendedTestSettings/modules/
+setfacl -R -m u:www-data:rwx <pathtoplugin>/ExtendedTestSettings/modules
+setfacl -dm u:www-data:rwx <pathtoplugin>/ExtendedTestSettings/modules
 ```
+
+> Die Default-ACL (`-dm`) sorgt dafür, dass auch zukünftig angelegte Dateien und Ordner innerhalb von `modules/` automatisch die richtigen Rechte erhalten.
 
 ### Schritt 3: Plugin in ILIAS aktivieren
 
@@ -111,16 +116,15 @@ Jedes Modul ist ein eigenständiges Paket, das folgendes liefert:
 
 Der Plugin-Kern lädt den Code eines Moduls **nur wenn es aktiv ist**. Deaktivierte oder nicht installierte Module sind für PHP vollständig unsichtbar.
 
-### Built-in vs. Externe Module
+### Externe Module
 
-**Externe Module** (`modules/<id>/`) werden vom Admin hochgeladen:
+Externe Module (`modules/<id>/`) werden vom Admin hochgeladen:
 - Standardmäßig inaktiv nach Installation
 - Können installiert, deinstalliert, aktiviert und deaktiviert werden
 - Update durch erneutes Hochladen eines neuen ZIP
-- Aktuell: **ExamCalc**, **ExamSymbols**, **ExamAlert**, **ExamGrouping** (und weitere)
 - Verfügbar im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules)
 
-### Modul installieren (extern)
+### Modul installieren
 
 ```
 Administration → Plugins → ExtendedTestSettings → Module → ZIP hochladen
@@ -167,69 +171,15 @@ Das ZIP darf einen Wrapper-Ordner enthalten (wie beim GitHub-Download) – der I
 
 ---
 
-## Module im Detail
+## Module
 
-### ExamCalc — Taschenrechner
+Alle Module werden separat im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) gepflegt und versioniert. Dort finden sich jeweils die ZIP-Downloads, Dokumentation und Changelogs der einzelnen Module:
 
-Stellt einen Taschenrechner während der Prüfung bereit.
-
-**Modi:**
-- **Einfach:** Grundrechenarten (+ − × ÷), ideal für alle Prüfungen
-- **Wissenschaftlich:** Vollständiger wissenschaftlicher Rechner auf Basis von math.js
-
-**Wissenschaftlicher Modus:**
-- Trigonometrie: `sin`, `cos`, `tan` + Umkehrfunktionen, DEG/RAD-umschaltbar
-- Logarithmen: `ln`, `log` (Basis 10)
-- Exponentialfunktionen: `exp(x)`, `10^x`, `√`, `x²`, `x^y`
-- Konstanten: `π`, `e` (Eulersche Zahl)
-- Speicher: `M+`, `M−`, `MR`, `MC`
-- Verlauf: Letzte 10 Rechnungen, Σ-Summe, Klick zum Übernehmen
-- `2nd`-Ebene: `sin/cos/tan` → `asin/acos/atan`, `10^x` → `EE` (wissenschaftliche Notation)
-
-**Bedienung:** Tastenkombination `Alt + R`, verschiebbar per Drag & Drop
-
----
-
-### ExamSymbols — Sonderzeichen
-
-Bietet fachspezifische Sonderzeichen-Paletten für Prüfungen.
-
-**Verfügbare Vorlagen:**
-- Mathematik/Wissenschaft: π, √, ∑, ∞, ≈, ≠, ≤, ≥, ±, griechische Buchstaben
-- Sprachen: Spanisch, Italienisch, Deutsch, Französisch, Griechisch
-- Naturwissenschaften: Chemie (Reaktionspfeile), Physik (Vektoren, Differentiale)
-
-**Bedienung:** Tastenkombination `Alt + S`, kompatibel mit TinyMCE und CKEditor
-
----
-
-### ExamGuard — Prüfungsschutz
-
-Blockiert kritische Eingaben zum Schutz der Prüfungsintegrität (client-seitig).
-
-**Blockiert:** Rechtsklick, Copy/Paste/Cut, Alles-markieren, Entwickler-Tools (F12)
-
-> Hinweis: ExamGuard ist eine zusätzliche Barriere, kein Ersatz für serverseitige Sicherheitsmaßnahmen.
-
----
-
-### ExamAlert — Zeitwarnung
-
-Warnt Teilnehmer rechtzeitig vor Prüfungsende.
-
-**Funktionen:**
-- Konfigurierbare Warnzeit (5 Sekunden bis 1 Stunde vor Ende)
-- Anpassbare Warnnachricht (HTML-Formatierung möglich)
-- Live-Countdown der verbleibenden Zeit
-- Auto-Aktivierung für neue Tests (konfigurierbar)
-
----
-
-### ExamChecker — Einstellungsprüfung
-
-Überprüft Testeinstellungen gegen definierte Vorgaben (Präsenz- oder Fernprüfung).
-
-**Konfiguration:** Administration → Plugins → ExtendedTestSettings → Konfigurieren
+- **ExamCalc** – Taschenrechner (einfach + wissenschaftlich mit 2nd-Ebene, Verlauf, Speicher)
+- **ExamSymbols** – Sonderzeichen-Paletten (Mathematik, Sprachen, Naturwissenschaften)
+- **ExamGuard** – Prüfungsschutz (Blockiert Rechtsklick, Copy/Paste, DevTools)
+- **ExamAlert** – Zeitwarnung vor Prüfungsende (konfigurierbare Warnzeit + Nachricht)
+- **ExamChecker** – Einstellungsprüfung gegen Vorgaben (Präsenz-/Fernprüfung)
 
 ---
 
@@ -253,24 +203,6 @@ Jedes aktive Modul zeigt hier seine eigenen Einstellungsfelder. Änderungen gelt
 
 ---
 
-## Datenbank
-
-Das Plugin erstellt folgende Tabellen bei der Installation:
-
-| Tabelle | Modul | Inhalt |
-|---|---|---|
-| `examcalc_settings` | ExamCalc | Taschenrechner-Konfiguration je Test |
-| `examsymbols_settings` | ExamSymbols | Symbol-Vorlage je Test |
-| `examguard_settings` | ExamGuard | Aktivierungsstatus je Test |
-| `examalert_settings` | ExamAlert | Warnzeit + Nachricht je Test |
-| `extendedtest_users` | Kern | Benutzer-Whitelist für Tab-Sichtbarkeit |
-
-Externe Module legen eigene Tabellen über ihre `sql/install.php` an und entfernen sie über `sql/uninstall.php`.
-
-Bei Deinstallation des Plugins werden alle Plugin-Tabellen automatisch entfernt.
-
----
-
 ## Projektstruktur
 
 ```
@@ -283,18 +215,13 @@ ExtendedTestSettings/
 │   │   └── ilModuleInstaller.php              ← ZIP-Upload, DB-Setup
 │   ├── class.ilExtendedTestSettingsPlugin.php
 │   ├── class.ilExtendedTestSettingsUIHookGUI.php
-│   ├── class.ilExtendedTestSettingsAdvancedGUI.php
-│   ├── class.ilExtendedTestSettingsConfigGUI.php
+│   ├── class.ilExtendedTestSettingsAdvancedGUI.php  ← Test-Settings GUI
+│   ├── class.ilExtendedTestSettingsConfigGUI.php    ← Admin-Konfiguration
 │   └── class.ilExtendedTestSettingsModuleProxyGUI.php  ← Proxy-Router für externe GUIs
 ├── modules/                                   ← Externe installierte Module (nicht versioniert)
-│   ├── examcalc/                              ← Taschenrechner
-│   ├── examsymbols/                           ← Sonderzeichen-Palette
-│   ├── examguard/                             ← Prüfungsschutz
-│   ├── examalert/                             ← Zeit-Warnung
-│   ├── examchecker/                           ← Einstellungs-Checker
-│   └── examgrouping/                          ← Fragen-Gruppierung
-└── sql/
-    └── dbupdate.php                           ← ILIAS DB-Migrationen
+├── sql/
+│   └── dbupdate.php                           ← ILIAS DB-Migrationen
+└── plugin.php                                 ← Plugin-Metadaten
 ```
 
 ---
@@ -341,14 +268,23 @@ Detaillierte Entwicklerdokumentation (inkl. Modul mit eigener GUI-Seite, Proxy-R
 
 ## Changelog
 
-### Version 1.1.3 (2026-04-10)
+### Version 2.0.0 (2026-04-14)
 
-**Alle Module zu externen Modulen migriert:**
-- ExamCalc, ExamSymbols, ExamAlert, ExamGuard, ExamChecker aus `classes/` in `modules/` ausgelagert
-- Asset-Pfade je Modul auf `modules/<id>/...` aktualisiert, Versionen auf 1.1.0
-- ExamChecker implementiert nun `ilExamModuleInterface` (erscheint in Test-Einstellungen)
-- ZIPs im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) verfügbar
-- Kein built-in Modul-Code mehr im Plugin-Kern
+**Security Audit & Hardening:**
+- Auth + RBAC-Check im ModuleProxyGUI (F-002)
+- SQL-Injection-Schutz durch Tabellennamen-Validierung in Installer + Registry (F-003)
+- Scope-Isolation für install.php/uninstall.php + Audit-Logging (F-004)
+- SSRF-Fix: Download-URL-Validierung prüft Host + Path-Prefix (F-005)
+- Objekttyp-Prüfung in saveSettings() (F-008)
+- Auto-Insert in getFallbackExamAlertStatus() entfernt (F-009)
+- Allowlist-Validierung für ExamChecker POST-Daten (F-010)
+- toggleModule/uninstallModule von GET auf POST umgestellt (F-011)
+- Dead Code entfernt: searchUsersAjax(), addUser() (F-012)
+- Path-Traversal-Schutz für require_files (F-013)
+
+**Breaking Changes:**
+- Module werden nicht mehr als Built-in mitgeliefert, sondern ausschließlich über das [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) installiert
+- `modules/`-Verzeichnis benötigt ACL-Rechte (siehe Installation)
 
 ### Version 1.1.2 (2026-03-24)
 
