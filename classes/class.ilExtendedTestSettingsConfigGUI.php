@@ -1718,13 +1718,15 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
                 $toggle_label = $active ? 'Deaktivieren' : 'Aktivieren';
                 $toggle_class = $active ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-success';
-                $toggle_url   = $this->ctrl->getLinkTarget($this, 'toggleModule') . '&module_id=' . urlencode($id) . '&active=' . ($active ? '0' : '1');
+                $toggle_url   = $this->ctrl->getFormAction($this, 'toggleModule');
+                $toggle_active_val = $active ? '0' : '1';
+                $id_escaped = htmlspecialchars($id, ENT_QUOTES);
 
                 $uninstall_btn = '';
                 $update_btn    = '';
                 if (!$info['builtin']) {
-                    $uninstall_url = $this->ctrl->getLinkTarget($this, 'uninstallModule') . '&module_id=' . urlencode($id);
-                    $uninstall_btn = "<a href=\"$uninstall_url\" class=\"btn btn-sm btn-danger ms-1\" onclick=\"return confirm('Modul $label wirklich deinstallieren? Alle Daten werden gelöscht.')\">Deinstallieren</a>";
+                    $uninstall_url = $this->ctrl->getFormAction($this, 'uninstallModule');
+                    $uninstall_btn = "<form method=\"post\" action=\"$uninstall_url\" class=\"d-inline ms-1\" onsubmit=\"return confirm('Modul $label wirklich deinstallieren? Alle Daten werden gelöscht.')\"><input type=\"hidden\" name=\"module_id\" value=\"$id_escaped\"><button type=\"submit\" class=\"btn btn-sm btn-danger\">Deinstallieren</button></form>";
 
                     if (!empty($info['update_available']) && !empty($info['download_url'])) {
                         $update_url = $this->ctrl->getLinkTarget($this, 'updateModule')
@@ -1749,7 +1751,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                     <td>$builtin</td>
                     <td>$status_badge</td>
                     <td>
-                        <a href=\"$toggle_url\" class=\"$toggle_class\">$toggle_label</a>
+                        <form method=\"post\" action=\"$toggle_url\" class=\"d-inline\"><input type=\"hidden\" name=\"module_id\" value=\"$id_escaped\"><input type=\"hidden\" name=\"active\" value=\"$toggle_active_val\"><button type=\"submit\" class=\"$toggle_class\">$toggle_label</button></form>
                         $update_btn
                         $uninstall_btn
                     </td>
@@ -1810,8 +1812,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function toggleModule(): void
     {
-        $module_id = (string) ($_GET['module_id'] ?? '');
-        $active    = (bool) (int) ($_GET['active'] ?? 0);
+        $module_id = (string) ($_POST['module_id'] ?? '');
+        $active    = (bool) (int) ($_POST['active'] ?? 0);
 
         if ($module_id === '') {
             $this->ctrl->redirect($this, 'showModules');
@@ -1885,7 +1887,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function uninstallModule(): void
     {
-        $module_id = (string) ($_GET['module_id'] ?? '');
+        $module_id = (string) ($_POST['module_id'] ?? '');
 
         if ($module_id === '') {
             $this->ctrl->redirect($this, 'showModules');
