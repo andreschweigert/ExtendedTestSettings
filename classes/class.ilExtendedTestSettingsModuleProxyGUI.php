@@ -25,7 +25,21 @@ class ilExtendedTestSettingsModuleProxyGUI
 
     public function executeCommand(): void
     {
-        global $DIC;
+        global $DIC, $rbacsystem;
+
+        // 1. Authentifizierung prüfen
+        if (!$DIC->user()->getId() || $DIC->user()->isAnonymous()) {
+            $DIC->ctrl()->redirectToURL('./login.php');
+            return;
+        }
+
+        // 2. ref_id validieren und Schreibberechtigung prüfen
+        $ref_id = (int) ($_GET['ref_id'] ?? 0);
+        if ($ref_id <= 0 || !$rbacsystem->checkAccess('write', $ref_id)) {
+            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', 'Zugriff verweigert.');
+            $DIC->ui()->mainTemplate()->printToStdout();
+            return;
+        }
 
         $module_id = preg_replace('/[^a-z0-9_]/', '', strtolower($_GET['module_id'] ?? ''));
 
