@@ -164,6 +164,14 @@ class ilModuleRegistry
 
         $id = $info['id'];
 
+        // Tabellennamen validieren (SQL-Injection-Schutz)
+        foreach ($info['tables'] ?? [] as $table) {
+            if (!preg_match('/^[a-z][a-z0-9_]{2,63}$/', $table)) {
+                error_log("[ModuleRegistry] Ungültiger Tabellenname '$table' in $json_file -- Modul wird übersprungen");
+                return;
+            }
+        }
+
         // Standard-Aktivierung: built-in = an, uploaded = aus (bis Admin aktiviert)
         $default_active = $builtin ? '1' : '0';
         $active         = (bool) $this->settings->get('module_active_' . $id, $default_active);
