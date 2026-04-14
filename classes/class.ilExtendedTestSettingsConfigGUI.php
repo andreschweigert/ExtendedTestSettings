@@ -1415,13 +1415,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         try {
             $post = $_POST;
+            $valid_keys = array_keys($this->getCheckDefinitions());
 
-            // Präsenz-Einstellungen
-            $praesenz_checks = $post['checks_praesenz'] ?? [];
+            // Präsenz-Einstellungen (nur bekannte Check-Keys erlauben)
+            $praesenz_checks = array_intersect($post['checks_praesenz'] ?? [], $valid_keys);
             $this->settings->set('examchecker_standards_praesenz', implode(',', $praesenz_checks));
 
-            // Fernprüfungs-Einstellungen  
-            $fern_checks = $post['checks_fern'] ?? [];
+            // Fernprüfungs-Einstellungen (nur bekannte Check-Keys erlauben)
+            $fern_checks = array_intersect($post['checks_fern'] ?? [], $valid_keys);
             $this->settings->set('examchecker_standards_fern', implode(',', $fern_checks));
 
             $this->tpl->setOnScreenMessage('success', '✅ ExamChecker-Vorgaben erfolgreich gespeichert.');
