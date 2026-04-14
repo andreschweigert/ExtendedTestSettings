@@ -74,11 +74,17 @@ class ilExtendedTestSettingsModuleProxyGUI
             return;
         }
 
-        // Abhängigkeiten laden
+        // Abhängigkeiten laden (mit Path-Traversal-Schutz)
+        $base_real = realpath($module_dir);
         foreach ($module_info['require_files'] ?? [] as $rel_file) {
+            if (str_contains($rel_file, '..')) {
+                error_log("[ModuleProxyGUI] Blocked path traversal in require_files: $rel_file");
+                continue;
+            }
             $path = $module_dir . '/' . $rel_file;
-            if (file_exists($path)) {
-                require_once $path;
+            $real = realpath($path);
+            if ($real && $base_real && str_starts_with($real, $base_real . '/')) {
+                require_once $real;
             }
         }
 

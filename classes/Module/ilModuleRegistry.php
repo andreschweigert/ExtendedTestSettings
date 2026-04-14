@@ -200,10 +200,16 @@ class ilModuleRegistry
         }
 
         // Abhängigkeiten laden (Config-Klassen etc.), falls angegeben
+        $base_real = realpath($info['path']);
         foreach ($info['require_files'] ?? [] as $rel_path) {
+            if (str_contains($rel_path, '..')) {
+                error_log("[ModuleRegistry] Blocked path traversal in require_files: $rel_path");
+                continue;
+            }
             $dep_file = $info['path'] . '/' . $rel_path;
-            if (file_exists($dep_file)) {
-                require_once $dep_file;
+            $real = realpath($dep_file);
+            if ($real && $base_real && str_starts_with($real, $base_real . '/')) {
+                require_once $real;
             }
         }
 
