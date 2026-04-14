@@ -69,7 +69,10 @@ class ilModuleInstaller
             // DB-Tabellen anlegen
             $this->runInstallSql($target_dir);
 
-            error_log("[ModuleInstaller] Modul '{$module_id}' erfolgreich installiert in $target_dir");
+            // Audit-Log mit User-Details
+            global $DIC;
+            $user_info = $DIC->user()->getId() . '/' . $DIC->user()->getLogin();
+            error_log("[ModuleInstaller] Modul '{$module_id}' installiert von User $user_info in $target_dir");
 
             return $module_info;
 
@@ -104,7 +107,10 @@ class ilModuleInstaller
             $this->removeDirectory($module_dir);
         }
 
-        error_log("[ModuleInstaller] Modul '$module_id' deinstalliert.");
+        // Audit-Log mit User-Details
+        global $DIC;
+        $user_info = $DIC->user()->getId() . '/' . $DIC->user()->getLogin();
+        error_log("[ModuleInstaller] Modul '$module_id' deinstalliert von User $user_info");
     }
 
     // -------------------------------------------------------------------------
@@ -260,7 +266,12 @@ class ilModuleInstaller
         $install_file = $module_dir . '/sql/install.php';
         if (file_exists($install_file)) {
             try {
-                require $install_file;
+                global $DIC;
+                $db = $DIC->database();
+                // Scope-Isolation: install.php hat nur Zugriff auf $db
+                (function () use ($install_file, $db): void {
+                    require $install_file;
+                })();
             } catch (Throwable $e) {
                 error_log("[ModuleInstaller] Fehler in install.php: " . $e->getMessage());
                 throw new RuntimeException("DB-Installation fehlgeschlagen: " . $e->getMessage());
@@ -273,7 +284,12 @@ class ilModuleInstaller
         $uninstall_file = $module_dir . '/sql/uninstall.php';
         if (file_exists($uninstall_file)) {
             try {
-                require $uninstall_file;
+                global $DIC;
+                $db = $DIC->database();
+                // Scope-Isolation: uninstall.php hat nur Zugriff auf $db
+                (function () use ($uninstall_file, $db): void {
+                    require $uninstall_file;
+                })();
             } catch (Throwable $e) {
                 error_log("[ModuleInstaller] Fehler in uninstall.php: " . $e->getMessage());
             }
