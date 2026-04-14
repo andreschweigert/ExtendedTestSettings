@@ -545,19 +545,11 @@ class ilExtendedTestSettingsAdvancedGUI
                 ];
             }
 
-            // Kein Eintrag: Default anlegen — enabled=1 als fester Default
-            $db->insert('examalert_settings', [
-                'test_id'       => ['integer',   $test_id],
-                'enabled'       => ['integer',   1],
-                'alert_time'    => ['integer',   30],
-                'alert_message' => ['text',      'Achtung: Der Test endet bald!'],
-                'updated_at'    => ['timestamp', date('Y-m-d H:i:s')]
-            ]);
-
-            error_log("[ExamAlert] Fallback: Default-Einstellungen erstellt für Test-ID: $test_id (enabled=1)");
-
+            // Kein Eintrag: konfigurierbaren Default zurückgeben ohne DB-Schreibzugriff
+            $plugin_settings = new ilSetting('extendedtestsettings');
+            $default_enabled = (bool) $plugin_settings->get('examalert_auto_activate', '1');
             return [
-                'enabled'       => true,
+                'enabled'       => $default_enabled,
                 'alert_time'    => 30,
                 'alert_message' => 'Achtung: Der Test endet bald!'
             ];
