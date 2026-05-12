@@ -19,6 +19,7 @@ Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Onl
 - **ExamGuard** – Prüfungsschutz durch Eingabeeinschränkungen
 - **ExamAlert** – Zeitbasierte Warnungen vor Prüfungsende
 - **ExamChecker** – Prüfung der Testeinstellungen gegen konfigurierbare Standards
+- **ExamConnGuard** – Verbindungs-Schutz bei WLAN-Aussetzern im Test-Player
 - **Eigene Module** – über ZIP installierbar, beliebig erweiterbar
 
 Alle Module sind im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) verfügbar.
@@ -94,7 +95,7 @@ composer dump-autoload
 
 ### Schritt 6: Module installieren
 
-Alle Module (ExamCalc, ExamSymbols, ExamGuard, ExamAlert, ExamChecker) sind extern und müssen separat installiert werden:
+Alle Module (ExamCalc, ExamSymbols, ExamGuard, ExamAlert, ExamChecker, ExamConnGuard) sind extern und müssen separat installiert werden:
 
 ```
 Administration → Plugins → ExtendedTestSettings → Module → ZIP hochladen
@@ -180,6 +181,7 @@ Alle Module werden separat im [Module-Repository](https://github.com/andreschwei
 - **ExamGuard** – Prüfungsschutz (Blockiert Rechtsklick, Copy/Paste, DevTools)
 - **ExamAlert** – Zeitwarnung vor Prüfungsende (konfigurierbare Warnzeit + Nachricht)
 - **ExamChecker** – Einstellungsprüfung gegen Vorgaben (Präsenz-/Fernprüfung)
+- **ExamConnGuard** – Verbindungs-Schutz bei WLAN-Ausfällen (On-Demand-Probe, Overlay, Auto-Replay)
 
 ---
 
