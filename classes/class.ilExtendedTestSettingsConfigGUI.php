@@ -128,6 +128,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $this->checkModuleUpdates();
                 break;
 
+            case 'debugNetworkCheck':
+                $this->debugNetworkCheck();
+                break;
+
             default:
                 $this->showGeneral();
                 break;
@@ -1595,7 +1599,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         // ---- Update-Check-Button ----
         if ($with_check) {
             $check_url = $this->ctrl->getLinkTarget($this, 'checkModuleUpdates');
-            $html .= "<div class='mb-3'><a href='$check_url' class='btn btn-outline-secondary btn-sm'>🔄 Nach Updates suchen</a></div>";
+            $debug_url = $this->ctrl->getLinkTarget($this, 'debugNetworkCheck');
+            $html .= "<div class='mb-3 d-flex gap-2'>
+                <a href='$check_url' class='btn btn-outline-secondary btn-sm'>🔄 Nach Updates suchen</a>
+                <a href='$debug_url' class='btn btn-outline-warning btn-sm'>🐛 Netzwerk-Diagnose</a>
+            </div>";
         }
 
         if (empty($modules)) {
@@ -2105,6 +2113,101 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         }
 
         $this->ctrl->redirect($this, 'showModules');
+    }
+
+    /**
+     * Netzwerk-Diagnose: testet GitHub-API-Erreichbarkeit mit kurzem Timeout,
+     * zeigt PHP-Konfiguration und pro-Modul-Ergebnis — ohne zu hängen.
+     */
+    protected function debugNetworkCheck(): void
+    {
+        $this->tabs->activateTab('modules');
+
+        $repo_url    = trim((string) $this->settings->get('module_repo_url', ''));
+        $repo_branch = trim((string) $this->settings->get('module_repo_branch', 'ilias9'));
+        $back_url    = $this->ctrl->getLinkTarget($this, 'showModules');
+
+        $rows = '';
+
+        // 1. PHP-Konfiguration
+        $allow_fopen    = ini_get('allow_url_fopen') ? '✅ an' : '❌ aus';
+        $sock_timeout   = ini_get('default_socket_timeout');
+        $max_exec       = ini_get('max_execution_time');
+        $php_version    = PHP_VERSION;
+        $ini_set_works  = '?';
+        $prev = ini_set('default_socket_timeout', '3');
+        $after = ini_get('default_socket_timeout');
+        ini_set('default_socket_timeout', $prev !== false ? $prev : $sock_timeout);
+        $ini_set_works  = ($after === '3') ? '✅ ja' : '❌ nein (gesperrt)';
+
+        $rows .= "<tr class='table-secondary'><th colspan='2'>PHP-Konfiguration</th></tr>";
+        $rows .= "<tr><td>PHP-Version</td><td>$php_version</td></tr>";
+        $rows .= "<tr><td>allow_url_fopen</td><td>$allow_fopen</td></tr>";
+        $rows .= "<tr><td>default_socket_timeout</td><td>{$sock_timeout}s</td></tr>";
+        $rows .= "<tr><td>ini_set() überschreibbar?</td><td>$ini_set_works</td></tr>";
+        $rows .= "<tr><td>max_execution_time</td><td>{$max_exec}s</td></tr>";
+        $rows .= "<tr><td>Repo-URL</td><td>" . htmlspecialchars($repo_url) . "</td></tr>";
+        $rows .= "<tr><td>Branch</td><td>" . htmlspecialchars($repo_branch) . "</td></tr>";
+
+        // 2. fsockopen-Test zu api.github.com (3s Timeout, nicht file_get_contents)
+        $rows .= "<tr class='table-secondary'><th colspan='2'>TCP-Verbindungstest (3s Timeout)</th></tr>";
+        $hosts = ['api.github.com' => 443, 'raw.githubusercontent.com' => 443];
+        foreach ($hosts as $host => $port) {
+            $t0  = microtime(true);
+            $fp  = @fsockopen('ssl://' . $host, $port, $errno, $errstr, 3);
+            $dur = round((microtime(true) - $t0) * 1000) . ' ms';
+            if ($fp) {
+                fclose($fp);
+                $rows .= "<tr><td>$host:$port</td><td>✅ erreichbar ($dur)</td></tr>";
+            } else {
+                $rows .= "<tr><td>$host:$port</td><td>❌ nicht erreichbar ($dur) — $errno: " . htmlspecialchars($errstr) . "</td></tr>";
+            }
+        }
+
+        // 3. Pro-Modul API-Test (nur wenn TCP ok)
+        if ($repo_url !== '') {
+            require_once __DIR__ . '/Module/ilModuleUpdateChecker.php';
+            $registry = $this->getRegistry();
+            $modules  = $registry->getAllModuleInfos();
+            $external = array_filter($modules, fn($m) => !($m['builtin'] ?? true));
+
+            $rows .= "<tr class='table-secondary'><th colspan='2'>API-Test pro Modul (Timeout: 5s)</th></tr>";
+
+            foreach ($external as $info) {
+                $checker = new ilModuleUpdateChecker($repo_url, $repo_branch, 5);
+                $t0      = microtime(true);
+                $checked = $checker->checkOne($info);
+                $dur     = round((microtime(true) - $t0) * 1000) . ' ms';
+                $id      = htmlspecialchars($info['id']);
+
+                if (isset($checked['update_error'])) {
+                    $rows .= "<tr><td>$id</td><td>❌ " . htmlspecialchars($checked['update_error']) . " ($dur)</td></tr>";
+                } elseif (!empty($checked['update_available'])) {
+                    $v = htmlspecialchars($checked['latest_version']);
+                    $rows .= "<tr><td>$id</td><td>⬆️ Update auf v$v verfügbar ($dur)</td></tr>";
+                } else {
+                    $v = htmlspecialchars($checked['latest_version'] ?? '?');
+                    $rows .= "<tr><td>$id</td><td>✅ Aktuell (latest: v$v) ($dur)</td></tr>";
+                }
+            }
+
+            if (empty($external)) {
+                $rows .= "<tr><td colspan='2'>Keine externen Module installiert.</td></tr>";
+            }
+        }
+
+        $html = "
+        <div class='card mt-3 border-warning' style='max-width:700px;'>
+            <div class='card-header bg-warning text-dark'><strong>🐛 Netzwerk-Diagnose</strong></div>
+            <div class='card-body p-0'>
+                <table class='table table-sm table-bordered mb-0' style='font-family:monospace;font-size:0.85em;'>
+                    $rows
+                </table>
+            </div>
+        </div>
+        <div class='mt-3'><a href='$back_url' class='btn btn-secondary'>Zurück</a></div>";
+
+        $this->tpl->setContent($html);
     }
 
     /**
