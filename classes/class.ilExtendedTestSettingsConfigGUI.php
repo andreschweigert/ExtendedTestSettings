@@ -1615,7 +1615,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $label   = htmlspecialchars($info['label'] ?? $info['id'], ENT_QUOTES);
                 $version = htmlspecialchars($info['version'] ?? '–', ENT_QUOTES);
                 $compat  = htmlspecialchars(($info['ilias_min'] ?? '?') . '–' . ($info['ilias_max'] ?? '?'), ENT_QUOTES);
-                $builtin = $info['builtin'] ? '<span class="badge bg-secondary text-white">Built-in</span>' : '<span class="badge bg-primary text-white">Installiert</span>';
+                $s_badge = 'display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.8em;font-weight:600;color:#fff;';
+                $builtin = $info['builtin']
+                    ? "<span style='{$s_badge}background:#6c757d;'>Built-in</span>"
+                    : "<span style='{$s_badge}background:#0d6efd;'>Installiert</span>";
                 $active  = $info['active'];
 
                 // Version-Spalte mit Update-Badge
@@ -1623,12 +1626,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 if (!($info['builtin'] ?? true)) {
                     if (!empty($info['update_available'])) {
                         $latest = htmlspecialchars($info['latest_version'], ENT_QUOTES);
-                        $version_cell = "$version <span class='badge bg-warning text-dark'>Update: v$latest</span>";
+                        $version_cell = "$version <span style='{$s_badge}background:#ffc107;color:#000;'>Update: v$latest</span>";
                     } elseif (isset($info['latest_version'])) {
-                        $version_cell = "$version <span class='badge bg-success text-white'>Aktuell</span>";
+                        $version_cell = "$version <span style='{$s_badge}background:#198754;'>Aktuell</span>";
                     } elseif (isset($info['update_error'])) {
                         $err = htmlspecialchars($info['update_error'], ENT_QUOTES);
-                        $version_cell = "$version <span class='badge bg-secondary text-white' title='$err'>?</span>";
+                        $version_cell = "$version <span style='{$s_badge}background:#6c757d;' title='$err'>?</span>";
                     }
                 }
 
@@ -1654,8 +1657,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 }
 
                 $status_badge = $active
-                    ? '<span class="badge bg-success text-white">Aktiv</span>'
-                    : '<span class="badge bg-danger text-white">Inaktiv</span>';
+                    ? "<span style='{$s_badge}background:#198754;'>Aktiv</span>"
+                    : "<span style='{$s_badge}background:#dc3545;'>Inaktiv</span>";
 
                 $desc = htmlspecialchars($info['description'] ?? '', ENT_QUOTES);
 
