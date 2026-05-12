@@ -1852,6 +1852,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         $repo_url    = htmlspecialchars($this->settings->get('module_repo_url', ''), ENT_QUOTES);
         $repo_branch = htmlspecialchars($this->settings->get('module_repo_branch', 'ilias9'), ENT_QUOTES);
+        $repo_proxy  = htmlspecialchars($this->settings->get('module_repo_proxy', ''), ENT_QUOTES);
         $save_url    = $this->ctrl->getLinkTarget($this, 'saveModuleRepoUrl');
 
         return "
@@ -1874,6 +1875,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                         <input type='text' name='module_repo_branch' value='$repo_branch'
                                class='form-control' placeholder='ilias9' style='max-width:200px;'>
                     </div>
+                    <div class='d-flex gap-2 align-items-center mb-2'>
+                        <label style='min-width:80px;'>HTTP-Proxy</label>
+                        <input type='text' name='module_repo_proxy' value='$repo_proxy'
+                               class='form-control' placeholder='http://proxy.example.com:3128' style='max-width:400px;'>
+                        <small class='text-muted'>Nur nötig wenn GitHub nicht direkt erreichbar ist</small>
+                    </div>
                     <button type='submit' class='btn btn-secondary'>Speichern</button>
                 </form>
             </div>
@@ -1887,6 +1894,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         $url    = trim($_POST['module_repo_url'] ?? '');
         $branch = trim($_POST['module_repo_branch'] ?? 'ilias9');
+        $proxy  = trim($_POST['module_repo_proxy'] ?? '');
 
         if ($url !== '' && !str_starts_with($url, 'https://github.com/')) {
             $this->tpl->setOnScreenMessage('failure', 'Bitte eine gültige GitHub-URL eingeben (https://github.com/...).');
@@ -1894,8 +1902,15 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             return;
         }
 
+        if ($proxy !== '' && !preg_match('#^https?://.+:\d+$#', $proxy)) {
+            $this->tpl->setOnScreenMessage('failure', 'Proxy-URL muss das Format http://host:port haben.');
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
         $this->settings->set('module_repo_url', $url);
         $this->settings->set('module_repo_branch', $branch ?: 'ilias9');
+        $this->settings->set('module_repo_proxy', $proxy);
         $this->tpl->setOnScreenMessage('success', 'Repository-Einstellungen gespeichert.');
         $this->ctrl->redirect($this, 'showModules');
     }
@@ -2017,7 +2032,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             require_once __DIR__ . '/Module/ilModuleUpdateChecker.php';
             $repo_url = trim((string) $this->settings->get('module_repo_url', ''));
             $branch   = trim((string) $this->settings->get('module_repo_branch', 'ilias9'));
-            $checker  = new ilModuleUpdateChecker($repo_url, $branch);
+            $proxy    = trim((string) $this->settings->get('module_repo_proxy', ''));
+            $checker  = new ilModuleUpdateChecker($repo_url, $branch, 60, $proxy);
             $tmp_file = $checker->downloadZip($download_url);
             $log[]    = '✅ ZIP heruntergeladen (' . round(filesize($tmp_file) / 1024) . ' KB)';
 
@@ -2081,10 +2097,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         }
 
         require_once __DIR__ . '/Module/ilModuleUpdateChecker.php';
-        $registry = $this->getRegistry();
-        $modules  = $registry->getAllModuleInfos();
-        $checker  = new ilModuleUpdateChecker($repo_url, $repo_branch);
-        $checked  = $checker->checkAll($modules);
+        $registry    = $this->getRegistry();
+        $modules     = $registry->getAllModuleInfos();
+        $repo_proxy  = trim((string) $this->settings->get('module_repo_proxy', ''));
+        $checker     = new ilModuleUpdateChecker($repo_url, $repo_branch, 8, $repo_proxy);
+        $checked     = $checker->checkAll($modules);
 
         $cache = [];
         $updates = 0;
@@ -2125,6 +2142,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         $repo_url    = trim((string) $this->settings->get('module_repo_url', ''));
         $repo_branch = trim((string) $this->settings->get('module_repo_branch', 'ilias9'));
+        $repo_proxy  = trim((string) $this->settings->get('module_repo_proxy', ''));
         $back_url    = $this->ctrl->getLinkTarget($this, 'showModules');
 
         $rows = '';
@@ -2148,6 +2166,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $rows .= "<tr><td>max_execution_time</td><td>{$max_exec}s</td></tr>";
         $rows .= "<tr><td>Repo-URL</td><td>" . htmlspecialchars($repo_url) . "</td></tr>";
         $rows .= "<tr><td>Branch</td><td>" . htmlspecialchars($repo_branch) . "</td></tr>";
+        $rows .= "<tr><td>HTTP-Proxy</td><td>" . ($repo_proxy !== '' ? htmlspecialchars($repo_proxy) : '<em>nicht konfiguriert</em>') . "</td></tr>";
 
         // 2. fsockopen-Test zu api.github.com (3s Timeout, nicht file_get_contents)
         $rows .= "<tr class='table-secondary'><th colspan='2'>TCP-Verbindungstest (3s Timeout)</th></tr>";
@@ -2173,8 +2192,9 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
             $rows .= "<tr class='table-secondary'><th colspan='2'>API-Test pro Modul (Timeout: 5s)</th></tr>";
 
+            $repo_proxy = trim((string) $this->settings->get('module_repo_proxy', ''));
             foreach ($external as $info) {
-                $checker = new ilModuleUpdateChecker($repo_url, $repo_branch, 5);
+                $checker = new ilModuleUpdateChecker($repo_url, $repo_branch, 5, $repo_proxy);
                 $t0      = microtime(true);
                 $checked = $checker->checkOne($info);
                 $dur     = round((microtime(true) - $t0) * 1000) . ' ms';

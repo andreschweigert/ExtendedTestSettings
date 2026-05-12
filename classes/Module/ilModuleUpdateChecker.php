@@ -15,15 +15,17 @@ class ilModuleUpdateChecker
     private string $repo_url;
     private string $branch;
     private int    $timeout;
+    private string $proxy;
 
     /** Regex um Version aus ZIP-Dateinamen zu extrahieren: Foo_v1.2.3.zip */
     private const VERSION_REGEX = '/_v(\d+\.\d+(?:\.\d+)?)\.zip$/i';
 
-    public function __construct(string $github_repo_url, string $branch, int $timeout_seconds = 8)
+    public function __construct(string $github_repo_url, string $branch, int $timeout_seconds = 8, string $proxy = '')
     {
         $this->repo_url = rtrim($github_repo_url, '/');
         $this->branch   = $branch;
         $this->timeout  = $timeout_seconds;
+        $this->proxy    = $proxy;
     }
 
     /**
@@ -127,7 +129,7 @@ class ilModuleUpdateChecker
      */
     private function fetchUrl(string $url): ?string
     {
-        $context = stream_context_create([
+        $opts = [
             'http' => [
                 'timeout'       => $this->timeout,
                 'ignore_errors' => true,
@@ -138,10 +140,17 @@ class ilModuleUpdateChecker
                 'verify_peer'      => true,
                 'verify_peer_name' => true,
             ],
-        ]);
+        ];
+
+        if ($this->proxy !== '') {
+            $opts['http']['proxy']          = $this->proxy;
+            $opts['http']['request_fulluri'] = true;
+        }
+
+        $context = stream_context_create($opts);
 
         // default_socket_timeout steuert den Connect-Timeout; stream-context timeout greift erst beim Lesen
-        $prev = ini_set('default_socket_timeout', (string) $this->timeout);
+        $prev    = ini_set('default_socket_timeout', (string) $this->timeout);
         $content = @file_get_contents($url, false, $context);
         if ($prev !== false) {
             ini_set('default_socket_timeout', $prev);
@@ -157,7 +166,7 @@ class ilModuleUpdateChecker
      */
     public function downloadZip(string $url): string
     {
-        $context = stream_context_create([
+        $opts = [
             'http' => [
                 'timeout'       => 60,
                 'ignore_errors' => true,
@@ -167,7 +176,14 @@ class ilModuleUpdateChecker
                 'verify_peer'      => true,
                 'verify_peer_name' => true,
             ],
-        ]);
+        ];
+
+        if ($this->proxy !== '') {
+            $opts['http']['proxy']           = $this->proxy;
+            $opts['http']['request_fulluri'] = true;
+        }
+
+        $context = stream_context_create($opts);
 
         $content = @file_get_contents($url, false, $context);
 
