@@ -2168,18 +2168,41 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $rows .= "<tr><td>Branch</td><td>" . htmlspecialchars($repo_branch) . "</td></tr>";
         $rows .= "<tr><td>HTTP-Proxy</td><td>" . ($repo_proxy !== '' ? htmlspecialchars($repo_proxy) : '<em>nicht konfiguriert</em>') . "</td></tr>";
 
-        // 2. fsockopen-Test zu api.github.com (3s Timeout, nicht file_get_contents)
-        $rows .= "<tr class='table-secondary'><th colspan='2'>TCP-Verbindungstest (3s Timeout)</th></tr>";
-        $hosts = ['api.github.com' => 443, 'raw.githubusercontent.com' => 443];
-        foreach ($hosts as $host => $port) {
-            $t0  = microtime(true);
-            $fp  = @fsockopen('ssl://' . $host, $port, $errno, $errstr, 3);
-            $dur = round((microtime(true) - $t0) * 1000) . ' ms';
-            if ($fp) {
-                fclose($fp);
-                $rows .= "<tr><td>$host:$port</td><td>✅ erreichbar ($dur)</td></tr>";
-            } else {
-                $rows .= "<tr><td>$host:$port</td><td>❌ nicht erreichbar ($dur) — $errno: " . htmlspecialchars($errstr) . "</td></tr>";
+        // 2. cURL-Verbindungstest (berücksichtigt Proxy, 3s Timeout)
+        $curl_avail = function_exists('curl_init') ? '✅ verfügbar' : '❌ nicht installiert';
+        $rows .= "<tr class='table-secondary'><th colspan='2'>cURL-Verbindungstest via " . ($repo_proxy !== '' ? htmlspecialchars($repo_proxy) : 'direkt') . " (3s Timeout)</th></tr>";
+        $rows .= "<tr><td>cURL-Extension</td><td>$curl_avail</td></tr>";
+
+        if (function_exists('curl_init')) {
+            $test_urls = [
+                'api.github.com'            => 'https://api.github.com',
+                'raw.githubusercontent.com' => 'https://raw.githubusercontent.com',
+            ];
+            foreach ($test_urls as $label => $test_url) {
+                $ch = curl_init($test_url);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT        => 3,
+                    CURLOPT_CONNECTTIMEOUT => 3,
+                    CURLOPT_NOBODY         => true,
+                    CURLOPT_SSL_VERIFYPEER => true,
+                    CURLOPT_FOLLOWLOCATION => false,
+                ]);
+                if ($repo_proxy !== '') {
+                    curl_setopt($ch, CURLOPT_PROXY, $repo_proxy);
+                }
+                $t0       = microtime(true);
+                curl_exec($ch);
+                $dur      = round((microtime(true) - $t0) * 1000) . ' ms';
+                $http     = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $err      = curl_error($ch);
+                curl_close($ch);
+
+                if ($err === '' && $http > 0) {
+                    $rows .= "<tr><td>$label</td><td>✅ erreichbar — HTTP $http ($dur)</td></tr>";
+                } else {
+                    $rows .= "<tr><td>$label</td><td>❌ " . htmlspecialchars($err ?: 'Fehler') . " ($dur)</td></tr>";
+                }
             }
         }
 

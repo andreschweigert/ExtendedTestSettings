@@ -126,30 +126,57 @@ class ilModuleUpdateChecker
 
     /**
      * Lädt den Inhalt einer URL (text/JSON).
+     * Nutzt cURL für zuverlässiges HTTPS-über-Proxy-Tunneling (CONNECT).
      */
     private function fetchUrl(string $url): ?string
     {
-        $opts = [
+        if (!function_exists('curl_init')) {
+            return $this->fetchUrlFallback($url);
+        }
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => $this->timeout,
+            CURLOPT_CONNECTTIMEOUT => $this->timeout,
+            CURLOPT_USERAGENT      => 'ILIAS-ExtendedTestSettings-UpdateChecker/1.0',
+            CURLOPT_HTTPHEADER     => ['Accept: application/vnd.github+json'],
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 3,
+        ]);
+
+        if ($this->proxy !== '') {
+            curl_setopt($ch, CURLOPT_PROXY, $this->proxy);
+        }
+
+        $content  = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($content === false || $http_code >= 400) {
+            return null;
+        }
+
+        return (string) $content;
+    }
+
+    /**
+     * Fallback ohne cURL (kein Proxy-Support für HTTPS).
+     */
+    private function fetchUrlFallback(string $url): ?string
+    {
+        $context = stream_context_create([
             'http' => [
                 'timeout'       => $this->timeout,
                 'ignore_errors' => true,
                 'user_agent'    => 'ILIAS-ExtendedTestSettings-UpdateChecker/1.0',
                 'header'        => "Accept: application/vnd.github+json\r\n",
             ],
-            'ssl' => [
-                'verify_peer'      => true,
-                'verify_peer_name' => true,
-            ],
-        ];
+            'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
+        ]);
 
-        if ($this->proxy !== '') {
-            $opts['http']['proxy']          = $this->proxy;
-            $opts['http']['request_fulluri'] = true;
-        }
-
-        $context = stream_context_create($opts);
-
-        // default_socket_timeout steuert den Connect-Timeout; stream-context timeout greift erst beim Lesen
         $prev    = ini_set('default_socket_timeout', (string) $this->timeout);
         $content = @file_get_contents($url, false, $context);
         if ($prev !== false) {
@@ -166,30 +193,40 @@ class ilModuleUpdateChecker
      */
     public function downloadZip(string $url): string
     {
-        $opts = [
-            'http' => [
-                'timeout'       => 60,
-                'ignore_errors' => true,
-                'user_agent'    => 'ILIAS-ExtendedTestSettings-UpdateChecker/1.0',
-            ],
-            'ssl' => [
-                'verify_peer'      => true,
-                'verify_peer_name' => true,
-            ],
-        ];
+        if (!function_exists('curl_init')) {
+            throw new RuntimeException('cURL ist nicht verfügbar.');
+        }
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 60,
+            CURLOPT_CONNECTTIMEOUT => 30,
+            CURLOPT_USERAGENT      => 'ILIAS-ExtendedTestSettings-UpdateChecker/1.0',
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 5,
+        ]);
 
         if ($this->proxy !== '') {
-            $opts['http']['proxy']           = $this->proxy;
-            $opts['http']['request_fulluri'] = true;
+            curl_setopt($ch, CURLOPT_PROXY, $this->proxy);
         }
 
-        $context = stream_context_create($opts);
+        $content  = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_err  = curl_error($ch);
+        curl_close($ch);
 
-        $content = @file_get_contents($url, false, $context);
+        if ($content === false || $http_code >= 400) {
+            throw new RuntimeException("ZIP konnte nicht heruntergeladen werden: $url (HTTP $http_code, $curl_err)");
+        }
 
-        if ($content === false || strlen($content) < 100) {
+        if (strlen((string) $content) < 100) {
             throw new RuntimeException("ZIP konnte nicht heruntergeladen werden: $url");
         }
+
+        $content = (string) $content;
 
         $tmp = tempnam(sys_get_temp_dir(), 'ilias_module_update_');
         if (!$tmp || file_put_contents($tmp, $content) === false) {
