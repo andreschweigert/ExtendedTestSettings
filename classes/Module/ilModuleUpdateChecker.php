@@ -140,7 +140,13 @@ class ilModuleUpdateChecker
             ],
         ]);
 
+        // default_socket_timeout steuert den Connect-Timeout; stream-context timeout greift erst beim Lesen
+        $prev = ini_set('default_socket_timeout', (string) $this->timeout);
         $content = @file_get_contents($url, false, $context);
+        if ($prev !== false) {
+            ini_set('default_socket_timeout', $prev);
+        }
+
         return $content !== false ? $content : null;
     }
 

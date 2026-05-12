@@ -124,6 +124,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $this->saveModuleRepoUrl();
                 break;
 
+            case 'checkModuleUpdates':
+                $this->checkModuleUpdates();
+                break;
+
             default:
                 $this->showGeneral();
                 break;
@@ -1573,16 +1577,25 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         // ---- Repo-URL-Einstellung ----
         $html .= $this->renderRepoUrlForm();
 
-        // ---- Modulliste (ggf. mit Update-Check) ----
-        $modules    = $registry->getAllModuleInfos();
-        $repo_url   = trim((string) $this->settings->get('module_repo_url', ''));
-        $repo_branch = trim((string) $this->settings->get('module_repo_branch', 'ilias9'));
-        $with_check = $repo_url !== '';
+        // ---- Modulliste (Update-Daten aus Session, kein Auto-Fetch) ----
+        $modules     = $registry->getAllModuleInfos();
+        $repo_url    = trim((string) $this->settings->get('module_repo_url', ''));
+        $with_check  = $repo_url !== '';
 
         if ($with_check) {
-            require_once __DIR__ . '/Module/ilModuleUpdateChecker.php';
-            $checker = new ilModuleUpdateChecker($repo_url, $repo_branch);
-            $modules = $checker->checkAll($modules);
+            $cached = $_SESSION['ets_update_cache'] ?? [];
+            foreach ($modules as &$info) {
+                if (!($info['builtin'] ?? true) && isset($cached[$info['id']])) {
+                    $info = array_merge($info, $cached[$info['id']]);
+                }
+            }
+            unset($info);
+        }
+
+        // ---- Update-Check-Button ----
+        if ($with_check) {
+            $check_url = $this->ctrl->getLinkTarget($this, 'checkModuleUpdates');
+            $html .= "<div class='mb-3'><a href='$check_url' class='btn btn-outline-secondary btn-sm'>🔄 Nach Updates suchen</a></div>";
         }
 
         if (empty($modules)) {
@@ -1890,14 +1903,39 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $download_url   = $_GET['download_url'] ?? '';
         $latest_version = htmlspecialchars($_GET['latest_version'] ?? '', ENT_QUOTES);
 
+        $repo_url       = trim((string) $this->settings->get('module_repo_url', ''));
+        $url_allowed    = $this->isAllowedDownloadUrl($download_url);
+        $back_url       = $this->ctrl->getLinkTarget($this, 'showModules');
+
+        // Debug-Panel: immer anzeigen damit Probleme sichtbar werden
+        $get_dump = htmlspecialchars(print_r($_GET, true), ENT_QUOTES);
+        $debug_html = "
+        <div class='card mt-3 mb-3 border-warning'>
+            <div class='card-header bg-warning text-dark'><strong>🐛 Debug-Info: updateModule</strong></div>
+            <div class='card-body' style='font-family:monospace;font-size:0.85em;'>
+                <table class='table table-sm table-bordered mb-0'>
+                    <tr><th style='width:200px'>module_id (raw GET)</th><td>" . htmlspecialchars($_GET['module_id'] ?? '(leer)', ENT_QUOTES) . "</td></tr>
+                    <tr><th>module_id (bereinigt)</th><td>" . htmlspecialchars($module_id, ENT_QUOTES) . "</td></tr>
+                    <tr><th>download_url</th><td style='word-break:break-all'>" . htmlspecialchars($download_url, ENT_QUOTES) . "</td></tr>
+                    <tr><th>latest_version</th><td>$latest_version</td></tr>
+                    <tr><th>Repo-URL (gespeichert)</th><td>" . htmlspecialchars($repo_url, ENT_QUOTES) . "</td></tr>
+                    <tr><th>isAllowedDownloadUrl</th><td>" . ($url_allowed ? '<span class=\"text-success\">✅ erlaubt</span>' : '<span class=\"text-danger\">❌ blockiert</span>') . "</td></tr>
+                    <tr><th>download_url Host</th><td>" . htmlspecialchars((string) parse_url($download_url, PHP_URL_HOST), ENT_QUOTES) . "</td></tr>
+                    <tr><th>Repo Host (erwartet)</th><td>" . htmlspecialchars((string) parse_url($repo_url, PHP_URL_HOST), ENT_QUOTES) . "</td></tr>
+                    <tr><th>module_id leer?</th><td>" . ($module_id === '' ? '❌ ja' : '✅ nein') . "</td></tr>
+                    <tr><th>download_url leer?</th><td>" . ($download_url === '' ? '❌ ja' : '✅ nein') . "</td></tr>
+                </table>
+                <details class='mt-2'><summary>Alle GET-Parameter</summary><pre>$get_dump</pre></details>
+            </div>
+        </div>";
+
         if ($module_id === '' || $download_url === '') {
-            $this->ctrl->redirect($this, 'showModules');
+            $this->tpl->setContent($debug_html . "<div class='alert alert-danger'>Fehlende Parameter: module_id oder download_url leer. <a href='$back_url'>Zurück</a></div>");
             return;
         }
 
-        if (!$this->isAllowedDownloadUrl($download_url)) {
-            $this->tpl->setOnScreenMessage('failure', 'Ungültige Download-URL.');
-            $this->ctrl->redirect($this, 'showModules');
+        if (!$url_allowed) {
+            $this->tpl->setContent($debug_html . "<div class='alert alert-danger'>Download-URL nicht erlaubt (Host-Mismatch, s. oben). <a href='$back_url'>Zurück</a></div>");
             return;
         }
 
@@ -1938,7 +1976,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         });
         </script>";
 
-        $this->tpl->setContent($html);
+        $this->tpl->setContent($debug_html . $html);
     }
 
     /**
@@ -1986,6 +2024,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $registry->setModuleActive($module_id, true);
             $log[] = '✅ Modul aktiv';
 
+            // Session-Cache für dieses Modul zurücksetzen, damit kein veraltetes Update-Badge erscheint
+            if (isset($_SESSION['ets_update_cache'][$module_id])) {
+                unset($_SESSION['ets_update_cache'][$module_id]);
+            }
+
         } catch (RuntimeException $e) {
             $error = $e->getMessage();
             $log[] = '❌ Fehler: ' . htmlspecialchars($error);
@@ -2016,7 +2059,57 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     }
 
     /**
+     * Update-Check auf expliziten Klick — speichert Ergebnis in Session.
+     */
+    protected function checkModuleUpdates(): void
+    {
+        $repo_url   = trim((string) $this->settings->get('module_repo_url', ''));
+        $repo_branch = trim((string) $this->settings->get('module_repo_branch', 'ilias9'));
+
+        if ($repo_url === '') {
+            $this->tpl->setOnScreenMessage('info', 'Kein Repository konfiguriert.');
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
+        require_once __DIR__ . '/Module/ilModuleUpdateChecker.php';
+        $registry = $this->getRegistry();
+        $modules  = $registry->getAllModuleInfos();
+        $checker  = new ilModuleUpdateChecker($repo_url, $repo_branch);
+        $checked  = $checker->checkAll($modules);
+
+        $cache = [];
+        $updates = 0;
+        foreach ($checked as $info) {
+            if ($info['builtin'] ?? true) {
+                continue;
+            }
+            $entry = [];
+            foreach (['update_available', 'latest_version', 'download_url', 'update_error'] as $k) {
+                if (isset($info[$k])) {
+                    $entry[$k] = $info[$k];
+                }
+            }
+            $cache[$info['id']] = $entry;
+            if (!empty($info['update_available'])) {
+                $updates++;
+            }
+        }
+
+        $_SESSION['ets_update_cache'] = $cache;
+
+        if ($updates > 0) {
+            $this->tpl->setOnScreenMessage('success', "$updates Update(s) verfügbar.");
+        } else {
+            $this->tpl->setOnScreenMessage('info', 'Alle Module sind aktuell.');
+        }
+
+        $this->ctrl->redirect($this, 'showModules');
+    }
+
+    /**
      * Prüft ob eine Download-URL aus dem konfigurierten GitHub-Repo stammt.
+     * Erlaubt neben github.com auch raw.githubusercontent.com als Download-Host.
      */
     private function isAllowedDownloadUrl(string $url): bool
     {
@@ -2029,10 +2122,20 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             return false;
         }
 
-        $allowed_host = parse_url($repo_url, PHP_URL_HOST);
-        $actual_host  = parse_url($url, PHP_URL_HOST);
+        $repo_host   = parse_url($repo_url, PHP_URL_HOST);
+        $actual_host = parse_url($url, PHP_URL_HOST);
 
-        if ($allowed_host === null || $actual_host !== $allowed_host) {
+        if ($repo_host === null || $actual_host === null) {
+            return false;
+        }
+
+        // GitHub liefert Downloads von raw.githubusercontent.com
+        $allowed_hosts = [$repo_host];
+        if ($repo_host === 'github.com') {
+            $allowed_hosts[] = 'raw.githubusercontent.com';
+        }
+
+        if (!in_array($actual_host, $allowed_hosts, true)) {
             return false;
         }
 
