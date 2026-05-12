@@ -1615,7 +1615,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $label   = htmlspecialchars($info['label'] ?? $info['id'], ENT_QUOTES);
                 $version = htmlspecialchars($info['version'] ?? '–', ENT_QUOTES);
                 $compat  = htmlspecialchars(($info['ilias_min'] ?? '?') . '–' . ($info['ilias_max'] ?? '?'), ENT_QUOTES);
-                $builtin = $info['builtin'] ? '<span class="badge text-bg-secondary">Built-in</span>' : '<span class="badge text-bg-primary">Installiert</span>';
+                $builtin = $info['builtin'] ? '<span class="badge bg-secondary text-white">Built-in</span>' : '<span class="badge bg-primary text-white">Installiert</span>';
                 $active  = $info['active'];
 
                 // Version-Spalte mit Update-Badge
@@ -1623,12 +1623,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 if (!($info['builtin'] ?? true)) {
                     if (!empty($info['update_available'])) {
                         $latest = htmlspecialchars($info['latest_version'], ENT_QUOTES);
-                        $version_cell = "$version <span class='badge text-bg-warning'>Update: v$latest</span>";
+                        $version_cell = "$version <span class='badge bg-warning text-dark'>Update: v$latest</span>";
                     } elseif (isset($info['latest_version'])) {
-                        $version_cell = "$version <span class='badge text-bg-success'>Aktuell</span>";
+                        $version_cell = "$version <span class='badge bg-success text-white'>Aktuell</span>";
                     } elseif (isset($info['update_error'])) {
                         $err = htmlspecialchars($info['update_error'], ENT_QUOTES);
-                        $version_cell = "$version <span class='badge text-bg-secondary' title='$err'>?</span>";
+                        $version_cell = "$version <span class='badge bg-secondary text-white' title='$err'>?</span>";
                     }
                 }
 
@@ -1654,8 +1654,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 }
 
                 $status_badge = $active
-                    ? '<span class="badge text-bg-success">Aktiv</span>'
-                    : '<span class="badge text-bg-danger">Inaktiv</span>';
+                    ? '<span class="badge bg-success text-white">Aktiv</span>'
+                    : '<span class="badge bg-danger text-white">Inaktiv</span>';
 
                 $desc = htmlspecialchars($info['description'] ?? '', ENT_QUOTES);
 
