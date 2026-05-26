@@ -41,15 +41,29 @@ class ilExtendedTestSettingsModuleProxyGUI
             return;
         }
 
-        // 2. ref_id validieren und Schreibberechtigung prüfen
-        $ref_id = (int) ($_GET['ref_id'] ?? 0);
-        if ($ref_id <= 0 || !$rbacsystem->checkAccess('write', $ref_id)) {
-            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', 'Zugriff verweigert.');
-            $DIC->ui()->mainTemplate()->printToStdout();
-            return;
-        }
-
+        $ref_id    = (int) ($_GET['ref_id'] ?? 0);
         $module_id = preg_replace('/[^a-z0-9_]/', '', strtolower($_GET['module_id'] ?? ''));
+
+        // 2. Zugriffsprüfung: Schreibrecht oder (bei allow_student_access) Leserecht
+        if ($this->moduleAllowsStudentAccess($module_id)) {
+            $has_write = $ref_id > 0 && $rbacsystem->checkAccess('write', $ref_id);
+            $has_read  = $ref_id > 0 && $rbacsystem->checkAccess('read',  $ref_id);
+            if (!$has_write && !$has_read) {
+                while (ob_get_level()) {
+                    ob_end_clean();
+                }
+                http_response_code(403);
+                header('Content-Type: application/json');
+                echo json_encode(['error' => 'forbidden']);
+                exit;
+            }
+        } else {
+            if ($ref_id <= 0 || !$rbacsystem->checkAccess('write', $ref_id)) {
+                $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', 'Zugriff verweigert.');
+                $DIC->ui()->mainTemplate()->printToStdout();
+                return;
+            }
+        }
 
         if ($module_id === '') {
             $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', 'Kein Modul angegeben.');
@@ -211,6 +225,19 @@ class ilExtendedTestSettingsModuleProxyGUI
         exit;
     }
 
+    private function moduleAllowsStudentAccess(string $module_id): bool
+    {
+        if ($module_id === '') {
+            return false;
+        }
+        $json_file = $this->plugin_path . '/modules/' . $module_id . '/module.json';
+        if (!file_exists($json_file)) {
+            return false;
+        }
+        $info = json_decode((string) file_get_contents($json_file), true);
+        return !empty($info['allow_student_access']);
+    }
+
     private function hasActiveTestSession($DIC, int $test_id): bool
     {
         $user_id = $DIC->user()->getId();
@@ -218,15 +245,13 @@ class ilExtendedTestSettingsModuleProxyGUI
 
         try {
             $result = $db->queryF(
-                "SELECT active_id FROM tst_active
-                 WHERE test_fi = %s AND user_fi = %s AND last_finished_pass IS NULL
-                 LIMIT 1",
+                "SELECT active_id FROM tst_active WHERE test_fi = %s AND user_fi = %s",
                 ['integer', 'integer'],
                 [$test_id, $user_id]
             );
             return (bool) $db->fetchAssoc($result);
         } catch (Exception $e) {
-            error_log("[ExamResourceSheet] hasActiveTestSession Fehler: " . $e->getMessage());
+            error_log("[ExamMessage] hasActiveTestSession Fehler: " . $e->getMessage());
             return false;
         }
     }
