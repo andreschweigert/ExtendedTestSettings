@@ -172,7 +172,6 @@ class ilExtendedTestSettingsAdvancedGUI
         $this->tpl->setContent($form->getHTML());
     }
 
-
     /**
      * Prüft ob der Benutzer Zugriff auf die Test-Einstellungen hat
      * MAXIMALE KOMPATIBILITÄT - funktioniert mit verschiedenen ILIAS-Versionen
@@ -253,7 +252,7 @@ class ilExtendedTestSettingsAdvancedGUI
     /**
      * Navigation einrichten - Breadcrumb und Zurück-Button (Robust)
      */
-    private function setupNavigation(int $ref_id): void
+    private function setupNavigation(int $ref_id, string $active_tab = 'extended_settings'): void
     {
         global $DIC, $ilLocator, $ilTabs;
 
@@ -305,14 +304,15 @@ class ilExtendedTestSettingsAdvancedGUI
                 $back_url = "ilias.php?ref_id=" . $ref_id . "&baseClass=ilRepositoryGUI";
                 $tabs->setBackTarget("←  " . $test_title, $back_url);
 
-                // Main-Tab für diese Seite
                 $this->ctrl->setParameter($this, "ref_id", $ref_id);
                 $tabs->addTab(
                     "extended_settings",
                     "Erweiterte Einstellungen",
                     $this->ctrl->getLinkTarget($this, "show")
                 );
-                $tabs->activateTab("extended_settings");
+
+
+                $tabs->activateTab($active_tab);
             }
 
             // 3. TITEL UND BESCHREIBUNG (Template-Ebene)
@@ -697,6 +697,9 @@ class ilExtendedTestSettingsAdvancedGUI
                     break;
                 case 'examalert':
                     $formatted[] = 'Zeit-Warnung';
+                    break;
+                case 'exammessage':
+                    $formatted[] = 'Prüfungs-Nachricht';
                     break;
                 case 'examchecker':
                     $formatted[] = 'Prüfungs-Checker';

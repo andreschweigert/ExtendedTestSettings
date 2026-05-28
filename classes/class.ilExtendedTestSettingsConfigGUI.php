@@ -132,6 +132,30 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $this->debugNetworkCheck();
                 break;
 
+            case 'showProtocol':
+                $this->showProtocol();
+                break;
+
+            case 'exportProtocolCsv':
+                $this->exportProtocolCsv();
+                break;
+
+            case 'showDevices':
+                $this->showDevices();
+                break;
+
+            case 'importDevices':
+                $this->importDevices();
+                break;
+
+            case 'showNetQos':
+                $this->showNetQos();
+                break;
+
+            case 'exportNetQosCsv':
+                $this->exportNetQosCsv();
+                break;
+
             default:
                 $this->showGeneral();
                 break;
@@ -167,6 +191,27 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             'ExamChecker',
             $this->ctrl->getLinkTarget($this, 'showExamChecker')
         );
+
+        if ($this->isExamLoggerInstalled()) {
+            $this->tabs->addTab(
+                'protocol',
+                'Protokoll',
+                $this->ctrl->getLinkTarget($this, 'showProtocol')
+            );
+            $this->tabs->addTab(
+                'devices',
+                'Geräte',
+                $this->ctrl->getLinkTarget($this, 'showDevices')
+            );
+        }
+
+        if ($this->isExamNetQosInstalled()) {
+            $this->tabs->addTab(
+                'netqos',
+                'Netzwerk-Qualität',
+                $this->ctrl->getLinkTarget($this, 'showNetQos')
+            );
+        }
     }
 
     /**
@@ -2292,6 +2337,113 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $url_path  = parse_url($url, PHP_URL_PATH) ?? '';
 
         return $repo_path !== '' && str_starts_with($url_path, $repo_path . '/');
+    }
+
+    // -------------------------------------------------------------------------
+    // Netzwerk-Qualität-Tab (ExamNetQos-Modul)
+    // -------------------------------------------------------------------------
+
+    private function isExamNetQosInstalled(): bool
+    {
+        return file_exists(__DIR__ . '/../modules/examnetqos/class.ilExamNetQosViewGUI.php');
+    }
+
+    protected function showNetQos(): void
+    {
+        $this->tabs->activateTab('netqos');
+
+        if (!$this->isExamNetQosInstalled()) {
+            $this->tpl->setContent('<div class="alert alert-warning">Das ExamNetQos-Modul ist nicht installiert.</div>');
+            return;
+        }
+
+        require_once __DIR__ . '/../modules/examnetqos/class.ilExamNetQosViewGUI.php';
+        $view = new ilExamNetQosViewGUI();
+        $view->setChartCmd('showNetQos');
+        $view->setExportCmd('exportNetQosCsv');
+        $view->showChart();
+    }
+
+    protected function exportNetQosCsv(): void
+    {
+        if (!$this->isExamNetQosInstalled()) {
+            return;
+        }
+
+        require_once __DIR__ . '/../modules/examnetqos/class.ilExamNetQosViewGUI.php';
+        $view = new ilExamNetQosViewGUI();
+        $view->exportCsv();
+    }
+
+    // Protokoll-Tab (ExamLogger-Modul)
+    // -------------------------------------------------------------------------
+
+    private function isExamLoggerInstalled(): bool
+    {
+        return file_exists(__DIR__ . '/../modules/examlogger/class.ilExamLoggerViewGUI.php');
+    }
+
+    protected function showProtocol(): void
+    {
+        $this->tabs->activateTab('protocol');
+
+        if (!$this->isExamLoggerInstalled()) {
+            $this->tpl->setContent('<div class="alert alert-warning">Das ExamLogger-Modul ist nicht installiert.</div>');
+            return;
+        }
+
+        require_once __DIR__ . '/../modules/examlogger/class.ilExamLoggerViewGUI.php';
+        $view = new ilExamLoggerViewGUI();
+        $view->setFormCmd('showProtocol');
+        $view->setExportCmd('exportProtocolCsv');
+        $view->executeCommand();
+    }
+
+    protected function exportProtocolCsv(): void
+    {
+        if (!$this->isExamLoggerInstalled()) {
+            return;
+        }
+
+        require_once __DIR__ . '/../modules/examlogger/class.ilExamLoggerViewGUI.php';
+        $view = new ilExamLoggerViewGUI();
+        $view->setFormCmd('showProtocol');
+        $view->setExportCmd('exportProtocolCsv');
+        $view->executeCommand();
+    }
+
+    protected function showDevices(): void
+    {
+        $this->tabs->activateTab('devices');
+
+        if (!$this->isExamLoggerInstalled()) {
+            $this->tpl->setContent('<div class="alert alert-warning">Das ExamLogger-Modul ist nicht installiert.</div>');
+            return;
+        }
+
+        require_once __DIR__ . '/../modules/examlogger/class.ilExamLoggerViewGUI.php';
+        $view = new ilExamLoggerViewGUI();
+        $view->setDeviceCmd('showDevices');
+        $view->setImportCmd('importDevices');
+        $this->tpl->setContent($view->renderDevicesView());
+    }
+
+    protected function importDevices(): void
+    {
+        $this->tabs->activateTab('devices');
+
+        if (!$this->isExamLoggerInstalled()) {
+            return;
+        }
+
+        require_once __DIR__ . '/../modules/examlogger/class.ilExamLoggerViewGUI.php';
+        $view = new ilExamLoggerViewGUI();
+        $view->setDeviceCmd('showDevices');
+        $view->setImportCmd('importDevices');
+
+        [$msg, $type] = $view->handleCsvImport();
+        $this->tpl->setOnScreenMessage($type, $msg);
+        $this->tpl->setContent($view->renderDevicesView());
     }
 }
 

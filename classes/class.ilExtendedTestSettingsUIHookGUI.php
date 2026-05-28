@@ -34,6 +34,8 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
             if ($DIC->offsetExists('tpl') && $DIC['tpl'] instanceof ilGlobalTemplateInterface) {
                 $this->injectModuleAssets($DIC['tpl']);
             }
+
+            $this->dispatchRequestToModules();
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] modifyGUI Fehler: " . $e->getMessage());
@@ -235,6 +237,53 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
         }
 
         return false;
+    }
+
+    /**
+     * Ruft onRequest() auf allen aktiven Modulen auf, die diese optionale Methode implementieren.
+     * Eingeschränkt auf Test-relevante cmdClasses um unnötige Aufrufe zu vermeiden.
+     */
+    private function dispatchRequestToModules(): void
+    {
+        static $dispatched = false;
+        if ($dispatched) {
+            return;
+        }
+        $dispatched = true;
+
+        $ref_id   = (int)($_GET['ref_id'] ?? 0);
+        $cmdClass = strtolower((string)($_REQUEST['cmdClass'] ?? ''));
+
+        if ($ref_id <= 0 || $cmdClass === '') {
+            return;
+        }
+
+        $testContextFragments = [
+            'iltestoutput', 'iltestplayer', 'ilobjtestsettings', 'iltestscoring', 'ilobjtest',
+            'iltestparticipants',
+        ];
+
+        $isTestContext = false;
+        foreach ($testContextFragments as $fragment) {
+            if (str_contains($cmdClass, $fragment)) {
+                $isTestContext = true;
+                break;
+            }
+        }
+
+        if (!$isTestContext) {
+            return;
+        }
+
+        foreach ($this->getRegistry()->getActiveHandlers() as $handler) {
+            if (method_exists($handler, 'onRequest')) {
+                try {
+                    $handler->onRequest($ref_id);
+                } catch (Exception $e) {
+                    error_log('[ExtendedTestSettings] onRequest-Fehler: ' . $e->getMessage());
+                }
+            }
+        }
     }
 
     private function isTestPlayerContext(): bool
