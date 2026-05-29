@@ -230,9 +230,27 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
     private function renderGeneralTab(): string
     {
-        $form        = $this->buildGeneralSettingsForm();
-        $users_panel = $this->renderAuthorizedUsersPanel();
-        return $this->renderPluginIntro() . $form->getHTML() . $users_panel;
+        global $DIC;
+        $factory  = $DIC->ui()->factory();
+        $renderer = $DIC->ui()->renderer();
+
+        $form = $this->buildGeneralSettingsForm();
+        [$users_panel, $users_modals] = $this->buildAuthorizedUsersSubPanel($factory);
+
+        $dev_panel = $factory->panel()->standard(
+            'Dev-Einstellungen',
+            [
+                $factory->legacy(
+                    '<p>Vorläufige Einstellungen – Aufteilung und Verhalten werden ggf. '
+                    . 'noch überarbeitet.</p>'
+                    . $form->getHTML()
+                ),
+                $users_panel,
+            ]
+        );
+
+        return $this->renderPluginIntro()
+            . $renderer->render(array_merge([$dev_panel], $users_modals));
     }
 
     /**
@@ -288,7 +306,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         $form = new ilPropertyFormGUI();
         $form->setFormAction($this->ctrl->getLinkTarget($this, 'saveGeneralSettings'));
-        $form->setTitle('Tab-Sichtbarkeit in Test-Einstellungen');
+
+        // --- Tab-Sichtbarkeit ---
+        $section_visibility = new ilFormSectionHeaderGUI();
+        $section_visibility->setTitle('Tab-Sichtbarkeit in Test-Einstellungen');
+        $form->addItem($section_visibility);
 
         $visibility = $this->settings->get('tab_visibility', 'course_admins');
 
@@ -355,27 +377,26 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     }
 
     /**
-     * Zeigt die berechtigten Benutzer als ILIAS UI Panel mit Item-Liste
+     * Baut die berechtigten Benutzer als ILIAS UI Sub-Panel (für den Dev-Einstellungen-Block).
+     *
+     * @param mixed $factory
+     * @return array{0: \ILIAS\UI\Component\Panel\Sub, 1: array} [Sub-Panel, Modals]
      */
-    private function renderAuthorizedUsersPanel(): string
+    private function buildAuthorizedUsersSubPanel($factory): array
     {
-        global $DIC;
-        $factory  = $DIC->ui()->factory();
-        $renderer = $DIC->ui()->renderer();
-
         $authorized_users = $this->getAuthorizedUsers();
         $add_user_url     = $this->ctrl->getLinkTarget($this, 'showUserSearch');
         $add_button       = $factory->button()->standard('Benutzer hinzufügen', $add_user_url);
 
         if (empty($authorized_users)) {
-            $panel = $factory->panel()->standard(
+            $panel = $factory->panel()->sub(
                 'Berechtigte Benutzer (0)',
                 [
                     $factory->messageBox()->info('Noch keine Benutzer hinzugefügt.'),
                     $add_button,
                 ]
             );
-            return $renderer->render($panel);
+            return [$panel, []];
         }
 
         $items  = [];
@@ -418,12 +439,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $items
         );
 
-        $panel = $factory->panel()->standard(
+        $panel = $factory->panel()->sub(
             'Berechtigte Benutzer (' . count($authorized_users) . ')',
-            $item_group
+            [$item_group, $add_button]
         );
 
-        return $renderer->render(array_merge([$panel, $add_button], $modals));
+        return [$panel, $modals];
     }
 
 
