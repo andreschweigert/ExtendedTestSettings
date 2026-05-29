@@ -824,278 +824,185 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $factory  = $DIC->ui()->factory();
         $renderer = $DIC->ui()->renderer();
 
-        $stats         = $this->getPluginStatistics();
-        $module_status = $this->getModuleStatus();
-
-        // Statistiken als CharacteristicValue-Listing
-        $stats_items = [
-            'Taschenrechner aktiv'          => ($stats['examcalc_enabled_tests'] ?? 0)   . ' Tests',
-            'Sonderzeichen aktiv'            => ($stats['examsymbols_enabled_tests'] ?? 0) . ' Tests',
-            'Prüfungsschutz aktiv'           => ($stats['examguard_enabled_tests'] ?? 0)  . ' Tests',
-            'Zeit-Warnung aktiv'             => ($stats['examalert_enabled_tests'] ?? 0)  . ' Tests',
-
-        ];
-        $stats_panel = $factory->panel()->standard(
-            'Plugin-Statistiken',
-            $factory->listing()->characteristicValue()->text($stats_items)
+        // Dynamisch: nur global aktive Module
+        $active = array_filter(
+            $this->getRegistry()->getAllModuleInfos(),
+            static fn(array $info): bool => !empty($info['active'])
         );
 
-        // Module als Report-Panel — Anzahl aktiver Tests direkt im Sub-Panel-Titel sichtbar
-        $sub_panels = [];
-        foreach ($module_status as $module => $data) {
-            if ($data['exists']) {
-                $detailed_stats = $this->getDetailedModuleStats($module);
-                $count          = count($detailed_stats);
-                $status_label   = $count > 0
-                    ? $count . ($count === 1 ? ' Test aktiv' : ' Tests aktiv')
-                    : 'Kein Test aktiv';
-                $content = $this->buildModuleDetailsContent($module, $detailed_stats, $factory);
-            } else {
-                $status_label = 'Nicht gefunden';
-                $content      = [$factory->messageBox()->info('Modul-Datei nicht gefunden.')];
-            }
-            $title        = $data['title'] . '  —  ' . $status_label;
-            $sub_panels[] = $factory->panel()->sub($title, $content);
+        if (empty($active)) {
+            return $renderer->render([
+                $factory->messageBox()->info(
+                    'Aktuell ist kein Modul aktiv. Aktivieren Sie Module im Reiter „Module", '
+                    . 'um hier deren Nutzung zu sehen.'
+                ),
+                $this->buildMaintenancePanel($factory),
+            ]);
         }
-        $modules_panel = $factory->panel()->report('Modul-Status', $sub_panels);
 
-        // Wartung / Bereinigung
-        $cleanup_url = $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries');
-        $preview_url = $this->ctrl->getLinkTarget($this, 'previewCleanup');
-        $cleanup_panel = $factory->panel()->standard(
+        ilAccordionGUI::addJavaScript();
+
+        $accordion = new ilAccordionGUI();
+        $accordion->setId('ets_stats_accordion');
+        $accordion->setBehaviour(ilAccordionGUI::ALL_CLOSED);
+        $accordion->setAllowMultiOpened(true);
+
+        $any = false;
+        foreach ($active as $info) {
+            $table = $this->getModuleSettingsTable($info);
+
+            // Module ohne test-spezifische Settings-Tabelle nicht anzeigen
+            if ($table === null) {
+                continue;
+            }
+
+            $label = (string) ($info['label'] ?? $info['id']);
+            $tests = $this->getModuleTests($table);
+            $count = count($tests);
+            $header = htmlspecialchars(
+                $label . ' — ' . ($count === 1 ? '1 aktiver Test' : $count . ' aktive Tests'),
+                ENT_QUOTES
+            );
+
+            if ($count > 0) {
+                $links = [];
+                foreach ($tests as $test) {
+                    $url     = 'ilias.php?ref_id=' . $test['ref_id'] . '&baseClass=ilRepositoryGUI';
+                    $links[] = $renderer->render($factory->link()->standard($test['title'], $url));
+                }
+                $content = $renderer->render($factory->listing()->unordered($links));
+            } else {
+                $content = $renderer->render(
+                    $factory->messageBox()->info('Aktuell in keinem aktiven Test verwendet.')
+                );
+            }
+
+            $accordion->addItem($header, $content);
+            $any = true;
+        }
+
+        if (!$any) {
+            return $renderer->render([
+                $factory->messageBox()->info(
+                    'Kein aktives Modul mit test-spezifischen Einstellungen vorhanden.'
+                ),
+                $this->buildMaintenancePanel($factory),
+            ]);
+        }
+
+        return '<h3>Modul-Nutzung</h3>'
+            . $accordion->getHTML()
+            . $renderer->render($this->buildMaintenancePanel($factory));
+    }
+
+    /**
+     * Wartungs-Panel (Bereinigung verwaister Einträge).
+     * @param mixed $factory
+     */
+    private function buildMaintenancePanel($factory)
+    {
+        return $factory->panel()->standard(
             'Wartung',
             [
                 $factory->messageBox()->info(
                     'Entfernt Einstellungen von Tests, die in ILIAS gelöscht wurden.'
                 ),
-                $factory->button()->standard('Vorschau anzeigen', $preview_url),
-                $factory->button()->standard('Jetzt bereinigen', $cleanup_url),
+                $factory->button()->standard(
+                    'Vorschau anzeigen',
+                    $this->ctrl->getLinkTarget($this, 'previewCleanup')
+                ),
+                $factory->button()->standard(
+                    'Jetzt bereinigen',
+                    $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries')
+                ),
             ]
         );
-
-        return $renderer->render([$stats_panel, $modules_panel, $cleanup_panel]);
     }
 
     /**
-     * Baut den Inhalt eines Modul-Sub-Panels (Detailliste der aktiven Tests)
-     * @param mixed $factory
+     * Ermittelt die konventionsbasierte Settings-Tabelle eines Moduls:
+     * die erste in module.json deklarierte *_settings-Tabelle, die existiert.
      */
-    private function buildModuleDetailsContent(string $module, array $tests, $factory): array
-    {
-        $module_names = [
-            'examcalc'    => 'Taschenrechner',
-            'examsymbols' => 'Sonderzeichen',
-            'examguard'   => 'Prüfungsschutz',
-            'examalert'   => 'Zeit-Warnung',
-        ];
-        $module_name = $module_names[$module] ?? ucfirst($module);
-        $count       = count($tests);
-
-        if ($count === 0) {
-            return [$factory->messageBox()->info('Keine aktiven Tests für dieses Modul gefunden.')];
-        }
-
-        $items = [];
-        foreach ($tests as $test) {
-            $test_url = 'ilias.php?ref_id=' . (int) $test['ref_id'] . '&baseClass=ilRepositoryGUI';
-            $link     = $factory->link()->standard(htmlspecialchars($test['title']), $test_url);
-
-            $items[] = $factory->item()->standard($link)
-                ->withDescription(htmlspecialchars($test['owner_name']))
-                ->withProperties([
-                    'Erstellt' => htmlspecialchars($test['created']),
-                    'Test-ID'  => (string) (int) $test['test_id'],
-                ]);
-        }
-
-        return [
-            $factory->item()->group(
-                $count . ($count === 1 ? ' Test verwendet ' : ' Tests verwenden ') . $module_name,
-                $items
-            ),
-        ];
-    }
-
-
-
-    /**
-     * ILIAS 9 kompatible Plugin-Statistiken
-     */
-    private function getPluginStatistics(): array
+    private function getModuleSettingsTable(array $info): ?string
     {
         global $DIC;
         $db = $DIC->database();
 
-        $stats = [
-            'examcalc_enabled_tests'    => 0,
-            'examsymbols_enabled_tests'  => 0,
-            'examguard_enabled_tests'    => 0,
-            'examalert_enabled_tests'    => 0,
-
-        ];
-
-        try {
-            // ExamCalc - nur aktive Tests
-            if ($db->tableExists('examcalc_settings')) {
-                $result = $db->query("
-                    SELECT COUNT(*) as cnt 
-                    FROM examcalc_settings s
-                    JOIN object_data od ON s.test_id = od.obj_id
-                    JOIN object_reference ref ON od.obj_id = ref.obj_id
-                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
-                ");
-                if ($row = $db->fetchAssoc($result)) {
-                    $stats['examcalc_enabled_tests'] = (int) $row['cnt'];
-                }
+        foreach (($info['tables'] ?? []) as $table) {
+            $table = (string) $table;
+            if (preg_match('/^[a-z0-9_]+_settings$/', $table) && $db->tableExists($table)) {
+                return $table;
             }
-
-            // ExamSymbols - nur aktive Tests
-            if ($db->tableExists('examsymbols_settings')) {
-                $result = $db->query("
-                    SELECT COUNT(*) as cnt 
-                    FROM examsymbols_settings s
-                    JOIN object_data od ON s.test_id = od.obj_id
-                    JOIN object_reference ref ON od.obj_id = ref.obj_id
-                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
-                ");
-                if ($row = $db->fetchAssoc($result)) {
-                    $stats['examsymbols_enabled_tests'] = (int) $row['cnt'];
-                }
-            }
-
-            // ExamGuard - nur aktive Tests
-            if ($db->tableExists('examguard_settings')) {
-                $result = $db->query("
-                    SELECT COUNT(*) as cnt 
-                    FROM examguard_settings s
-                    JOIN object_data od ON s.test_id = od.obj_id
-                    JOIN object_reference ref ON od.obj_id = ref.obj_id
-                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
-                ");
-                if ($row = $db->fetchAssoc($result)) {
-                    $stats['examguard_enabled_tests'] = (int) $row['cnt'];
-                }
-            }
-
-            // ExamAlert - nur aktive Tests
-            if ($db->tableExists('examalert_settings')) {
-                $result = $db->query("
-                    SELECT COUNT(*) as cnt 
-                    FROM examalert_settings s
-                    JOIN object_data od ON s.test_id = od.obj_id
-                    JOIN object_reference ref ON od.obj_id = ref.obj_id
-                    WHERE s.enabled = 1 AND od.type = 'tst' AND ref.deleted IS NULL
-                ");
-                if ($row = $db->fetchAssoc($result)) {
-                    $stats['examalert_enabled_tests'] = (int) $row['cnt'];
-                }
-            }
-
-        } catch (Exception $e) {
-            error_log("[ExtendedTestSettings] Fehler bei Statistik-Abfrage: " . $e->getMessage());
         }
 
-        return $stats;
+        return null;
     }
 
-
-
-
-
     /**
-     * Lädt detaillierte Statistiken für ein Modul
+     * Liefert die aktiven Tests eines Moduls (Titel + ref_id) anhand seiner Settings-Tabelle.
+     * Hat die Tabelle eine enabled-Spalte, zählen nur aktivierte Einträge,
+     * sonst gilt das Vorhandensein eines Eintrags als aktiv.
      */
-    private function getDetailedModuleStats(string $module): array
+    private function getModuleTests(string $table): array
     {
         global $DIC;
         $db = $DIC->database();
 
-        $table_map = [
-            'examcalc' => 'examcalc_settings',
-            'examsymbols' => 'examsymbols_settings',
-            'examguard' => 'examguard_settings',
-            'examalert' => 'examalert_settings',
-            'examchecker' => null // ExamChecker hat keine Settings-Tabelle
-        ];
-
-        $table = $table_map[$module] ?? null;
-        if (!$table || !$db->tableExists($table)) {
+        if (!preg_match('/^[a-z0-9_]+_settings$/', $table)
+            || !$db->tableExists($table)
+            || !$db->tableColumnExists($table, 'test_id')
+        ) {
             return [];
         }
 
+        $where = $db->tableColumnExists($table, 'enabled') ? 'AND s.enabled = 1' : '';
+
         try {
-            // Query für Test-Details mit Eigentümer-Info
-            $query = "
-                SELECT 
-                    s.test_id,
-                    od.title as test_title,
-                    ref.ref_id,
-                    usr.login as owner_login,
-                    usr.firstname,
-                    usr.lastname,
-                    od.create_date,
-                    od.last_update
+            $result = $db->query("
+                SELECT s.test_id, od.title AS test_title, ref.ref_id
                 FROM $table s
-                JOIN object_data od ON s.test_id = od.obj_id
+                JOIN object_data od ON s.test_id = od.obj_id AND od.type = 'tst'
                 JOIN object_reference ref ON od.obj_id = ref.obj_id AND ref.deleted IS NULL
-                LEFT JOIN usr_data usr ON od.owner = usr.usr_id
-                WHERE s.enabled = 1
+                WHERE 1 = 1 $where
                 ORDER BY od.title ASC
-            ";
+            ");
 
-            $result = $db->query($query);
             $tests = [];
-
             while ($row = $db->fetchAssoc($result)) {
-                $owner_name = trim($row['firstname'] . ' ' . $row['lastname']);
-                if (empty($owner_name)) {
-                    $owner_name = $row['owner_login'] ?? 'Unbekannt';
-                }
-
                 $tests[] = [
-                    'test_id' => $row['test_id'],
-                    'ref_id' => $row['ref_id'],
-                    'title' => $row['test_title'],
-                    'owner_login' => $row['owner_login'],
-                    'owner_name' => $owner_name,
-                    'created' => $this->formatDate($row['create_date']),
-                    'updated' => $this->formatDateTime($row['last_update'])
+                    'ref_id' => (int) $row['ref_id'],
+                    'title'  => (string) $row['test_title'],
                 ];
             }
-
             return $tests;
         } catch (Exception $e) {
-            error_log("[ExtendedTestSettings] Fehler bei Modul-Details für $module: " . $e->getMessage());
+            error_log("[ExtendedTestSettings] Fehler bei Modul-Statistik für $table: " . $e->getMessage());
             return [];
         }
     }
 
     /**
-     * Formatiert ein Datum sicher
+     * Alle Settings-Tabellen aller installierten Module (für die Bereinigung),
+     * gemappt auf den Modul-Namen für die Anzeige.
+     *
+     * @return array<string,string> table => label
      */
-    private function formatDate($date_value): string
+    private function getCleanupTables(): array
     {
-        if (empty($date_value)) {
-            return '';
-        }
-
-        // Wenn es bereits ein Unix-Timestamp (Integer) ist
-        if (is_numeric($date_value) && (int)$date_value == $date_value) {
-            return date('d.m.Y', (int)$date_value);
-        }
-
-        // Wenn es ein Datums-String ist (DATETIME, DATE etc.)
-        try {
-            $timestamp = strtotime($date_value);
-            if ($timestamp !== false) {
-                return date('d.m.Y', $timestamp);
+        $map = [];
+        foreach ($this->getRegistry()->getAllModuleInfos() as $info) {
+            $table = $this->getModuleSettingsTable($info);
+            if ($table !== null && !isset($map[$table])) {
+                $map[$table] = (string) ($info['label'] ?? $info['id']);
             }
-        } catch (Exception $e) {
-            error_log("[ExtendedTestSettings] Fehler beim Formatieren des Datums: " . $e->getMessage());
         }
 
-        return '';
+        return $map;
     }
+
+
+
+
 
     /**
      * Formatiert ein Datum+Zeit sicher
@@ -1130,41 +1037,6 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
 
 
-
-    private function getModuleStatus(): array
-    {
-        $modules = [
-            'examcalc' => [
-                'title' => 'Wissenschaftlicher Taschenrechner',
-                'class' => 'ilExamCalcHandler'
-            ],
-            'examsymbols' => [
-                'title' => 'Sonderzeichen-Palette',
-                'class' => 'ilExamSymbolsHandler'
-            ],
-            'examguard' => [
-                'title' => 'Prüfungsschutz',
-                'class' => 'ilExamGuardHandler'
-            ],
-            'examalert' => [
-                'title' => 'Zeit-Warnung',
-                'class' => 'ilExamAlertHandler'
-            ],
-            'examchecker' => [
-                'title' => 'Prüfungs-Checker',
-                'class' => 'ilExamCheckerHandler'
-            ]
-        ];
-
-        $modules_dir = "./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/ExtendedTestSettings/modules";
-
-        foreach ($modules as $key => &$module) {
-            $handler_file = "$modules_dir/$key/class.{$module['class']}.php";
-            $module['exists'] = file_exists($handler_file);
-        }
-
-        return $modules;
-    }
 
     /**
      * Tab 3: ExamChecker
@@ -1438,10 +1310,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $db = $DIC->database();
         $orphaned = [];
 
-        $tables = ['examcalc_settings', 'examsymbols_settings', 'examguard_settings', 'examalert_settings'];
+        $tables = array_keys($this->getCleanupTables());
 
         foreach ($tables as $table) {
-            if (!$db->tableExists($table)) continue;
+            if (!$db->tableExists($table) || !$db->tableColumnExists($table, 'test_id')) {
+                continue;
+            }
 
             try {
                 // Finde verwaiste Einträge mit Details
@@ -1502,12 +1376,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         }
 
         $total_count = array_sum(array_map('count', $orphaned_entries));
-        $table_names = [
-            'examcalc_settings'    => 'Taschenrechner',
-            'examsymbols_settings' => 'Sonderzeichen',
-            'examguard_settings'   => 'Prüfungsschutz',
-            'examalert_settings'   => 'Zeit-Warnung',
-        ];
+        $table_names = $this->getCleanupTables();
 
         $sub_panels = [];
         foreach ($orphaned_entries as $table => $entries) {
@@ -1582,13 +1451,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $cleaned = 0;
 
         try {
-            $tables = ['examcalc_settings', 'examsymbols_settings', 'examguard_settings', 'examalert_settings'];
+            $tables = array_keys($this->getCleanupTables());
 
             foreach ($tables as $table) {
-                if (!$db->tableExists($table))
+                if (!$db->tableExists($table) || !$db->tableColumnExists($table, 'test_id')) {
                     continue;
+                }
 
-                // KORRIGIERT: Prüfe auf aktive Tests (nicht gelöschte)
+                // Prüfe auf aktive Tests (nicht gelöschte)
                 $query = "
                     DELETE FROM $table 
                     WHERE test_id NOT IN (
