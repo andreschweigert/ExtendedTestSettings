@@ -1094,51 +1094,42 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $section_p = new ilFormSectionHeaderGUI();
         $section_p->setTitle('Präsenzprüfungen');
         $form->addItem($section_p);
-
-        $custom_p = new ilCustomInputGUI('Verpflichtende Checks für Prüfungen vor Ort', '');
-        $custom_p->setHtml($this->renderCheckboxGroup('praesenz', $praesenz_settings));
-        $form->addItem($custom_p);
+        $form->addItem(
+            $this->buildCheckGroupInput('praesenz', $praesenz_settings, 'Verpflichtende Checks für Prüfungen vor Ort')
+        );
 
         $section_f = new ilFormSectionHeaderGUI();
         $section_f->setTitle('Fernprüfungen');
         $form->addItem($section_f);
-
-        $custom_f = new ilCustomInputGUI('Verpflichtende Checks für Online-Prüfungen', '');
-        $custom_f->setHtml($this->renderCheckboxGroup('fern', $fern_settings));
-        $form->addItem($custom_f);
+        $form->addItem(
+            $this->buildCheckGroupInput('fern', $fern_settings, 'Verpflichtende Checks für Online-Prüfungen')
+        );
 
         $form->addCommandButton('saveExamChecker', 'Vorgaben speichern');
 
         return $form;
     }
 
-    private function renderCheckboxGroup(string $exam_type, array $current_settings): string
+    /**
+     * Baut die Checkbox-Gruppe der verpflichtenden Checks eines Prüfungstyps
+     * als ILIAS-Formularkomponente (postet als checks_<typ>[]).
+     */
+    private function buildCheckGroupInput(string $exam_type, array $current_settings, string $title): ilCheckboxGroupInputGUI
     {
-        $checkboxes      = '';
-        $check_definitions = $this->getCheckDefinitions();
+        $group = new ilCheckboxGroupInputGUI($title, 'checks_' . $exam_type);
 
-        foreach ($check_definitions as $key => $definition) {
-            if (!in_array($exam_type, $definition['relevant_for'])) {
+        foreach ($this->getCheckDefinitions() as $key => $definition) {
+            if (!in_array($exam_type, $definition['relevant_for'], true)) {
                 continue;
             }
-
-            $checked  = in_array($key, $current_settings) ? 'checked' : '';
-            $name     = 'checks_' . $exam_type . '[]';
-            $title    = htmlspecialchars($definition['title']);
-            $desc     = htmlspecialchars($definition['description']);
-            $input_id = 'check_' . $exam_type . '_' . $key;
-
-            $checkboxes .= '<div class="mb-2">'
-                . '<div class="form-check">'
-                . '<input class="form-check-input" type="checkbox" name="' . $name . '"'
-                . ' value="' . $key . '" id="' . $input_id . '" ' . $checked . '>'
-                . '<label class="form-check-label" for="' . $input_id . '">'
-                . '<span class="fw-semibold">' . $title . '</span>'
-                . '<div class="form-text">' . $desc . '</div>'
-                . '</label></div></div>';
+            $group->addOption(
+                new ilCheckboxOption($definition['title'], $key, $definition['description'])
+            );
         }
 
-        return $checkboxes ?: '<p class="text-muted fst-italic">Keine relevanten Checks für diesen Prüfungstyp.</p>';
+        $group->setValue($current_settings);
+
+        return $group;
     }
 
     private function getCheckDefinitions(): array
@@ -2297,12 +2288,23 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         return file_exists(__DIR__ . '/../modules/examnetqos/class.ilExamNetQosViewGUI.php');
     }
 
+    /**
+     * Rendert eine "Modul nicht installiert"-Meldung als ILIAS MessageBox.
+     */
+    private function renderModuleMissing(string $message): string
+    {
+        global $DIC;
+        return $DIC->ui()->renderer()->render(
+            $DIC->ui()->factory()->messageBox()->failure($message)
+        );
+    }
+
     protected function showNetQos(): void
     {
         $this->tabs->activateTab('netqos');
 
         if (!$this->isExamNetQosInstalled()) {
-            $this->tpl->setContent('<div class="alert alert-warning">Das ExamNetQos-Modul ist nicht installiert.</div>');
+            $this->tpl->setContent($this->renderModuleMissing('Das ExamNetQos-Modul ist nicht installiert.'));
             return;
         }
 
@@ -2337,7 +2339,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $this->tabs->activateTab('protocol');
 
         if (!$this->isExamLoggerInstalled()) {
-            $this->tpl->setContent('<div class="alert alert-warning">Das ExamLogger-Modul ist nicht installiert.</div>');
+            $this->tpl->setContent($this->renderModuleMissing('Das ExamLogger-Modul ist nicht installiert.'));
             return;
         }
 
@@ -2366,7 +2368,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $this->tabs->activateTab('devices');
 
         if (!$this->isExamLoggerInstalled()) {
-            $this->tpl->setContent('<div class="alert alert-warning">Das ExamLogger-Modul ist nicht installiert.</div>');
+            $this->tpl->setContent($this->renderModuleMissing('Das ExamLogger-Modul ist nicht installiert.'));
             return;
         }
 
