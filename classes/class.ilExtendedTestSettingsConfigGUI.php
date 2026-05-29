@@ -186,13 +186,18 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $this->ctrl->getLinkTarget($this, 'showStatistics')
         );
 
-        $this->tabs->addTab(
-            'examchecker',
-            'ExamChecker',
-            $this->ctrl->getLinkTarget($this, 'showExamChecker')
-        );
+        // Modul-spezifische Tabs nur, wenn das jeweilige Modul global aktiv ist
+        $registry = $this->getRegistry();
 
-        if ($this->isExamLoggerInstalled()) {
+        if ($registry->isModuleActive('examchecker')) {
+            $this->tabs->addTab(
+                'examchecker',
+                'ExamChecker',
+                $this->ctrl->getLinkTarget($this, 'showExamChecker')
+            );
+        }
+
+        if ($registry->isModuleActive('examlogger')) {
             $this->tabs->addTab(
                 'protocol',
                 'Protokoll',
@@ -205,7 +210,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             );
         }
 
-        if ($this->isExamNetQosInstalled()) {
+        if ($registry->isModuleActive('examnetqos')) {
             $this->tabs->addTab(
                 'netqos',
                 'Netzwerk-Qualität',
@@ -389,7 +394,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 'Benutzer entfernen',
                 'Benutzer @' . htmlspecialchars($login) . ' wirklich aus der Berechtigungsliste entfernen?',
                 $remove_url
-            );
+            )->withActionButtonLabel('Entfernen');
             $modals[] = $modal;
 
             $item = $factory->item()->standard($fullname)
@@ -1399,7 +1404,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             'Bereinigung bestätigen',
             $total_count . ' verwaiste Einträge werden unwiderruflich gelöscht. Fortfahren?',
             $cleanup_url
-        );
+        )->withActionButtonLabel('Bereinigen');
         $confirm_button = $factory->button()->standard(
             $total_count . ' Einträge jetzt löschen',
             $confirm_modal->getShowSignal()
@@ -1644,7 +1649,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 ? 'Modul „' . $label . '" deaktivieren? Der Modul-Code wird danach nicht mehr geladen.'
                 : 'Modul „' . $label . '" aktivieren?',
             $toggle_target
-        );
+        )->withActionButtonLabel($active ? 'Deaktivieren' : 'Aktivieren');
         $modals[]  = $toggle_modal;
         $actions[] = $factory->button()->shy(
             $active ? 'Deaktivieren' : 'Aktivieren',
@@ -1662,7 +1667,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 'Modul deinstallieren',
                 'Modul „' . $label . '" wirklich deinstallieren? Alle zugehörigen Daten werden gelöscht.',
                 $uninstall_target
-            );
+            )->withActionButtonLabel('Deinstallieren');
             $modals[]  = $uninstall_modal;
             $actions[] = $factory->button()->shy('Deinstallieren', $uninstall_modal->getShowSignal());
         }
