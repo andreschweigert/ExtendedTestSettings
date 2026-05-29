@@ -227,19 +227,56 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         $form        = $this->buildGeneralSettingsForm();
         $users_panel = $this->renderAuthorizedUsersPanel();
-        return $this->renderPluginHeader() . $form->getHTML() . $users_panel;
+        return $this->renderPluginIntro() . $form->getHTML() . $users_panel;
     }
 
-    private function renderPluginHeader(): string
+    /**
+     * Einleitungs-Panel für den Allgemein-Tab:
+     * Was macht das Plugin, wie wird es verwendet, Dokumentation und Kontakt.
+     */
+    private function renderPluginIntro(): string
     {
         global $DIC;
         $factory  = $DIC->ui()->factory();
         $renderer = $DIC->ui()->renderer();
-        return $renderer->render(
-            $factory->messageBox()->info(
-                '⚙️ ExtendedTestSettings · ILIAS 9 Plugin · Erweiterte Prüfungseinstellungen für Tests'
-            )
+
+        $repo_url = 'https://github.com/andreschweigert/ExtendedTestSettings-Modules';
+
+        $intro = $factory->legacy(
+            '<p>Das <strong>ExtendedTestSettings</strong>-Plugin erweitert ILIAS-Tests um '
+            . 'Zusatzfunktionen für Online- und Präsenzprüfungen – etwa Taschenrechner, '
+            . 'Sonderzeichen-Paletten, Prüfungsschutz, Zeitwarnungen oder Verbindungsüberwachung. '
+            . 'Die Funktionen sind in eigenständige <strong>Module</strong> gebündelt, die '
+            . 'unabhängig vom Plugin-Kern installiert, aktiviert, deaktiviert und aktualisiert '
+            . 'werden können.</p>'
         );
+
+        $usage = $factory->listing()->descriptive([
+            'Module verwalten'
+                => 'Im Reiter „Module" werden Module als ZIP-Paket hochgeladen, aktiviert bzw. '
+                 . 'deaktiviert und auf neue Versionen aktualisiert. Installierte Module liegen '
+                 . 'im Verzeichnis modules/.',
+            'Pro Test konfigurieren'
+                => 'In jedem Test erscheint unter Einstellungen der Sub-Tab „Erweiterte '
+                 . 'Test-Einstellungen". Dort bietet jedes aktive Modul seine eigenen '
+                 . 'Einstellungsfelder an – Änderungen gelten nur für den jeweiligen Test.',
+        ]);
+
+        $support = $factory->legacy(
+            '<p>Die Dokumentation der einzelnen Module ist auf GitHub zu finden: '
+            . '<a href="' . $repo_url . '" target="_blank" rel="noopener">' . $repo_url . '</a></p>'
+            . '<p>Bei Problemen oder Fragen gerne eine E-Mail an '
+            . '<a href="mailto:andre.schweigert@fau.de">andre.schweigert@fau.de</a> schreiben '
+            . 'oder ein Issue auf GitHub erstellen.</p>'
+            . '<p>Die Programmierung neuer Module kann ebenfalls gerne durchgeführt werden – '
+            . 'Infos hierzu folgen. Auch <strong>Modulwünsche</strong> können jederzeit '
+            . 'eingereicht werden.</p>'
+        );
+
+        return $renderer->render([
+            $factory->panel()->standard('Über das Plugin', [$intro, $usage]),
+            $factory->panel()->standard('Dokumentation &amp; Kontakt', [$support]),
+        ]);
     }
 
     private function buildGeneralSettingsForm(): ilPropertyFormGUI
@@ -279,7 +316,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         // --- ExamAlert Auto-Aktivierung ---
         $section_alert = new ilFormSectionHeaderGUI();
-        $section_alert->setTitle('⏰ ExamAlert Auto-Aktivierung');
+        $section_alert->setTitle('ExamAlert Auto-Aktivierung');
         $form->addItem($section_alert);
 
         $auto_val   = $this->settings->get('examalert_auto_activate', '1');
@@ -519,7 +556,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             );
 
             if ($db->numRows($check) > 0) {
-                $this->tpl->setOnScreenMessage('info', 'ℹ️ Benutzer war bereits berechtigt.');
+                $this->tpl->setOnScreenMessage('info', 'Benutzer war bereits berechtigt.');
             } else {
                 // Benutzer-Name holen
                 $user_result = $db->queryF(
@@ -540,11 +577,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                     'added_at' => ['timestamp', date('Y-m-d H:i:s')]
                 ]);
 
-                $this->tpl->setOnScreenMessage('success', "✅ Benutzer $user_name wurde erfolgreich hinzugefügt.");
+                $this->tpl->setOnScreenMessage('success', "Benutzer $user_name wurde erfolgreich hinzugefügt.");
             }
         } catch (Exception $e) {
             error_log("[ExtendedTestSettings] Fehler beim Hinzufügen: " . $e->getMessage());
-            $this->tpl->setOnScreenMessage('failure', '❌ Fehler: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', 'Fehler: ' . $e->getMessage());
         }
 
         // Zurück zur Suche mit Query
@@ -609,11 +646,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             // Success-Message
             $messages = [];
             if ($added_count > 0) {
-                $messages[] = "✅ $added_count Benutzer erfolgreich hinzugefügt.";
+                $messages[] = "$added_count Benutzer erfolgreich hinzugefügt.";
             }
 
             if ($already_exists > 0) {
-                $messages[] = "ℹ️ $already_exists Benutzer waren bereits berechtigt.";
+                $messages[] = "$already_exists Benutzer waren bereits berechtigt.";
             }
 
             if (!empty($messages)) {
@@ -623,7 +660,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             error_log("[ExtendedTestSettings] Fehler beim Hinzufügen: " . $e->getMessage());
             $this->tpl->setOnScreenMessage(
                 'failure',
-                '❌ Fehler beim Hinzufügen der Benutzer: ' . $e->getMessage()
+                'Fehler beim Hinzufügen der Benutzer: ' . $e->getMessage()
             );
             return false;
         }
@@ -765,7 +802,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         } catch (Exception $e) {
             $this->tpl->setOnScreenMessage(
                 'failure',
-                '❌ Fehler beim Speichern: ' . $e->getMessage()
+                'Fehler beim Speichern: ' . $e->getMessage()
             );
         }
 
@@ -792,10 +829,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         // Statistiken als CharacteristicValue-Listing
         $stats_items = [
-            '🧮 Taschenrechner aktiv'          => ($stats['examcalc_enabled_tests'] ?? 0)   . ' Tests',
-            '📝 Sonderzeichen aktiv'            => ($stats['examsymbols_enabled_tests'] ?? 0) . ' Tests',
-            '🔒 Prüfungsschutz aktiv'           => ($stats['examguard_enabled_tests'] ?? 0)  . ' Tests',
-            '⏰ Zeit-Warnung aktiv'             => ($stats['examalert_enabled_tests'] ?? 0)  . ' Tests',
+            'Taschenrechner aktiv'          => ($stats['examcalc_enabled_tests'] ?? 0)   . ' Tests',
+            'Sonderzeichen aktiv'            => ($stats['examsymbols_enabled_tests'] ?? 0) . ' Tests',
+            'Prüfungsschutz aktiv'           => ($stats['examguard_enabled_tests'] ?? 0)  . ' Tests',
+            'Zeit-Warnung aktiv'             => ($stats['examalert_enabled_tests'] ?? 0)  . ' Tests',
 
         ];
         $stats_panel = $factory->panel()->standard(
@@ -817,7 +854,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $status_label = 'Nicht gefunden';
                 $content      = [$factory->messageBox()->info('Modul-Datei nicht gefunden.')];
             }
-            $title        = ($data['icon'] ?? '') . ' ' . $data['title'] . '  —  ' . $status_label;
+            $title        = $data['title'] . '  —  ' . $status_label;
             $sub_panels[] = $factory->panel()->sub($title, $content);
         }
         $modules_panel = $factory->panel()->report('Modul-Status', $sub_panels);
@@ -836,8 +873,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             ]
         );
 
-        return $this->renderPluginHeader()
-            . $renderer->render([$stats_panel, $modules_panel, $cleanup_panel]);
+        return $renderer->render([$stats_panel, $modules_panel, $cleanup_panel]);
     }
 
     /**
@@ -1100,27 +1136,22 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $modules = [
             'examcalc' => [
                 'title' => 'Wissenschaftlicher Taschenrechner',
-                'icon' => '🧮',
                 'class' => 'ilExamCalcHandler'
             ],
             'examsymbols' => [
                 'title' => 'Sonderzeichen-Palette',
-                'icon' => '📝',
                 'class' => 'ilExamSymbolsHandler'
             ],
             'examguard' => [
                 'title' => 'Prüfungsschutz',
-                'icon' => '🛡️',
                 'class' => 'ilExamGuardHandler'
             ],
             'examalert' => [
                 'title' => 'Zeit-Warnung',
-                'icon' => '⏰',
                 'class' => 'ilExamAlertHandler'
             ],
             'examchecker' => [
                 'title' => 'Prüfungs-Checker',
-                'icon' => '🔍',
                 'class' => 'ilExamCheckerHandler'
             ]
         ];
@@ -1147,7 +1178,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function renderExamCheckerTab(): string
     {
         $form = $this->buildExamCheckerForm();
-        return $this->renderPluginHeader() . $form->getHTML();
+        return $form->getHTML();
     }
 
     private function buildExamCheckerForm(): ilPropertyFormGUI
@@ -1373,9 +1404,9 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $fern_checks = array_intersect($post['checks_fern'] ?? [], $valid_keys);
             $this->settings->set('examchecker_standards_fern', implode(',', $fern_checks));
 
-            $this->tpl->setOnScreenMessage('success', '✅ ExamChecker-Vorgaben erfolgreich gespeichert.');
+            $this->tpl->setOnScreenMessage('success', 'ExamChecker-Vorgaben erfolgreich gespeichert.');
         } catch (Exception $e) {
-            $this->tpl->setOnScreenMessage('failure', '❌ Fehler beim Speichern: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', 'Fehler beim Speichern: ' . $e->getMessage());
         }
 
         $this->showExamChecker();
@@ -1393,7 +1424,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $preview_html = $this->renderCleanupPreview($orphaned_entries);
             $this->tpl->setContent($preview_html);
         } catch (Exception $e) {
-            $this->tpl->setOnScreenMessage('failure', '❌ Fehler bei der Vorschau: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', 'Fehler bei der Vorschau: ' . $e->getMessage());
             $this->showStatistics();
         }
     }
@@ -1530,12 +1561,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $cleaned = $this->performCleanup();
 
             if ($cleaned > 0) {
-                $this->tpl->setOnScreenMessage('success', "✅ $cleaned verwaiste Einträge wurden erfolgreich bereinigt.");
+                $this->tpl->setOnScreenMessage('success', "$cleaned verwaiste Einträge wurden erfolgreich bereinigt.");
             } else {
-                $this->tpl->setOnScreenMessage('info', "ℹ️ Keine verwaisten Einträge gefunden - alles sauber!");
+                $this->tpl->setOnScreenMessage('info', "Keine verwaisten Einträge gefunden - alles sauber!");
             }
         } catch (Exception $e) {
-            $this->tpl->setOnScreenMessage('failure', '❌ Fehler bei der Bereinigung: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', 'Fehler bei der Bereinigung: ' . $e->getMessage());
         }
 
         $this->showStatistics();
@@ -1617,19 +1648,30 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         $html = $renderer->render(
             $factory->messageBox()->info(
-                'Module erweitern das Plugin um zusätzliche Funktionen. '
-                . 'Built-in Module können aktiviert/deaktiviert werden. '
-                . 'Neue Module können als ZIP-Paket hochgeladen werden.'
+                'Module erweitern das Plugin um zusätzliche Funktionen. Sie werden als '
+                . 'ZIP-Paket hochgeladen, lassen sich aktivieren bzw. deaktivieren und auf '
+                . 'neue Versionen aktualisieren.'
             )
         );
 
-        // ---- Repo-URL-Einstellung ----
-        $html .= $this->renderRepoUrlForm();
+        // ---- Upload-Formular (oben) ----
+        $modules_dir = $this->getPluginObject()->getDirectory() . '/modules';
+        if (is_writable($modules_dir)) {
+            $html .= $this->buildUploadForm()->getHTML();
+        } else {
+            $html .= $renderer->render(
+                $factory->messageBox()->failure(
+                    'Das Verzeichnis modules/ ist nicht schreibbar – es können keine Module '
+                    . 'hochgeladen werden. Bitte auf dem Server die Schreibrechte für den '
+                    . 'Webserver-Benutzer setzen (z. B. chown www-data: modules/).'
+                )
+            );
+        }
 
         // ---- Modulliste (Update-Daten aus Session, kein Auto-Fetch) ----
-        $modules     = $registry->getAllModuleInfos();
-        $repo_url    = trim((string) $this->settings->get('module_repo_url', ''));
-        $with_check  = $repo_url !== '';
+        $modules    = $registry->getAllModuleInfos();
+        $repo_url   = trim((string) $this->settings->get('module_repo_url', ''));
+        $with_check = $repo_url !== '';
 
         if ($with_check) {
             $cached = $_SESSION['ets_update_cache'] ?? [];
@@ -1641,134 +1683,187 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             unset($info);
         }
 
-        // ---- Update-Check-Button ----
+        $components = [];
+
+        // ---- Update-Check-Buttons (nur bei konfiguriertem Repository) ----
         if ($with_check) {
-            $check_url = $this->ctrl->getLinkTarget($this, 'checkModuleUpdates');
-            $debug_url = $this->ctrl->getLinkTarget($this, 'debugNetworkCheck');
-            $html .= "<div class='mb-3 d-flex gap-2'>
-                <a href='$check_url' class='btn btn-outline-secondary btn-sm'>🔄 Nach Updates suchen</a>
-                <a href='$debug_url' class='btn btn-outline-warning btn-sm'>🐛 Netzwerk-Diagnose</a>
-            </div>";
+            $components[] = $factory->button()->standard(
+                'Nach Updates suchen',
+                $this->ctrl->getLinkTarget($this, 'checkModuleUpdates')
+            );
+            $components[] = $factory->button()->standard(
+                'Netzwerk-Diagnose',
+                $this->ctrl->getLinkTarget($this, 'debugNetworkCheck')
+            );
         }
 
+        // ---- Modul-Liste als Item-Group (dezente Trennlinien zwischen den Modulen) ----
         if (empty($modules)) {
-            $html .= $renderer->render($factory->messageBox()->info('Keine Module gefunden.'));
+            $components[] = $factory->messageBox()->info('Keine Module gefunden.');
         } else {
-            $rows = '';
+            $items  = [];
+            $modals = [];
             foreach ($modules as $info) {
-                $id      = htmlspecialchars($info['id'], ENT_QUOTES);
-                $label   = htmlspecialchars($info['label'] ?? $info['id'], ENT_QUOTES);
-                $version = htmlspecialchars($info['version'] ?? '–', ENT_QUOTES);
-                $compat  = htmlspecialchars(($info['ilias_min'] ?? '?') . '–' . ($info['ilias_max'] ?? '?'), ENT_QUOTES);
-                $s_badge = 'display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.8em;font-weight:600;color:#fff;';
-                $builtin = $info['builtin']
-                    ? "<span style='{$s_badge}background:#6c757d;'>Built-in</span>"
-                    : "<span style='{$s_badge}background:#0d6efd;'>Installiert</span>";
-                $active  = $info['active'];
-
-                // Version-Spalte mit Update-Badge
-                $version_cell = $version;
-                if (!($info['builtin'] ?? true)) {
-                    if (!empty($info['update_available'])) {
-                        $latest = htmlspecialchars($info['latest_version'], ENT_QUOTES);
-                        $version_cell = "$version <span style='{$s_badge}background:#ffc107;color:#000;'>Update: v$latest</span>";
-                    } elseif (isset($info['latest_version'])) {
-                        $version_cell = "$version <span style='{$s_badge}background:#198754;'>Aktuell</span>";
-                    } elseif (isset($info['update_error'])) {
-                        $err = htmlspecialchars($info['update_error'], ENT_QUOTES);
-                        $version_cell = "$version <span style='{$s_badge}background:#6c757d;' title='$err'>?</span>";
-                    }
-                }
-
-                $toggle_label = $active ? 'Deaktivieren' : 'Aktivieren';
-                $toggle_class = $active ? 'btn btn-sm btn-warning' : 'btn btn-sm btn-success';
-                $toggle_url   = $this->ctrl->getFormAction($this, 'toggleModule');
-                $toggle_active_val = $active ? '0' : '1';
-                $id_escaped = htmlspecialchars($id, ENT_QUOTES);
-
-                $uninstall_btn = '';
-                $update_btn    = '';
-                if (!$info['builtin']) {
-                    $uninstall_url = $this->ctrl->getFormAction($this, 'uninstallModule');
-                    $uninstall_btn = "<form method=\"post\" action=\"$uninstall_url\" class=\"d-inline ms-1\" onsubmit=\"return confirm('Modul $label wirklich deinstallieren? Alle Daten werden gelöscht.')\"><input type=\"hidden\" name=\"module_id\" value=\"$id_escaped\"><button type=\"submit\" class=\"btn btn-sm btn-danger\">Deinstallieren</button></form>";
-
-                    if (!empty($info['update_available']) && !empty($info['download_url'])) {
-                        $update_url = $this->ctrl->getLinkTarget($this, 'updateModule')
-                            . '&module_id=' . urlencode($id)
-                            . '&download_url=' . urlencode($info['download_url'])
-                            . '&latest_version=' . urlencode($info['latest_version']);
-                        $update_btn = "<a href=\"$update_url\" class=\"btn btn-sm btn-primary ms-1\">⬆ Update auf v{$info['latest_version']}</a>";
-                    }
-                }
-
-                $status_badge = $active
-                    ? "<span style='{$s_badge}background:#198754;'>Aktiv</span>"
-                    : "<span style='{$s_badge}background:#dc3545;'>Inaktiv</span>";
-
-                $desc = htmlspecialchars($info['description'] ?? '', ENT_QUOTES);
-
-                $rows .= "
-                <tr>
-                    <td><strong>$label</strong><br><small class='text-muted'>$desc</small></td>
-                    <td>$version_cell</td>
-                    <td>ILIAS $compat</td>
-                    <td>$builtin</td>
-                    <td>$status_badge</td>
-                    <td>
-                        <form method=\"post\" action=\"$toggle_url\" class=\"d-inline\"><input type=\"hidden\" name=\"module_id\" value=\"$id_escaped\"><input type=\"hidden\" name=\"active\" value=\"$toggle_active_val\"><button type=\"submit\" class=\"$toggle_class\">$toggle_label</button></form>
-                        $update_btn
-                        $uninstall_btn
-                    </td>
-                </tr>";
+                [$item, $item_modals] = $this->buildModuleItem($info, $factory);
+                $items[] = $item;
+                $modals  = array_merge($modals, $item_modals);
             }
-
-            $html .= "
-            <table class='table table-bordered table-hover mt-3'>
-                <thead class='table-light'>
-                    <tr>
-                        <th>Modul</th>
-                        <th>Version</th>
-                        <th>Kompatibilität</th>
-                        <th>Typ</th>
-                        <th>Status</th>
-                        <th>Aktionen</th>
-                    </tr>
-                </thead>
-                <tbody>$rows</tbody>
-            </table>";
+            $group = $factory->item()->group('Module (' . count($items) . ')', $items);
+            $components[] = $factory->panel()->standard('Module', $group);
+            $components   = array_merge($components, $modals);
         }
 
-        // ---- Upload-Formular ----
-        // getLinkTarget() hängt rtoken automatisch an die URL — kein hidden field nötig
-        $upload_url = $this->ctrl->getLinkTarget($this, 'uploadModule');
+        $html .= $renderer->render($components);
 
-        $modules_dir  = $this->getPluginObject()->getDirectory() . '/modules';
-        $writable     = is_writable($modules_dir);
-        $writable_msg = $writable
-            ? ''
-            : "<div class='alert alert-danger mt-2'>⚠️ Das Verzeichnis <code>modules/</code> ist nicht schreibbar. Bitte auf dem Server <code>chown www-data: modules/</code> ausführen.</div>";
-
-        $disabled = $writable ? '' : ' disabled';
-
-        $html .= "
-        <div class='card mt-4'>
-            <div class='card-header'><strong>Neues Modul installieren</strong></div>
-            <div class='card-body'>
-                $writable_msg
-                <p class='text-muted'>
-                    Laden Sie ein Modul-ZIP-Paket hoch. Das Paket muss eine <code>module.json</code> enthalten.
-                    Maximale Größe: 20 MB. Erlaubte Dateitypen: .php, .js, .css, .sql, .json, .html
-                </p>
-                <form method='post' action='$upload_url' enctype='multipart/form-data'>
-                    <div class='mb-3'>
-                        <input type='file' name='module_zip' class='form-control' accept='.zip' required>
-                    </div>
-                    <button type='submit' class='btn btn-primary'$disabled>Modul hochladen und installieren</button>
-                </form>
-            </div>
-        </div>";
+        // ---- Repository-Einstellungen (unten) ----
+        $html .= $this->buildRepoForm()->getHTML();
 
         return $html;
+    }
+
+    /**
+     * Baut ein einzelnes Modul-Listen-Item samt zugehöriger Aktions-Modals.
+     *
+     * @param mixed $factory
+     * @return array{0: \ILIAS\UI\Component\Item\Item, 1: array}
+     */
+    private function buildModuleItem(array $info, $factory): array
+    {
+        $id      = (string) $info['id'];
+        $label   = $info['label'] ?? $id;
+        $version = $info['version'] ?? '–';
+        $compat  = ($info['ilias_min'] ?? '?') . '–' . ($info['ilias_max'] ?? '?');
+        $active  = (bool) ($info['active'] ?? false);
+        $builtin = (bool) ($info['builtin'] ?? false);
+
+        // Version-Property (links): Version · ILIAS-Range · ggf. Update-Hinweis
+        $version_text = 'v' . $version . ' · ILIAS ' . $compat;
+        if (!$builtin) {
+            if (!empty($info['update_available'])) {
+                $version_text .= ' · Update auf v' . ($info['latest_version'] ?? '?');
+            } elseif (isset($info['update_error'])) {
+                $version_text .= ' · Update-Prüfung fehlgeschlagen';
+            }
+        }
+
+        $desc = trim((string) ($info['description'] ?? ''));
+
+        $modals  = [];
+        $actions = [];
+
+        // Update-Aktion (manuell angehängte Parameter, ohne ctrl-Parameter)
+        if (!$builtin && !empty($info['update_available']) && !empty($info['download_url'])) {
+            $update_url = $this->ctrl->getLinkTarget($this, 'updateModule')
+                . '&module_id=' . urlencode($id)
+                . '&download_url=' . urlencode($info['download_url'])
+                . '&latest_version=' . urlencode($info['latest_version']);
+            $update_action = $factory->button()->shy('Update auf v' . $info['latest_version'], $update_url);
+        } else {
+            $update_action = null;
+        }
+
+        // Aktivieren / Deaktivieren via Interruptive Modal (POST)
+        $this->ctrl->setParameter($this, 'module_id', $id);
+        $this->ctrl->setParameter($this, 'active', $active ? '0' : '1');
+        $toggle_target = $this->ctrl->getLinkTarget($this, 'toggleModule');
+        $this->ctrl->setParameter($this, 'active', null);
+
+        $toggle_modal = $factory->modal()->interruptive(
+            $active ? 'Modul deaktivieren' : 'Modul aktivieren',
+            $active
+                ? 'Modul „' . $label . '" deaktivieren? Der Modul-Code wird danach nicht mehr geladen.'
+                : 'Modul „' . $label . '" aktivieren?',
+            $toggle_target
+        );
+        $modals[]  = $toggle_modal;
+        $actions[] = $factory->button()->shy(
+            $active ? 'Deaktivieren' : 'Aktivieren',
+            $toggle_modal->getShowSignal()
+        );
+
+        if ($update_action !== null) {
+            $actions[] = $update_action;
+        }
+
+        // Deinstallieren via Interruptive Modal (POST), nur externe Module
+        if (!$builtin) {
+            $uninstall_target = $this->ctrl->getLinkTarget($this, 'uninstallModule');
+            $uninstall_modal  = $factory->modal()->interruptive(
+                'Modul deinstallieren',
+                'Modul „' . $label . '" wirklich deinstallieren? Alle zugehörigen Daten werden gelöscht.',
+                $uninstall_target
+            );
+            $modals[]  = $uninstall_modal;
+            $actions[] = $factory->button()->shy('Deinstallieren', $uninstall_modal->getShowSignal());
+        }
+
+        $this->ctrl->setParameter($this, 'module_id', null);
+
+        $item = $factory->item()->standard($label)
+            ->withDescription($desc)
+            ->withProperties([
+                'Version' => $version_text,
+                'Status'  => $active ? 'Aktiv' : 'Inaktiv',
+            ])
+            ->withActions($factory->dropdown()->standard($actions));
+
+        return [$item, $modals];
+    }
+
+    /**
+     * Upload-Formular für neue Modul-ZIPs.
+     */
+    private function buildUploadForm(): ilPropertyFormGUI
+    {
+        $form = new ilPropertyFormGUI();
+        $form->setTitle('Neues Modul installieren');
+        $form->setFormAction($this->ctrl->getFormAction($this, 'uploadModule'));
+
+        $file = new ilFileInputGUI('Modul-ZIP', 'module_zip');
+        $file->setSuffixes(['zip']);
+        $file->setRequired(true);
+        $file->setInfo(
+            'Das Paket muss eine module.json enthalten. Maximale Größe: 20 MB. '
+            . 'Erlaubte Dateitypen: .php, .js, .css, .sql, .json, .html'
+        );
+        $form->addItem($file);
+
+        $form->addCommandButton('uploadModule', 'Hochladen und installieren');
+
+        return $form;
+    }
+
+    /**
+     * Formular für die Modul-Repository-Einstellungen.
+     */
+    private function buildRepoForm(): ilPropertyFormGUI
+    {
+        $form = new ilPropertyFormGUI();
+        $form->setTitle('Modul-Repository');
+        $form->setDescription(
+            'GitHub-Repository mit den Modul-ZIPs. Die ZIPs müssen der Namenskonvention '
+            . 'ModulName_v1.0.0.zip folgen. Beispiel: '
+            . 'https://github.com/andreschweigert/ExtendedTestSettings-Modules'
+        );
+        $form->setFormAction($this->ctrl->getFormAction($this, 'saveModuleRepoUrl'));
+
+        $url = new ilTextInputGUI('Repository-URL', 'module_repo_url');
+        $url->setValue((string) $this->settings->get('module_repo_url', ''));
+        $url->setInfo('Vollständige GitHub-URL, z. B. https://github.com/user/Repo');
+        $form->addItem($url);
+
+        $branch = new ilTextInputGUI('Branch', 'module_repo_branch');
+        $branch->setValue((string) $this->settings->get('module_repo_branch', 'ilias9'));
+        $form->addItem($branch);
+
+        $proxy = new ilTextInputGUI('HTTP-Proxy', 'module_repo_proxy');
+        $proxy->setValue((string) $this->settings->get('module_repo_proxy', ''));
+        $proxy->setInfo('Nur nötig, wenn GitHub nicht direkt erreichbar ist. Format: http://host:port');
+        $form->addItem($proxy);
+
+        $form->addCommandButton('saveModuleRepoUrl', 'Speichern');
+
+        return $form;
     }
 
     /**
@@ -1776,8 +1871,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function toggleModule(): void
     {
-        $module_id = (string) ($_POST['module_id'] ?? '');
-        $active    = (bool) (int) ($_POST['active'] ?? 0);
+        $module_id = (string) ($_POST['module_id'] ?? $_GET['module_id'] ?? '');
+        $active    = (bool) (int) ($_POST['active'] ?? $_GET['active'] ?? 0);
 
         if ($module_id === '') {
             $this->ctrl->redirect($this, 'showModules');
@@ -1851,7 +1946,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function uninstallModule(): void
     {
-        $module_id = (string) ($_POST['module_id'] ?? '');
+        $module_id = (string) ($_POST['module_id'] ?? $_GET['module_id'] ?? '');
 
         if ($module_id === '') {
             $this->ctrl->redirect($this, 'showModules');
@@ -1891,48 +1986,6 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         }
 
         $this->ctrl->redirect($this, 'showModules');
-    }
-
-    /**
-     * Rendert das Formular zur Konfiguration der Modul-Repository-URL.
-     */
-    private function renderRepoUrlForm(): string
-    {
-        $repo_url    = htmlspecialchars($this->settings->get('module_repo_url', ''), ENT_QUOTES);
-        $repo_branch = htmlspecialchars($this->settings->get('module_repo_branch', 'ilias9'), ENT_QUOTES);
-        $repo_proxy  = htmlspecialchars($this->settings->get('module_repo_proxy', ''), ENT_QUOTES);
-        $save_url    = $this->ctrl->getLinkTarget($this, 'saveModuleRepoUrl');
-
-        return "
-        <div class='card mt-3 mb-3'>
-            <div class='card-header'><strong>Modul-Repository</strong></div>
-            <div class='card-body'>
-                <p class='text-muted mb-2'>
-                    GitHub-Repository mit den Modul-ZIPs. Die ZIPs müssen der Namenskonvention
-                    <code>ModulName_v1.0.0.zip</code> folgen.<br>
-                    Beispiel: <code>https://github.com/andreschweigert/ExtendedTestSettings-Modules</code>
-                </p>
-                <form method='post' action='$save_url'>
-                    <div class='d-flex gap-2 align-items-center mb-2'>
-                        <label style='min-width:80px;'>Repo-URL</label>
-                        <input type='text' name='module_repo_url' value='$repo_url'
-                               class='form-control' placeholder='https://github.com/user/Repo' style='max-width:520px;'>
-                    </div>
-                    <div class='d-flex gap-2 align-items-center mb-2'>
-                        <label style='min-width:80px;'>Branch</label>
-                        <input type='text' name='module_repo_branch' value='$repo_branch'
-                               class='form-control' placeholder='ilias9' style='max-width:200px;'>
-                    </div>
-                    <div class='d-flex gap-2 align-items-center mb-2'>
-                        <label style='min-width:80px;'>HTTP-Proxy</label>
-                        <input type='text' name='module_repo_proxy' value='$repo_proxy'
-                               class='form-control' placeholder='http://proxy.example.com:3128' style='max-width:400px;'>
-                        <small class='text-muted'>Nur nötig wenn GitHub nicht direkt erreichbar ist</small>
-                    </div>
-                    <button type='submit' class='btn btn-secondary'>Speichern</button>
-                </form>
-            </div>
-        </div>";
     }
 
     /**
@@ -1982,7 +2035,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $get_dump = htmlspecialchars(print_r($_GET, true), ENT_QUOTES);
         $debug_html = "
         <div class='card mt-3 mb-3 border-warning'>
-            <div class='card-header bg-warning text-dark'><strong>🐛 Debug-Info: updateModule</strong></div>
+            <div class='card-header bg-warning text-dark'><strong>Debug-Info: updateModule</strong></div>
             <div class='card-body' style='font-family:monospace;font-size:0.85em;'>
                 <table class='table table-sm table-bordered mb-0'>
                     <tr><th style='width:200px'>module_id (raw GET)</th><td>" . htmlspecialchars($_GET['module_id'] ?? '(leer)', ENT_QUOTES) . "</td></tr>
@@ -1990,11 +2043,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                     <tr><th>download_url</th><td style='word-break:break-all'>" . htmlspecialchars($download_url, ENT_QUOTES) . "</td></tr>
                     <tr><th>latest_version</th><td>$latest_version</td></tr>
                     <tr><th>Repo-URL (gespeichert)</th><td>" . htmlspecialchars($repo_url, ENT_QUOTES) . "</td></tr>
-                    <tr><th>isAllowedDownloadUrl</th><td>" . ($url_allowed ? '<span class=\"text-success\">✅ erlaubt</span>' : '<span class=\"text-danger\">❌ blockiert</span>') . "</td></tr>
+                    <tr><th>isAllowedDownloadUrl</th><td>" . ($url_allowed ? '<span class=\"text-success\">erlaubt</span>' : '<span class=\"text-danger\">blockiert</span>') . "</td></tr>
                     <tr><th>download_url Host</th><td>" . htmlspecialchars((string) parse_url($download_url, PHP_URL_HOST), ENT_QUOTES) . "</td></tr>
                     <tr><th>Repo Host (erwartet)</th><td>" . htmlspecialchars((string) parse_url($repo_url, PHP_URL_HOST), ENT_QUOTES) . "</td></tr>
-                    <tr><th>module_id leer?</th><td>" . ($module_id === '' ? '❌ ja' : '✅ nein') . "</td></tr>
-                    <tr><th>download_url leer?</th><td>" . ($download_url === '' ? '❌ ja' : '✅ nein') . "</td></tr>
+                    <tr><th>module_id leer?</th><td>" . ($module_id === '' ? 'ja' : 'nein') . "</td></tr>
+                    <tr><th>download_url leer?</th><td>" . ($download_url === '' ? 'ja' : 'nein') . "</td></tr>
                 </table>
                 <details class='mt-2'><summary>Alle GET-Parameter</summary><pre>$get_dump</pre></details>
             </div>
@@ -2027,7 +2080,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                     <li>Modul aktiv lassen</li>
                 </ol>
                 <div id='ets-update-spinner' style='display:none;' class='alert alert-info'>
-                    ⏳ Update wird durchgeführt — bitte warten…
+                    Update wird durchgeführt — bitte warten…
                 </div>
                 <form method='post' action='$do_url' id='ets-update-form'>
                     <input type='hidden' name='module_id'    value='$module_esc'>
@@ -2076,25 +2129,25 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $error = null;
 
         try {
-            $log[] = '⬇️ ZIP wird heruntergeladen…';
+            $log[] = 'ZIP wird heruntergeladen…';
             require_once __DIR__ . '/Module/ilModuleUpdateChecker.php';
             $repo_url = trim((string) $this->settings->get('module_repo_url', ''));
             $branch   = trim((string) $this->settings->get('module_repo_branch', 'ilias9'));
             $proxy    = trim((string) $this->settings->get('module_repo_proxy', ''));
             $checker  = new ilModuleUpdateChecker($repo_url, $branch, 60, $proxy);
             $tmp_file = $checker->downloadZip($download_url);
-            $log[]    = '✅ ZIP heruntergeladen (' . round(filesize($tmp_file) / 1024) . ' KB)';
+            $log[]    = 'ZIP heruntergeladen (' . round(filesize($tmp_file) / 1024) . ' KB)';
 
-            $log[] = '📦 Modul wird installiert…';
+            $log[] = 'Modul wird installiert…';
             $installer   = $this->getInstaller();
             $module_info = $installer->installFromZip($tmp_file);
             @unlink($tmp_file);
-            $log[] = "✅ Modul '{$module_info['label']}' v{$module_info['version']} installiert";
+            $log[] = "Modul '{$module_info['label']}' v{$module_info['version']} installiert";
 
-            $log[] = '🔄 Modul wird aktiviert…';
+            $log[] = 'Modul wird aktiviert…';
             $registry = $this->getRegistry();
             $registry->setModuleActive($module_id, true);
-            $log[] = '✅ Modul aktiv';
+            $log[] = 'Modul aktiv';
 
             // Session-Cache für dieses Modul zurücksetzen, damit kein veraltetes Update-Badge erscheint
             if (isset($_SESSION['ets_update_cache'][$module_id])) {
@@ -2103,11 +2156,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         } catch (RuntimeException $e) {
             $error = $e->getMessage();
-            $log[] = '❌ Fehler: ' . htmlspecialchars($error);
+            $log[] = 'Fehler: ' . htmlspecialchars($error);
         } catch (Throwable $e) {
             error_log('[ExtendedTestSettings] doUpdateModule Fehler: ' . $e->getMessage());
             $error = $e->getMessage();
-            $log[] = '❌ Unerwarteter Fehler: ' . htmlspecialchars($error);
+            $log[] = 'Unerwarteter Fehler: ' . htmlspecialchars($error);
         }
 
         $log_html   = implode('<br>', array_map('htmlspecialchars', $log));
@@ -2115,7 +2168,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $log_items  = array_map(fn($l) => "<li>$l</li>", $log);
         $log_list   = implode('', $log_items);
         $status     = $error === null ? 'success' : 'danger';
-        $status_txt = $error === null ? '✅ Update erfolgreich abgeschlossen' : '❌ Update fehlgeschlagen';
+        $status_txt = $error === null ? 'Update erfolgreich abgeschlossen' : 'Update fehlgeschlagen';
 
         $html = "
         <div class='card mt-3' style='max-width:600px;'>
@@ -2196,7 +2249,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $rows = '';
 
         // 1. PHP-Konfiguration
-        $allow_fopen    = ini_get('allow_url_fopen') ? '✅ an' : '❌ aus';
+        $allow_fopen    = ini_get('allow_url_fopen') ? 'an' : 'aus';
         $sock_timeout   = ini_get('default_socket_timeout');
         $max_exec       = ini_get('max_execution_time');
         $php_version    = PHP_VERSION;
@@ -2204,7 +2257,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $prev = ini_set('default_socket_timeout', '3');
         $after = ini_get('default_socket_timeout');
         ini_set('default_socket_timeout', $prev !== false ? $prev : $sock_timeout);
-        $ini_set_works  = ($after === '3') ? '✅ ja' : '❌ nein (gesperrt)';
+        $ini_set_works  = ($after === '3') ? 'ja' : 'nein (gesperrt)';
 
         $rows .= "<tr class='table-secondary'><th colspan='2'>PHP-Konfiguration</th></tr>";
         $rows .= "<tr><td>PHP-Version</td><td>$php_version</td></tr>";
@@ -2217,7 +2270,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $rows .= "<tr><td>HTTP-Proxy</td><td>" . ($repo_proxy !== '' ? htmlspecialchars($repo_proxy) : '<em>nicht konfiguriert</em>') . "</td></tr>";
 
         // 2. cURL-Verbindungstest (berücksichtigt Proxy, 3s Timeout)
-        $curl_avail = function_exists('curl_init') ? '✅ verfügbar' : '❌ nicht installiert';
+        $curl_avail = function_exists('curl_init') ? 'verfügbar' : 'nicht installiert';
         $rows .= "<tr class='table-secondary'><th colspan='2'>cURL-Verbindungstest via " . ($repo_proxy !== '' ? htmlspecialchars($repo_proxy) : 'direkt') . " (3s Timeout)</th></tr>";
         $rows .= "<tr><td>cURL-Extension</td><td>$curl_avail</td></tr>";
 
@@ -2247,9 +2300,9 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 curl_close($ch);
 
                 if ($err === '' && $http > 0) {
-                    $rows .= "<tr><td>$label</td><td>✅ erreichbar — HTTP $http ($dur)</td></tr>";
+                    $rows .= "<tr><td>$label</td><td>erreichbar — HTTP $http ($dur)</td></tr>";
                 } else {
-                    $rows .= "<tr><td>$label</td><td>❌ " . htmlspecialchars($err ?: 'Fehler') . " ($dur)</td></tr>";
+                    $rows .= "<tr><td>$label</td><td>" . htmlspecialchars($err ?: 'Fehler') . " ($dur)</td></tr>";
                 }
             }
         }
@@ -2272,13 +2325,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $id      = htmlspecialchars($info['id']);
 
                 if (isset($checked['update_error'])) {
-                    $rows .= "<tr><td>$id</td><td>❌ " . htmlspecialchars($checked['update_error']) . " ($dur)</td></tr>";
+                    $rows .= "<tr><td>$id</td><td>" . htmlspecialchars($checked['update_error']) . " ($dur)</td></tr>";
                 } elseif (!empty($checked['update_available'])) {
                     $v = htmlspecialchars($checked['latest_version']);
-                    $rows .= "<tr><td>$id</td><td>⬆️ Update auf v$v verfügbar ($dur)</td></tr>";
+                    $rows .= "<tr><td>$id</td><td>Update auf v$v verfügbar ($dur)</td></tr>";
                 } else {
                     $v = htmlspecialchars($checked['latest_version'] ?? '?');
-                    $rows .= "<tr><td>$id</td><td>✅ Aktuell (latest: v$v) ($dur)</td></tr>";
+                    $rows .= "<tr><td>$id</td><td>Aktuell (latest: v$v) ($dur)</td></tr>";
                 }
             }
 
@@ -2289,7 +2342,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         $html = "
         <div class='card mt-3 border-warning' style='max-width:700px;'>
-            <div class='card-header bg-warning text-dark'><strong>🐛 Netzwerk-Diagnose</strong></div>
+            <div class='card-header bg-warning text-dark'><strong>Netzwerk-Diagnose</strong></div>
             <div class='card-body p-0'>
                 <table class='table table-sm table-bordered mb-0' style='font-family:monospace;font-size:0.85em;'>
                     $rows
