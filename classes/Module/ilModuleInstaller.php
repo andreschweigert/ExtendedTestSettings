@@ -10,7 +10,7 @@
  */
 class ilModuleInstaller
 {
-    private const ALLOWED_EXTENSIONS = ['php', 'js', 'css', 'sql', 'json', 'html', 'tpl', 'md', 'txt', 'png', 'svg', 'gif', 'jpg', 'jpeg', 'woff', 'woff2', 'ttf'];
+    private const ALLOWED_EXTENSIONS = ['php', 'js', 'css', 'sql', 'json', 'html', 'tpl', 'md', 'txt', 'lang', 'png', 'svg', 'gif', 'jpg', 'jpeg', 'woff', 'woff2', 'ttf'];
     private const MAX_ZIP_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
 
     private string $modules_dir;
