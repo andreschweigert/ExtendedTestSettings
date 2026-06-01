@@ -1,0 +1,241 @@
+<!-- language file start -->
+advanced_settings#:#Extended Test Settings
+advanced_settings_info#:#Configuration for all available exam features
+advanced_settings_nav_info#:#Configuration for special exam features
+advanced_settings_short#:#Extended Settings
+locator_repository#:#Repository
+tab_general#:#General
+tab_modules#:#Modules
+tab_statistics#:#Statistics
+tab_examchecker#:#ExamChecker
+tab_protocol#:#Protocol
+tab_devices#:#Devices
+tab_netqos#:#Network Quality
+access_denied#:#Access denied.
+access_denied_login#:#Access denied: you must be logged in.
+access_denied_admin#:#Access denied: administrator privileges required.
+access_denied_reason#:#Access denied: %s
+access_denied_save#:#Access denied: no permission to save.
+access_admins_only#:#This function is only available to system administrators.
+access_no_permission#:#You do not have permission for this function.
+access_no_test_permission#:#You do not have permission to change these test settings.
+not_authorized#:#Not authorized.
+no_valid_test#:#No valid test selected.
+not_a_test#:#The selected object is not a test.
+save#:#Save
+save_settings#:#Save settings
+settings_saved#:#Settings saved.
+back#:#Back
+search#:#Search
+add#:#Add
+remove#:#Remove
+uninstall#:#Uninstall
+activate#:#Activate
+deactivate#:#Deactivate
+details#:#Details
+error_generic#:#Error: %s
+error_saving#:#Error while saving: %s
+error_unexpected#:#Unexpected error: %s
+dev_settings#:#Dev settings
+dev_settings_info#:#Preliminary settings – layout and behaviour may still be revised.
+intro_panel_about#:#About the plugin
+intro_panel_support#:#Documentation &amp; contact
+intro_about_text#:#<p>The <strong>ExtendedTestSettings</strong> plugin extends ILIAS tests with additional features for online and on-site exams – such as calculators, special character palettes, exam protection, time warnings or connection monitoring. The features are bundled into independent <strong>modules</strong> that can be installed, activated, deactivated and updated independently of the plugin core.</p>
+intro_usage_manage_title#:#Manage modules
+intro_usage_manage_desc#:#On the "Modules" tab, modules are uploaded as a ZIP package, activated or deactivated and updated to new versions. Installed modules are stored in the modules/ directory.
+intro_usage_pertest_title#:#Configure per test
+intro_usage_pertest_desc#:#In every test, the "Extended Test Settings" sub-tab appears under Settings. There, each active module offers its own configuration fields – changes apply only to the respective test.
+intro_support_text#:#<p>The documentation of the individual modules can be found on GitHub: <a href="%1$s" target="_blank" rel="noopener">%1$s</a></p><p>If you have any problems or questions, feel free to send an email to <a href="mailto:andre.schweigert@fau.de">andre.schweigert@fau.de</a> or create an issue on GitHub.</p><p>The development of new modules is also welcome – information on this will follow. <strong>Module requests</strong> can be submitted at any time as well.</p>
+visibility_section#:#Tab visibility in test settings
+visibility_label#:#Visibility
+visibility_info#:#Determine who can see the "Extended Test Settings" tab in tests.
+visibility_admins_only#:#System administrators only
+visibility_admins_only_info#:#Only ILIAS system administrators can see and use the tab.
+visibility_course_admins#:#Course administrators + system administrators
+visibility_course_admins_info#:#Course administrators, test owners and system administrators can see the tab.
+visibility_specific_users#:#Selected users only + system administrators
+visibility_specific_users_info#:#Only explicitly authorized users and system administrators can see the tab.
+examalert_auto_section#:#ExamAlert auto-activation
+examalert_auto_label#:#Default for new tests
+examalert_auto_info#:#This setting only affects new tests. Existing tests keep their current settings. Administrators can activate or deactivate ExamAlert manually in the test settings at any time.
+examalert_auto_on#:#Enabled: every new test automatically has ExamAlert activated (30s warning before the end)
+examalert_auto_on_info#:#New tests automatically receive a 30-second warning before the test ends.
+examalert_auto_off#:#Disabled: ExamAlert must be activated manually in the settings for each test
+examalert_auto_off_info#:#ExamAlert is disabled by default for new tests.
+add_user#:#Add user
+authorized_users_title#:#Authorized users (%d)
+no_users_yet#:#No users added yet.
+remove_user_title#:#Remove user
+remove_user_confirm#:#Really remove user @%s from the authorization list?
+prop_added_by#:#Added by
+prop_date#:#Date
+prop_email#:#Email
+prop_version#:#Version
+prop_status#:#Status
+users_authorized_count#:#%d users authorized
+user_search_title#:#Search and add users
+search_term#:#Search term
+search_term_info#:#Login, first or last name. At least 2 characters. Already authorized users are hidden.
+search_min_chars#:#Please enter at least 2 characters.
+no_users_found#:#No users found for "%s".
+users_found_count#:#%d users found
+search_results#:#Search results
+invalid_user_id#:#Invalid user ID
+user_already_authorized#:#User was already authorized.
+user_added#:#User %s was added successfully.
+no_users_selected#:#No users selected.
+users_added_count#:#%d users added successfully.
+users_already_count#:#%d users were already authorized.
+error_adding_users#:#Error while adding users: %s
+user_removed#:#User %s was removed.
+error_removing#:#Error while removing: %s
+stats_no_active_module#:#No module is currently active. Activate modules on the "Modules" tab to see their usage here.
+stats_no_module_settings#:#No active module with test-specific settings available.
+stats_module_usage#:#Module usage
+stats_test_one#:#1 active test
+stats_test_many#:#%d active tests
+stats_no_test_uses#:#Currently not used in any active test.
+maintenance#:#Maintenance
+maintenance_info#:#Removes settings of tests that have been deleted in ILIAS.
+preview_show#:#Show preview
+cleanup_now#:#Clean up now
+examchecker_title#:#Configure ExamChecker requirements
+examchecker_desc#:#Determine which settings should be mandatory when checking tests.
+examchecker_praesenz#:#On-site exams
+examchecker_praesenz_group#:#Mandatory checks for on-site exams
+examchecker_fern#:#Remote exams
+examchecker_fern_group#:#Mandatory checks for online exams
+examchecker_save#:#Save requirements
+examchecker_saved#:#ExamChecker requirements saved successfully.
+check_fragenpools_verwenden#:#Use question pools
+check_fragenpools_verwenden_info#:#Test must use question pools
+check_datenschutz#:#Data protection (test results with names)
+check_datenschutz_info#:#Anonymity must be disabled
+check_online#:#Test is set online
+check_online_info#:#Test must be available online
+check_passwort#:#Test password set
+check_passwort_info#:#A password must be configured
+check_nur_ausgewaehlte_teilnehmer#:#Selected participants only (disabled)
+check_nur_ausgewaehlte_teilnehmer_info#:#Open access for all participants
+check_testdurchlaeufe_begrenzen#:#Test runs limited to 1
+check_testdurchlaeufe_begrenzen_info#:#Number of attempts must be 1
+check_wartezeit_erzwingen#:#Waiting time between runs (disabled)
+check_wartezeit_erzwingen_info#:#No waiting time between attempts
+check_pruefungsansicht#:#Exam view (kiosk mode)
+check_pruefungsansicht_info#:#Kiosk mode must be enabled
+check_automatisches_speichern#:#Automatic saving (30s)
+check_automatisches_speichern_info#:#Auto-save every 30 seconds
+check_direkte_rueckmeldung#:#Direct feedback (disabled)
+check_direkte_rueckmeldung_info#:#Immediate answer evaluation switched off
+check_fragen_markieren#:#Marking questions enabled
+check_fragen_markieren_info#:#Participants can mark questions
+check_eigenstaendigkeitserklaerung#:#Declaration of independent work
+check_eigenstaendigkeitserklaerung_info#:#Required for remote exams only
+check_bearbeitungsdauer#:#Limit working time
+check_bearbeitungsdauer_info#:#Time limit must be enabled
+check_weiterleitung#:#Redirect to logout.php
+check_weiterleitung_info#:#Only for on-site exams with kiosk
+check_bewertungssystem#:#Score partially correct answers
+check_bewertungssystem_info#:#Partial points for incomplete answers
+check_negative_punkte#:#Negative points (disabled)
+check_negative_punkte_info#:#No point deductions for wrong answers
+check_besten_durchlauf_bewerten#:#Score best test run
+check_besten_durchlauf_bewerten_info#:#Best performance counts
+check_keine_vorbedingungen#:#No preconditions set
+check_keine_vorbedingungen_info#:#Test is freely accessible without preconditions
+check_direkte_notenuebermittlung#:#Direct grade transfer (disabled)
+check_direkte_notenuebermittlung_info#:#Grades are not transferred to participants immediately
+check_zeitlich_begrenzte_verfuegbarkeit#:#Time-limited availability (disabled)
+check_zeitlich_begrenzte_verfuegbarkeit_info#:#Test has no additional course availability limit
+error_preview#:#Error during preview: %s
+back_to_statistics#:#Back to statistics
+cleanup_none#:#No orphaned entries – everything is fine.
+cleanup_table_entries#:#%s (%d entries)
+cleanup_confirm_title#:#Confirm cleanup
+cleanup_confirm_text#:#%d orphaned entries will be permanently deleted. Continue?
+cleanup_action#:#Clean up
+cleanup_delete_now#:#Delete %d entries now
+cleanup_found#:#%d orphaned entries found. Cleanup recommended.
+cleanup_done#:#%d orphaned entries were cleaned up successfully.
+cleanup_none_found#:#No orphaned entries found - all clean!
+error_cleanup#:#Error during cleanup: %s
+modules_intro#:#Modules extend the plugin with additional features. They are uploaded as a ZIP package, can be activated or deactivated and updated to new versions.
+modules_dir_not_writable#:#The modules/ directory is not writable – no modules can be uploaded. Please set the write permissions for the web server user on the server (e.g. chown www-data: modules/).
+modules_check_updates#:#Check for updates
+modules_network_diag#:#Network diagnostics
+modules_none#:#No modules found.
+modules_group_count#:#Modules (%d)
+module_update_badge#:#Update to v%s
+module_update_check_failed#:#Update check failed
+module_deactivate_title#:#Deactivate module
+module_activate_title#:#Activate module
+module_deactivate_confirm#:#Deactivate module "%s"? The module code will no longer be loaded afterwards.
+module_activate_confirm#:#Activate module "%s"?
+module_uninstall_title#:#Uninstall module
+module_uninstall_confirm#:#Really uninstall module "%s"? All associated data will be deleted.
+status_active#:#Active
+status_inactive#:#Inactive
+module_install_title#:#Install new module
+module_zip_label#:#Module ZIP
+module_zip_info#:#The package must contain a module.json. Maximum size: 20 MB. Allowed file types: .php, .js, .css, .sql, .json, .html
+module_upload_btn#:#Upload and install
+repo_title#:#Module repository
+repo_desc#:#GitHub repository with the module ZIPs. The ZIPs must follow the naming convention ModuleName_v1.0.0.zip. Example: https://github.com/andreschweigert/ExtendedTestSettings-Modules
+repo_url_label#:#Repository URL
+repo_url_info#:#Full GitHub URL, e.g. https://github.com/user/Repo
+repo_branch_label#:#Branch
+repo_proxy_label#:#HTTP proxy
+repo_proxy_info#:#Only needed if GitHub is not directly reachable. Format: http://host:port
+module_not_found#:#Module '%s' not found.
+module_activated#:#Module '%s' was activated.
+module_deactivated#:#Module '%s' was deactivated. PHP no longer loads the module code.
+upload_err_ini_size#:#File exceeds upload_max_filesize.
+upload_err_form_size#:#File exceeds MAX_FILE_SIZE.
+upload_err_no_file#:#No file selected.
+upload_err_generic#:#Upload error.
+module_installed#:#Module '%s' (v%s) installed and activated successfully.
+module_install_failed#:#Installation failed: %s
+module_builtin_no_uninstall#:#Built-in modules cannot be uninstalled.
+module_uninstalled#:#Module '%s' was uninstalled.
+module_uninstall_failed#:#Uninstallation failed: %s
+repo_invalid_github_url#:#Please enter a valid GitHub URL (https://github.com/...).
+repo_invalid_proxy#:#The proxy URL must have the format http://host:port.
+repo_saved#:#Repository settings saved.
+invalid_download_url#:#Invalid download URL.
+repo_not_configured#:#No repository configured.
+updates_available#:#%d update(s) available.
+modules_up_to_date#:#All modules are up to date.
+module_examnetqos_missing#:#The ExamNetQos module is not installed.
+module_examlogger_missing#:#The ExamLogger module is not installed.
+no_exam_modules#:#No exam modules found.
+no_modules_to_save#:#No modules found to save.
+save_success_for#:#Settings saved successfully for: %s
+save_failed_for#:#Error while saving: %s
+error_save_unexpected#:#Unexpected error while saving: %s
+fb_calc_section#:#Calculator
+fb_calc_enable#:#Enable calculator
+fb_calc_type#:#Calculator type
+fb_calc_simple#:#Simple (basic arithmetic) – default
+fb_calc_advanced#:#Scientific (work in progress)
+fb_sym_section#:#Special character palette
+fb_sym_enable#:#Enable special character palette
+fb_sym_template#:#Symbol template
+fb_sym_math#:#Mathematics/science
+fb_sym_german#:#German
+fb_sym_spanish#:#Spanish
+fb_alert_section#:#Time warning
+fb_alert_enable#:#Enable time warning
+fb_alert_show#:#Show warning
+fb_alert_suffix#:#seconds before the end of the test
+fb_alert_message#:#Message
+fb_alert_default_message#:#Attention: the test ends soon!
+modname_examcalc#:#Calculator
+modname_examsymbols#:#Special characters
+modname_examguard#:#Exam protection
+modname_examalert#:#Time warning
+modname_exammessage#:#Exam message
+modname_examchecker#:#Exam checker
+no_module_specified#:#No module specified.
+module_no_gui_class#:#Module '%s' has no GUI class defined.
+gui_file_not_found#:#GUI file not found: %s
+gui_class_not_found#:#GUI class not found: %s

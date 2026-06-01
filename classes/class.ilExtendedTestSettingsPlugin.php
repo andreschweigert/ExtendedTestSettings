@@ -2,7 +2,28 @@
 
 class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
 {
+    public const PLUGIN_ID = 'extendedtestsettings';
+
     private ?ilModuleRegistry $registry = null;
+
+    /**
+     * Liefert die Plugin-Instanz für GUI-Klassen, die nicht von einer
+     * Plugin-Basisklasse erben (z. B. AdvancedGUI, ModuleProxyGUI) und daher
+     * keinen direkten Zugriff über getPluginObject() haben. So lassen sich
+     * Sprachvariablen einheitlich über ->txt('key') auflösen.
+     */
+    public static function getInstance(): ilExtendedTestSettingsPlugin
+    {
+        global $DIC;
+
+        /** @var ilComponentFactory $component_factory */
+        $component_factory = $DIC['component.factory'];
+
+        /** @var ilExtendedTestSettingsPlugin $plugin */
+        $plugin = $component_factory->getPlugin(self::PLUGIN_ID);
+
+        return $plugin;
+    }
 
     public function getPluginName(): string
     {

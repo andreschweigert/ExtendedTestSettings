@@ -10,6 +10,7 @@ class ilExtendedTestSettingsAdvancedGUI
     protected ilCtrl $ctrl;
     protected ilGlobalTemplateInterface $tpl;
     protected ilLanguage $lng;
+    protected ilExtendedTestSettingsPlugin $plugin;
 
     public function __construct()
     {
@@ -17,6 +18,15 @@ class ilExtendedTestSettingsAdvancedGUI
         $this->ctrl = $DIC->ctrl();
         $this->tpl = $DIC->ui()->mainTemplate();
         $this->lng = $DIC->language();
+        $this->plugin = ilExtendedTestSettingsPlugin::getInstance();
+    }
+
+    /**
+     * Löst eine Sprachvariable des Plugins auf.
+     */
+    private function txt(string $key): string
+    {
+        return $this->plugin->txt($key);
     }
 
     public function executeCommand(): void
@@ -36,7 +46,7 @@ class ilExtendedTestSettingsAdvancedGUI
         if (!$DIC->user()->getId() || $DIC->user()->isAnonymous()) {
             $this->tpl->setOnScreenMessage(
                 'failure',
-                'Zugriff verweigert: Sie müssen angemeldet sein.'
+                $this->txt('access_denied_login')
             );
             $DIC->ctrl()->redirectToURL('./login.php');
             return;
@@ -46,7 +56,7 @@ class ilExtendedTestSettingsAdvancedGUI
         if ($ref_id <= 0) {
             $this->tpl->setOnScreenMessage(
                 'failure',
-                'Kein gültiger Test ausgewählt.'
+                $this->txt('no_valid_test')
             );
             $this->tpl->printToStdout();
             return;
@@ -78,14 +88,17 @@ class ilExtendedTestSettingsAdvancedGUI
         // Zugriff verweigern falls nicht berechtigt
         if (!$access_granted) {
             $error_messages = [
-                'admins_only' => 'Diese Funktion ist nur für System-Administratoren verfügbar.',
-                'specific_users' => 'Sie haben keine Berechtigung für diese Funktion.',
-                'course_admins' => 'Sie haben keine Berechtigung, diese Test-Einstellungen zu ändern.'
+                'admins_only' => $this->txt('access_admins_only'),
+                'specific_users' => $this->txt('access_no_permission'),
+                'course_admins' => $this->txt('access_no_test_permission')
             ];
 
             $this->tpl->setOnScreenMessage(
                 'failure',
-                'Zugriff verweigert: ' . ($error_messages[$visibility] ?? $error_messages['course_admins'])
+                sprintf(
+                    $this->txt('access_denied_reason'),
+                    $error_messages[$visibility] ?? $error_messages['course_admins']
+                )
             );
             $DIC->ctrl()->redirectToURL("ilias.php?ref_id=$ref_id&baseClass=ilRepositoryGUI");
             return;
@@ -150,14 +163,14 @@ class ilExtendedTestSettingsAdvancedGUI
     {
         $ref_id = (int) ($_GET["ref_id"] ?? 0);
         if ($ref_id <= 0) {
-            $this->tpl->setOnScreenMessage('failure', 'Kein gültiger Test ausgewählt.');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('no_valid_test'));
             return;
         }
 
         // Prüfe ob es ein Test-Objekt ist
         $obj_id = ilObject::_lookupObjectId($ref_id);
         if (ilObject::_lookupType($obj_id) !== 'tst') {
-            $this->tpl->setOnScreenMessage('failure', 'Das ausgewählte Objekt ist kein Test.');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('not_a_test'));
             return;
         }
 
@@ -167,8 +180,8 @@ class ilExtendedTestSettingsAdvancedGUI
         // Formular generieren
         $form = $this->buildModuleForm($ref_id);
 
-        $this->tpl->setTitle('Erweiterte Test-Einstellungen');
-        $this->tpl->setDescription('Konfiguration für alle verfügbaren Prüfungs-Features');
+        $this->tpl->setTitle($this->txt('advanced_settings'));
+        $this->tpl->setDescription($this->txt('advanced_settings_info'));
         $this->tpl->setContent($form->getHTML());
     }
 
@@ -276,7 +289,7 @@ class ilExtendedTestSettingsAdvancedGUI
                 } else {
                     // Fallback: Manuell hinzufügen
                     $locator->addItem(
-                        "Repository",
+                        $this->txt('locator_repository'),
                         "ilias.php?baseClass=ilRepositoryGUI"
                     );
                     $locator->addItem(
@@ -286,7 +299,7 @@ class ilExtendedTestSettingsAdvancedGUI
                 }
 
                 // Aktueller Bereich
-                $locator->addItem("Erweiterte Einstellungen", "");
+                $locator->addItem($this->txt('advanced_settings_short'), "");
             }
 
             // 2. TABS UND ZURÜCK-BUTTON (mehrere Varianten)
@@ -307,7 +320,7 @@ class ilExtendedTestSettingsAdvancedGUI
                 $this->ctrl->setParameter($this, "ref_id", $ref_id);
                 $tabs->addTab(
                     "extended_settings",
-                    "Erweiterte Einstellungen",
+                    $this->txt('advanced_settings_short'),
                     $this->ctrl->getLinkTarget($this, "show")
                 );
 
@@ -316,8 +329,8 @@ class ilExtendedTestSettingsAdvancedGUI
             }
 
             // 3. TITEL UND BESCHREIBUNG (Template-Ebene)
-            $this->tpl->setTitle("Erweiterte Test-Einstellungen");
-            $this->tpl->setDescription("Konfiguration für spezielle Prüfungs-Features");
+            $this->tpl->setTitle($this->txt('advanced_settings'));
+            $this->tpl->setDescription($this->txt('advanced_settings_nav_info'));
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Navigation-Setup Fehler: " . $e->getMessage());
@@ -334,14 +347,14 @@ class ilExtendedTestSettingsAdvancedGUI
 
         $this->ctrl->setParameter($this, 'ref_id', $ref_id);
         $form->setFormAction($this->ctrl->getFormAction($this, 'saveSettings'));
-        $form->setTitle('Erweiterte Test-Einstellungen');
+        $form->setTitle($this->txt('advanced_settings'));
 
         try {
             $module_handlers = $this->loadModuleHandlersDirect();
 
             if (empty($module_handlers)) {
                 $msg = new ilCustomInputGUI();
-                $msg->setHtml('<p>Keine Prüfungs-Module gefunden.</p>');
+                $msg->setHtml('<p>' . $this->txt('no_exam_modules') . '</p>');
                 $form->addItem($msg);
             } else {
                 foreach ($module_handlers as $moduleName => $handler) {
@@ -383,7 +396,7 @@ class ilExtendedTestSettingsAdvancedGUI
         $ref_hidden->setValue((string) $ref_id);
         $form->addItem($ref_hidden);
 
-        $form->addCommandButton('saveSettings', 'Einstellungen speichern');
+        $form->addCommandButton('saveSettings', $this->txt('save_settings'));
 
         return $form;
     }
@@ -413,15 +426,15 @@ class ilExtendedTestSettingsAdvancedGUI
         $examcalc_data = $this->getFallbackExamCalcStatus($ref_id);
 
         $section_calc = new ilFormSectionHeaderGUI();
-        $section_calc->setTitle('🧮 Taschenrechner');
+        $section_calc->setTitle('🧮 ' . $this->txt('fb_calc_section'));
         $form->addItem($section_calc);
 
-        $cb_calc = new ilCheckboxInputGUI('Taschenrechner aktivieren', 'examcalc_enabled');
+        $cb_calc = new ilCheckboxInputGUI($this->txt('fb_calc_enable'), 'examcalc_enabled');
         $cb_calc->setChecked($examcalc_data['enabled']);
-        $sel_calc = new ilSelectInputGUI('Taschenrechner-Typ', 'examcalc_mode');
+        $sel_calc = new ilSelectInputGUI($this->txt('fb_calc_type'), 'examcalc_mode');
         $sel_calc->setOptions([
-            'simple'   => 'Einfach (Grundrechenarten) – Standard',
-            'advanced' => 'Wissenschaftlich (Work in Progress)',
+            'simple'   => $this->txt('fb_calc_simple'),
+            'advanced' => $this->txt('fb_calc_advanced'),
         ]);
         $sel_calc->setValue($examcalc_data['mode']);
         $cb_calc->addSubItem($sel_calc);
@@ -431,16 +444,16 @@ class ilExtendedTestSettingsAdvancedGUI
         $examsymbols_data = $this->getFallbackExamSymbolsStatus($ref_id);
 
         $section_sym = new ilFormSectionHeaderGUI();
-        $section_sym->setTitle('📝 Sonderzeichen-Palette');
+        $section_sym->setTitle('📝 ' . $this->txt('fb_sym_section'));
         $form->addItem($section_sym);
 
-        $cb_sym = new ilCheckboxInputGUI('Sonderzeichen-Palette aktivieren', 'examsymbols_enabled');
+        $cb_sym = new ilCheckboxInputGUI($this->txt('fb_sym_enable'), 'examsymbols_enabled');
         $cb_sym->setChecked($examsymbols_data['enabled']);
-        $sel_sym = new ilSelectInputGUI('Symbol-Vorlage', 'examsymbols_template');
+        $sel_sym = new ilSelectInputGUI($this->txt('fb_sym_template'), 'examsymbols_template');
         $sel_sym->setOptions([
-            'math'    => 'Mathematik/Wissenschaft',
-            'german'  => 'Deutsch',
-            'spanish' => 'Spanisch',
+            'math'    => $this->txt('fb_sym_math'),
+            'german'  => $this->txt('fb_sym_german'),
+            'spanish' => $this->txt('fb_sym_spanish'),
         ]);
         $sel_sym->setValue($examsymbols_data['template']);
         $cb_sym->addSubItem($sel_sym);
@@ -450,18 +463,18 @@ class ilExtendedTestSettingsAdvancedGUI
         $examalert_data = $this->getFallbackExamAlertStatus($ref_id);
 
         $section_alert = new ilFormSectionHeaderGUI();
-        $section_alert->setTitle('⏰ Zeit-Warnung');
+        $section_alert->setTitle('⏰ ' . $this->txt('fb_alert_section'));
         $form->addItem($section_alert);
 
-        $cb_alert = new ilCheckboxInputGUI('Zeit-Warnung aktivieren', 'examalert_enabled');
+        $cb_alert = new ilCheckboxInputGUI($this->txt('fb_alert_enable'), 'examalert_enabled');
         $cb_alert->setChecked($examalert_data['enabled']);
-        $num_alert = new ilNumberInputGUI('Warnung anzeigen', 'examalert_time');
+        $num_alert = new ilNumberInputGUI($this->txt('fb_alert_show'), 'examalert_time');
         $num_alert->setValue((string) (int) $examalert_data['alert_time']);
         $num_alert->setMinValue(5);
         $num_alert->setMaxValue(3600);
-        $num_alert->setSuffix('Sekunden vor Testende');
+        $num_alert->setSuffix($this->txt('fb_alert_suffix'));
         $cb_alert->addSubItem($num_alert);
-        $ta_alert = new ilTextAreaInputGUI('Nachricht', 'examalert_message');
+        $ta_alert = new ilTextAreaInputGUI($this->txt('fb_alert_message'), 'examalert_message');
         $ta_alert->setValue($examalert_data['alert_message']);
         $ta_alert->setRows(6);
         $cb_alert->addSubItem($ta_alert);
@@ -541,7 +554,7 @@ class ilExtendedTestSettingsAdvancedGUI
                 return [
                     'enabled' => (bool) $row['enabled'],
                     'alert_time' => (int) ($row['alert_time'] ?? 30),
-                    'alert_message' => $row['alert_message'] ?? 'Achtung: Der Test endet bald!'
+                    'alert_message' => $row['alert_message'] ?? $this->txt('fb_alert_default_message')
                 ];
             }
 
@@ -551,7 +564,7 @@ class ilExtendedTestSettingsAdvancedGUI
             return [
                 'enabled'       => $default_enabled,
                 'alert_time'    => 30,
-                'alert_message' => 'Achtung: Der Test endet bald!'
+                'alert_message' => $this->txt('fb_alert_default_message')
             ];
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
@@ -559,7 +572,7 @@ class ilExtendedTestSettingsAdvancedGUI
             }
         }
 
-        return ['enabled' => false, 'alert_time' => 30, 'alert_message' => 'Achtung: Der Test endet bald!'];
+        return ['enabled' => false, 'alert_time' => 30, 'alert_message' => $this->txt('fb_alert_default_message')];
     }
 
     /**
@@ -576,7 +589,7 @@ class ilExtendedTestSettingsAdvancedGUI
 
         // Prüfe nochmals die Berechtigung beim Speichern
         if (!$DIC->user()->getId() || $DIC->user()->isAnonymous()) {
-            $this->tpl->setOnScreenMessage('failure', 'Nicht autorisiert.');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('not_authorized'));
             $DIC->ctrl()->redirectToURL('./login.php');
             return;
         }
@@ -602,14 +615,14 @@ class ilExtendedTestSettingsAdvancedGUI
         if (!$access_granted) {
             $this->tpl->setOnScreenMessage(
                 'failure',
-                'Zugriff verweigert: Keine Berechtigung zum Speichern.'
+                $this->txt('access_denied_save')
             );
             $this->ctrl->redirect($this, "show");
             return;
         }
 
         if ($ref_id <= 0) {
-            $this->tpl->setOnScreenMessage('failure', '❌ Kein gültiger Test ausgewählt.');
+            $this->tpl->setOnScreenMessage('failure', '❌ ' . $this->txt('no_valid_test'));
             $this->ctrl->redirect($this, "show");
             return;
         }
@@ -617,7 +630,7 @@ class ilExtendedTestSettingsAdvancedGUI
         // Objekttyp-Prüfung: nur Tests erlaubt
         $obj_id = ilObject::_lookupObjectId($ref_id);
         if (ilObject::_lookupType($obj_id) !== 'tst') {
-            $this->tpl->setOnScreenMessage('failure', 'Das ausgewaehlte Objekt ist kein Test.');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('not_a_test'));
             $this->ctrl->redirect($this, "show");
             return;
         }
@@ -654,25 +667,25 @@ class ilExtendedTestSettingsAdvancedGUI
             if (!empty($success_modules)) {
                 $success_names = array_keys($success_modules);
                 $success_text = $this->formatModuleNames($success_names);
-                $this->tpl->setOnScreenMessage('success', "✅ Einstellungen erfolgreich gespeichert für: $success_text");
+                $this->tpl->setOnScreenMessage('success', '✅ ' . sprintf($this->txt('save_success_for'), $success_text));
             }
 
             // Fehler-Message zusammenstellen
             if (!empty($failed_modules)) {
                 $failed_names = array_keys($failed_modules);
                 $failed_text = $this->formatModuleNames($failed_names);
-                $this->tpl->setOnScreenMessage('failure', "❌ Fehler beim Speichern von: $failed_text");
+                $this->tpl->setOnScreenMessage('failure', '❌ ' . sprintf($this->txt('save_failed_for'), $failed_text));
             }
 
             // Keine Module verarbeitet
             if (empty($results)) {
-                $this->tpl->setOnScreenMessage('info', 'ℹ️ Keine Module zum Speichern gefunden.');
+                $this->tpl->setOnScreenMessage('info', 'ℹ️ ' . $this->txt('no_modules_to_save'));
             }
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Fehler beim Speichern: " . $e->getMessage());
             }
-            $this->tpl->setOnScreenMessage('failure', '❌ Unerwarteter Fehler beim Speichern: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', '❌ ' . sprintf($this->txt('error_save_unexpected'), $e->getMessage()));
         }
 
         $this->ctrl->redirect($this, "show");
@@ -687,22 +700,22 @@ class ilExtendedTestSettingsAdvancedGUI
         foreach ($module_names as $name) {
             switch (strtolower($name)) {
                 case 'examcalc':
-                    $formatted[] = 'Taschenrechner';
+                    $formatted[] = $this->txt('modname_examcalc');
                     break;
                 case 'examsymbols':
-                    $formatted[] = 'Sonderzeichen';
+                    $formatted[] = $this->txt('modname_examsymbols');
                     break;
                 case 'examguard':
-                    $formatted[] = 'Prüfungsschutz';
+                    $formatted[] = $this->txt('modname_examguard');
                     break;
                 case 'examalert':
-                    $formatted[] = 'Zeit-Warnung';
+                    $formatted[] = $this->txt('modname_examalert');
                     break;
                 case 'exammessage':
-                    $formatted[] = 'Prüfungs-Nachricht';
+                    $formatted[] = $this->txt('modname_exammessage');
                     break;
                 case 'examchecker':
-                    $formatted[] = 'Prüfungs-Checker';
+                    $formatted[] = $this->txt('modname_examchecker');
                     break;
 
                 default:

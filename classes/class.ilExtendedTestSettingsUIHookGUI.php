@@ -75,7 +75,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                 'show'
             );
 
-            $ilTabs->addSubTab('extended_test_settings', 'Erweiterte Test-Einstellungen', $link);
+            $ilTabs->addSubTab('extended_test_settings', $this->getPluginObject()->txt('advanced_settings'), $link);
 
         } catch (Exception $e) {
             if (self::DEBUG_ENABLED) {

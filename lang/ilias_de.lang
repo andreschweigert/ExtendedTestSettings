@@ -1,1 +1,241 @@
-advanced_settings = Erweiterte Test-Einstellungen
+<!-- language file start -->
+advanced_settings#:#Erweiterte Test-Einstellungen
+advanced_settings_info#:#Konfiguration für alle verfügbaren Prüfungs-Features
+advanced_settings_nav_info#:#Konfiguration für spezielle Prüfungs-Features
+advanced_settings_short#:#Erweiterte Einstellungen
+locator_repository#:#Magazin
+tab_general#:#Allgemein
+tab_modules#:#Module
+tab_statistics#:#Statistiken
+tab_examchecker#:#ExamChecker
+tab_protocol#:#Protokoll
+tab_devices#:#Geräte
+tab_netqos#:#Netzwerk-Qualität
+access_denied#:#Zugriff verweigert.
+access_denied_login#:#Zugriff verweigert: Sie müssen angemeldet sein.
+access_denied_admin#:#Zugriff verweigert: Administrator-Rechte erforderlich.
+access_denied_reason#:#Zugriff verweigert: %s
+access_denied_save#:#Zugriff verweigert: Keine Berechtigung zum Speichern.
+access_admins_only#:#Diese Funktion ist nur für System-Administratoren verfügbar.
+access_no_permission#:#Sie haben keine Berechtigung für diese Funktion.
+access_no_test_permission#:#Sie haben keine Berechtigung, diese Test-Einstellungen zu ändern.
+not_authorized#:#Nicht autorisiert.
+no_valid_test#:#Kein gültiger Test ausgewählt.
+not_a_test#:#Das ausgewählte Objekt ist kein Test.
+save#:#Speichern
+save_settings#:#Einstellungen speichern
+settings_saved#:#Einstellungen gespeichert.
+back#:#Zurück
+search#:#Suchen
+add#:#Hinzufügen
+remove#:#Entfernen
+uninstall#:#Deinstallieren
+activate#:#Aktivieren
+deactivate#:#Deaktivieren
+details#:#Details
+error_generic#:#Fehler: %s
+error_saving#:#Fehler beim Speichern: %s
+error_unexpected#:#Unerwarteter Fehler: %s
+dev_settings#:#Dev-Einstellungen
+dev_settings_info#:#Vorläufige Einstellungen – Aufteilung und Verhalten werden ggf. noch überarbeitet.
+intro_panel_about#:#Über das Plugin
+intro_panel_support#:#Dokumentation &amp; Kontakt
+intro_about_text#:#<p>Das <strong>ExtendedTestSettings</strong>-Plugin erweitert ILIAS-Tests um Zusatzfunktionen für Online- und Präsenzprüfungen – etwa Taschenrechner, Sonderzeichen-Paletten, Prüfungsschutz, Zeitwarnungen oder Verbindungsüberwachung. Die Funktionen sind in eigenständige <strong>Module</strong> gebündelt, die unabhängig vom Plugin-Kern installiert, aktiviert, deaktiviert und aktualisiert werden können.</p>
+intro_usage_manage_title#:#Module verwalten
+intro_usage_manage_desc#:#Im Reiter „Module" werden Module als ZIP-Paket hochgeladen, aktiviert bzw. deaktiviert und auf neue Versionen aktualisiert. Installierte Module liegen im Verzeichnis modules/.
+intro_usage_pertest_title#:#Pro Test konfigurieren
+intro_usage_pertest_desc#:#In jedem Test erscheint unter Einstellungen der Sub-Tab „Erweiterte Test-Einstellungen". Dort bietet jedes aktive Modul seine eigenen Einstellungsfelder an – Änderungen gelten nur für den jeweiligen Test.
+intro_support_text#:#<p>Die Dokumentation der einzelnen Module ist auf GitHub zu finden: <a href="%1$s" target="_blank" rel="noopener">%1$s</a></p><p>Bei Problemen oder Fragen gerne eine E-Mail an <a href="mailto:andre.schweigert@fau.de">andre.schweigert@fau.de</a> schreiben oder ein Issue auf GitHub erstellen.</p><p>Die Programmierung neuer Module kann ebenfalls gerne durchgeführt werden – Infos hierzu folgen. Auch <strong>Modulwünsche</strong> können jederzeit eingereicht werden.</p>
+visibility_section#:#Tab-Sichtbarkeit in Test-Einstellungen
+visibility_label#:#Sichtbarkeit
+visibility_info#:#Bestimmen Sie, wer den Tab "Erweiterte Test-Einstellungen" in Tests sehen kann.
+visibility_admins_only#:#Nur System-Administratoren
+visibility_admins_only_info#:#Nur ILIAS System-Administratoren können den Tab sehen und verwenden.
+visibility_course_admins#:#Kurs-Administratoren + System-Administratoren
+visibility_course_admins_info#:#Kurs-Administratoren, Test-Besitzer und System-Administratoren können den Tab sehen.
+visibility_specific_users#:#Nur ausgewählte Benutzer + System-Administratoren
+visibility_specific_users_info#:#Nur explizit berechtigte Benutzer und System-Administratoren können den Tab sehen.
+examalert_auto_section#:#ExamAlert Auto-Aktivierung
+examalert_auto_label#:#Standard für neue Tests
+examalert_auto_info#:#Diese Einstellung betrifft nur neue Tests. Bereits existierende Tests behalten ihre aktuellen Einstellungen. Administratoren können ExamAlert jederzeit in den Test-Einstellungen manuell aktivieren oder deaktivieren.
+examalert_auto_on#:#Aktiviert: Jeder neue Test bekommt automatisch ExamAlert aktiviert (30s Warnung vor Ende)
+examalert_auto_on_info#:#Neue Tests erhalten automatisch eine 30-Sekunden-Warnung vor Testende.
+examalert_auto_off#:#Deaktiviert: ExamAlert muss für jeden Test manuell in den Einstellungen aktiviert werden
+examalert_auto_off_info#:#ExamAlert ist bei neuen Tests standardmäßig deaktiviert.
+add_user#:#Benutzer hinzufügen
+authorized_users_title#:#Berechtigte Benutzer (%d)
+no_users_yet#:#Noch keine Benutzer hinzugefügt.
+remove_user_title#:#Benutzer entfernen
+remove_user_confirm#:#Benutzer @%s wirklich aus der Berechtigungsliste entfernen?
+prop_added_by#:#Hinzugefügt von
+prop_date#:#Datum
+prop_email#:#E-Mail
+prop_version#:#Version
+prop_status#:#Status
+users_authorized_count#:#%d Benutzer berechtigt
+user_search_title#:#Benutzer suchen und hinzufügen
+search_term#:#Suchbegriff
+search_term_info#:#Login, Vor- oder Nachname. Mindestens 2 Zeichen. Bereits berechtigte Benutzer werden ausgeblendet.
+search_min_chars#:#Bitte mindestens 2 Zeichen eingeben.
+no_users_found#:#Keine Benutzer gefunden für "%s".
+users_found_count#:#%d Benutzer gefunden
+search_results#:#Suchergebnisse
+invalid_user_id#:#Ungültige Benutzer-ID
+user_already_authorized#:#Benutzer war bereits berechtigt.
+user_added#:#Benutzer %s wurde erfolgreich hinzugefügt.
+no_users_selected#:#Keine Benutzer ausgewählt.
+users_added_count#:#%d Benutzer erfolgreich hinzugefügt.
+users_already_count#:#%d Benutzer waren bereits berechtigt.
+error_adding_users#:#Fehler beim Hinzufügen der Benutzer: %s
+user_removed#:#Benutzer %s wurde entfernt.
+error_removing#:#Fehler beim Entfernen: %s
+stats_no_active_module#:#Aktuell ist kein Modul aktiv. Aktivieren Sie Module im Reiter „Module", um hier deren Nutzung zu sehen.
+stats_no_module_settings#:#Kein aktives Modul mit test-spezifischen Einstellungen vorhanden.
+stats_module_usage#:#Modul-Nutzung
+stats_test_one#:#1 aktiver Test
+stats_test_many#:#%d aktive Tests
+stats_no_test_uses#:#Aktuell in keinem aktiven Test verwendet.
+maintenance#:#Wartung
+maintenance_info#:#Entfernt Einstellungen von Tests, die in ILIAS gelöscht wurden.
+preview_show#:#Vorschau anzeigen
+cleanup_now#:#Jetzt bereinigen
+examchecker_title#:#ExamChecker-Vorgaben konfigurieren
+examchecker_desc#:#Bestimmen Sie, welche Einstellungen bei der Prüfung von Tests als verpflichtend gelten sollen.
+examchecker_praesenz#:#Präsenzprüfungen
+examchecker_praesenz_group#:#Verpflichtende Checks für Prüfungen vor Ort
+examchecker_fern#:#Fernprüfungen
+examchecker_fern_group#:#Verpflichtende Checks für Online-Prüfungen
+examchecker_save#:#Vorgaben speichern
+examchecker_saved#:#ExamChecker-Vorgaben erfolgreich gespeichert.
+check_fragenpools_verwenden#:#Fragenpools verwenden
+check_fragenpools_verwenden_info#:#Test muss Fragenpools nutzen
+check_datenschutz#:#Datenschutz (Testergebnisse mit Namen)
+check_datenschutz_info#:#Anonymität muss deaktiviert sein
+check_online#:#Test ist online geschaltet
+check_online_info#:#Test muss online verfügbar sein
+check_passwort#:#Testpasswort gesetzt
+check_passwort_info#:#Ein Passwort muss konfiguriert sein
+check_nur_ausgewaehlte_teilnehmer#:#Nur ausgewählte Teilnehmer (deaktiviert)
+check_nur_ausgewaehlte_teilnehmer_info#:#Offener Zugang für alle Teilnehmer
+check_testdurchlaeufe_begrenzen#:#Testdurchläufe auf 1 begrenzt
+check_testdurchlaeufe_begrenzen_info#:#Anzahl der Versuche muss 1 sein
+check_wartezeit_erzwingen#:#Wartezeit zwischen Durchläufen (deaktiviert)
+check_wartezeit_erzwingen_info#:#Keine Wartezeit zwischen Versuchen
+check_pruefungsansicht#:#Prüfungsansicht (Kiosk-Modus)
+check_pruefungsansicht_info#:#Kiosk-Modus muss aktiviert sein
+check_automatisches_speichern#:#Automatisches Speichern (30s)
+check_automatisches_speichern_info#:#Auto-Save alle 30 Sekunden
+check_direkte_rueckmeldung#:#Direkte Rückmeldung (deaktiviert)
+check_direkte_rueckmeldung_info#:#Sofortige Antwortbewertung ausgeschaltet
+check_fragen_markieren#:#Fragen markieren aktiviert
+check_fragen_markieren_info#:#Teilnehmer können Fragen markieren
+check_eigenstaendigkeitserklaerung#:#Eigenständigkeitserklärung
+check_eigenstaendigkeitserklaerung_info#:#Nur für Fernprüfungen erforderlich
+check_bearbeitungsdauer#:#Bearbeitungsdauer begrenzen
+check_bearbeitungsdauer_info#:#Zeitlimit muss aktiviert sein
+check_weiterleitung#:#Weiterleitung zu logout.php
+check_weiterleitung_info#:#Nur bei Präsenzprüfungen mit Kiosk
+check_bewertungssystem#:#Teilweise richtige Antworten bewerten
+check_bewertungssystem_info#:#Teilpunkte für unvollständige Antworten
+check_negative_punkte#:#Negative Punkte (deaktiviert)
+check_negative_punkte_info#:#Keine Punktabzüge für falsche Antworten
+check_besten_durchlauf_bewerten#:#Besten Testdurchlauf bewerten
+check_besten_durchlauf_bewerten_info#:#Beste Leistung zählt
+check_keine_vorbedingungen#:#Keine Vorbedingungen gesetzt
+check_keine_vorbedingungen_info#:#Test ist ohne Vorbedingungen frei zugänglich
+check_direkte_notenuebermittlung#:#Direkte Notenübermittlung (deaktiviert)
+check_direkte_notenuebermittlung_info#:#Noten werden nicht sofort an Teilnehmer übermittelt
+check_zeitlich_begrenzte_verfuegbarkeit#:#Zeitlich begrenzte Verfügbarkeit (deaktiviert)
+check_zeitlich_begrenzte_verfuegbarkeit_info#:#Test hat keine zusätzliche Kurs-Verfügbarkeitsbegrenzung
+error_preview#:#Fehler bei der Vorschau: %s
+back_to_statistics#:#Zurück zu Statistiken
+cleanup_none#:#Keine verwaisten Einträge – alles in Ordnung.
+cleanup_table_entries#:#%s (%d Einträge)
+cleanup_confirm_title#:#Bereinigung bestätigen
+cleanup_confirm_text#:#%d verwaiste Einträge werden unwiderruflich gelöscht. Fortfahren?
+cleanup_action#:#Bereinigen
+cleanup_delete_now#:#%d Einträge jetzt löschen
+cleanup_found#:#%d verwaiste Einträge gefunden. Bereinigung empfohlen.
+cleanup_done#:#%d verwaiste Einträge wurden erfolgreich bereinigt.
+cleanup_none_found#:#Keine verwaisten Einträge gefunden - alles sauber!
+error_cleanup#:#Fehler bei der Bereinigung: %s
+modules_intro#:#Module erweitern das Plugin um zusätzliche Funktionen. Sie werden als ZIP-Paket hochgeladen, lassen sich aktivieren bzw. deaktivieren und auf neue Versionen aktualisieren.
+modules_dir_not_writable#:#Das Verzeichnis modules/ ist nicht schreibbar – es können keine Module hochgeladen werden. Bitte auf dem Server die Schreibrechte für den Webserver-Benutzer setzen (z. B. chown www-data: modules/).
+modules_check_updates#:#Nach Updates suchen
+modules_network_diag#:#Netzwerk-Diagnose
+modules_none#:#Keine Module gefunden.
+modules_group_count#:#Module (%d)
+module_update_badge#:#Update auf v%s
+module_update_check_failed#:#Update-Prüfung fehlgeschlagen
+module_deactivate_title#:#Modul deaktivieren
+module_activate_title#:#Modul aktivieren
+module_deactivate_confirm#:#Modul „%s" deaktivieren? Der Modul-Code wird danach nicht mehr geladen.
+module_activate_confirm#:#Modul „%s" aktivieren?
+module_uninstall_title#:#Modul deinstallieren
+module_uninstall_confirm#:#Modul „%s" wirklich deinstallieren? Alle zugehörigen Daten werden gelöscht.
+status_active#:#Aktiv
+status_inactive#:#Inaktiv
+module_install_title#:#Neues Modul installieren
+module_zip_label#:#Modul-ZIP
+module_zip_info#:#Das Paket muss eine module.json enthalten. Maximale Größe: 20 MB. Erlaubte Dateitypen: .php, .js, .css, .sql, .json, .html
+module_upload_btn#:#Hochladen und installieren
+repo_title#:#Modul-Repository
+repo_desc#:#GitHub-Repository mit den Modul-ZIPs. Die ZIPs müssen der Namenskonvention ModulName_v1.0.0.zip folgen. Beispiel: https://github.com/andreschweigert/ExtendedTestSettings-Modules
+repo_url_label#:#Repository-URL
+repo_url_info#:#Vollständige GitHub-URL, z. B. https://github.com/user/Repo
+repo_branch_label#:#Branch
+repo_proxy_label#:#HTTP-Proxy
+repo_proxy_info#:#Nur nötig, wenn GitHub nicht direkt erreichbar ist. Format: http://host:port
+module_not_found#:#Modul '%s' nicht gefunden.
+module_activated#:#Modul '%s' wurde aktiviert.
+module_deactivated#:#Modul '%s' wurde deaktiviert. PHP lädt den Modul-Code nicht mehr.
+upload_err_ini_size#:#Datei überschreitet upload_max_filesize.
+upload_err_form_size#:#Datei überschreitet MAX_FILE_SIZE.
+upload_err_no_file#:#Keine Datei ausgewählt.
+upload_err_generic#:#Upload-Fehler.
+module_installed#:#Modul '%s' (v%s) erfolgreich installiert und aktiviert.
+module_install_failed#:#Installation fehlgeschlagen: %s
+module_builtin_no_uninstall#:#Built-in Module können nicht deinstalliert werden.
+module_uninstalled#:#Modul '%s' wurde deinstalliert.
+module_uninstall_failed#:#Deinstallation fehlgeschlagen: %s
+repo_invalid_github_url#:#Bitte eine gültige GitHub-URL eingeben (https://github.com/...).
+repo_invalid_proxy#:#Proxy-URL muss das Format http://host:port haben.
+repo_saved#:#Repository-Einstellungen gespeichert.
+invalid_download_url#:#Ungültige Download-URL.
+repo_not_configured#:#Kein Repository konfiguriert.
+updates_available#:#%d Update(s) verfügbar.
+modules_up_to_date#:#Alle Module sind aktuell.
+module_examnetqos_missing#:#Das ExamNetQos-Modul ist nicht installiert.
+module_examlogger_missing#:#Das ExamLogger-Modul ist nicht installiert.
+no_exam_modules#:#Keine Prüfungs-Module gefunden.
+no_modules_to_save#:#Keine Module zum Speichern gefunden.
+save_success_for#:#Einstellungen erfolgreich gespeichert für: %s
+save_failed_for#:#Fehler beim Speichern von: %s
+error_save_unexpected#:#Unerwarteter Fehler beim Speichern: %s
+fb_calc_section#:#Taschenrechner
+fb_calc_enable#:#Taschenrechner aktivieren
+fb_calc_type#:#Taschenrechner-Typ
+fb_calc_simple#:#Einfach (Grundrechenarten) – Standard
+fb_calc_advanced#:#Wissenschaftlich (Work in Progress)
+fb_sym_section#:#Sonderzeichen-Palette
+fb_sym_enable#:#Sonderzeichen-Palette aktivieren
+fb_sym_template#:#Symbol-Vorlage
+fb_sym_math#:#Mathematik/Wissenschaft
+fb_sym_german#:#Deutsch
+fb_sym_spanish#:#Spanisch
+fb_alert_section#:#Zeit-Warnung
+fb_alert_enable#:#Zeit-Warnung aktivieren
+fb_alert_show#:#Warnung anzeigen
+fb_alert_suffix#:#Sekunden vor Testende
+fb_alert_message#:#Nachricht
+fb_alert_default_message#:#Achtung: Der Test endet bald!
+modname_examcalc#:#Taschenrechner
+modname_examsymbols#:#Sonderzeichen
+modname_examguard#:#Prüfungsschutz
+modname_examalert#:#Zeit-Warnung
+modname_exammessage#:#Prüfungs-Nachricht
+modname_examchecker#:#Prüfungs-Checker
+no_module_specified#:#Kein Modul angegeben.
+module_no_gui_class#:#Modul '%s' hat keine GUI-Klasse definiert.
+gui_file_not_found#:#GUI-Datei nicht gefunden: %s
+gui_class_not_found#:#GUI-Klasse nicht gefunden: %s

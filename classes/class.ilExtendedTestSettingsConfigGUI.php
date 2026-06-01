@@ -26,6 +26,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     }
 
     /**
+     * Löst eine Sprachvariable des Plugins auf (Kurzform für getPluginObject()->txt()).
+     */
+    private function txt(string $key): string
+    {
+        return $this->getPluginObject()->txt($key);
+    }
+
+    /**
      * performCommand - mit ilRepositorySearchGUI Integration
      */
     public function performCommand(string $cmd): void
@@ -36,7 +44,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         if (!$DIC->user()->getId() || $DIC->user()->isAnonymous()) {
             $DIC->ui()->mainTemplate()->setOnScreenMessage(
                 'failure',
-                'Zugriff verweigert: Sie müssen angemeldet sein.'
+                $this->txt('access_denied_login')
             );
             $DIC->ctrl()->redirectToURL('./login.php');
             return;
@@ -45,7 +53,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         if (!$rbacsystem->checkAccess("write", SYSTEM_FOLDER_ID)) {
             $DIC->ui()->mainTemplate()->setOnScreenMessage(
                 'failure',
-                'Zugriff verweigert: Administrator-Rechte erforderlich.'
+                $this->txt('access_denied_admin')
             );
             $DIC->ctrl()->redirectToURL('./ilias.php?baseClass=ilDashboardGUI');
             return;
@@ -170,19 +178,19 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         $this->tabs->addTab(
             'general',
-            'Allgemein',
+            $this->txt('tab_general'),
             $this->ctrl->getLinkTarget($this, 'showGeneral')
         );
 
         $this->tabs->addTab(
             'modules',
-            'Module',
+            $this->txt('tab_modules'),
             $this->ctrl->getLinkTarget($this, 'showModules')
         );
 
         $this->tabs->addTab(
             'statistics',
-            'Statistiken',
+            $this->txt('tab_statistics'),
             $this->ctrl->getLinkTarget($this, 'showStatistics')
         );
 
@@ -192,7 +200,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         if ($registry->isModuleActive('examchecker')) {
             $this->tabs->addTab(
                 'examchecker',
-                'ExamChecker',
+                $this->txt('tab_examchecker'),
                 $this->ctrl->getLinkTarget($this, 'showExamChecker')
             );
         }
@@ -200,12 +208,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         if ($registry->isModuleActive('examlogger')) {
             $this->tabs->addTab(
                 'protocol',
-                'Protokoll',
+                $this->txt('tab_protocol'),
                 $this->ctrl->getLinkTarget($this, 'showProtocol')
             );
             $this->tabs->addTab(
                 'devices',
-                'Geräte',
+                $this->txt('tab_devices'),
                 $this->ctrl->getLinkTarget($this, 'showDevices')
             );
         }
@@ -213,7 +221,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         if ($registry->isModuleActive('examnetqos')) {
             $this->tabs->addTab(
                 'netqos',
-                'Netzwerk-Qualität',
+                $this->txt('tab_netqos'),
                 $this->ctrl->getLinkTarget($this, 'showNetQos')
             );
         }
@@ -238,11 +246,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         [$users_panel, $users_modals] = $this->buildAuthorizedUsersSubPanel($factory);
 
         $dev_panel = $factory->panel()->standard(
-            'Dev-Einstellungen',
+            $this->txt('dev_settings'),
             [
                 $factory->legacy(
-                    '<p>Vorläufige Einstellungen – Aufteilung und Verhalten werden ggf. '
-                    . 'noch überarbeitet.</p>'
+                    '<p>' . $this->txt('dev_settings_info') . '</p>'
                     . $form->getHTML()
                 ),
                 $users_panel,
@@ -265,40 +272,20 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         $repo_url = 'https://github.com/andreschweigert/ExtendedTestSettings-Modules';
 
-        $intro = $factory->legacy(
-            '<p>Das <strong>ExtendedTestSettings</strong>-Plugin erweitert ILIAS-Tests um '
-            . 'Zusatzfunktionen für Online- und Präsenzprüfungen – etwa Taschenrechner, '
-            . 'Sonderzeichen-Paletten, Prüfungsschutz, Zeitwarnungen oder Verbindungsüberwachung. '
-            . 'Die Funktionen sind in eigenständige <strong>Module</strong> gebündelt, die '
-            . 'unabhängig vom Plugin-Kern installiert, aktiviert, deaktiviert und aktualisiert '
-            . 'werden können.</p>'
-        );
+        $intro = $factory->legacy($this->txt('intro_about_text'));
 
         $usage = $factory->listing()->descriptive([
-            'Module verwalten'
-                => 'Im Reiter „Module" werden Module als ZIP-Paket hochgeladen, aktiviert bzw. '
-                 . 'deaktiviert und auf neue Versionen aktualisiert. Installierte Module liegen '
-                 . 'im Verzeichnis modules/.',
-            'Pro Test konfigurieren'
-                => 'In jedem Test erscheint unter Einstellungen der Sub-Tab „Erweiterte '
-                 . 'Test-Einstellungen". Dort bietet jedes aktive Modul seine eigenen '
-                 . 'Einstellungsfelder an – Änderungen gelten nur für den jeweiligen Test.',
+            $this->txt('intro_usage_manage_title')  => $this->txt('intro_usage_manage_desc'),
+            $this->txt('intro_usage_pertest_title') => $this->txt('intro_usage_pertest_desc'),
         ]);
 
         $support = $factory->legacy(
-            '<p>Die Dokumentation der einzelnen Module ist auf GitHub zu finden: '
-            . '<a href="' . $repo_url . '" target="_blank" rel="noopener">' . $repo_url . '</a></p>'
-            . '<p>Bei Problemen oder Fragen gerne eine E-Mail an '
-            . '<a href="mailto:andre.schweigert@fau.de">andre.schweigert@fau.de</a> schreiben '
-            . 'oder ein Issue auf GitHub erstellen.</p>'
-            . '<p>Die Programmierung neuer Module kann ebenfalls gerne durchgeführt werden – '
-            . 'Infos hierzu folgen. Auch <strong>Modulwünsche</strong> können jederzeit '
-            . 'eingereicht werden.</p>'
+            sprintf($this->txt('intro_support_text'), $repo_url)
         );
 
         return $renderer->render([
-            $factory->panel()->standard('Über das Plugin', [$intro, $usage]),
-            $factory->panel()->standard('Dokumentation &amp; Kontakt', [$support]),
+            $factory->panel()->standard($this->txt('intro_panel_about'), [$intro, $usage]),
+            $factory->panel()->standard($this->txt('intro_panel_support'), [$support]),
         ]);
     }
 
@@ -309,33 +296,33 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         // --- Tab-Sichtbarkeit ---
         $section_visibility = new ilFormSectionHeaderGUI();
-        $section_visibility->setTitle('Tab-Sichtbarkeit in Test-Einstellungen');
+        $section_visibility->setTitle($this->txt('visibility_section'));
         $form->addItem($section_visibility);
 
         $visibility = $this->settings->get('tab_visibility', 'course_admins');
 
-        $radio = new ilRadioGroupInputGUI('Sichtbarkeit', 'tab_visibility');
+        $radio = new ilRadioGroupInputGUI($this->txt('visibility_label'), 'tab_visibility');
         $radio->setValue($visibility);
-        $radio->setInfo('Bestimmen Sie, wer den Tab "Erweiterte Test-Einstellungen" in Tests sehen kann.');
+        $radio->setInfo($this->txt('visibility_info'));
 
         $opt_admins = new ilRadioOption(
-            'Nur System-Administratoren',
+            $this->txt('visibility_admins_only'),
             'admins_only',
-            'Nur ILIAS System-Administratoren können den Tab sehen und verwenden.'
+            $this->txt('visibility_admins_only_info')
         );
         $radio->addOption($opt_admins);
 
         $opt_course = new ilRadioOption(
-            'Kurs-Administratoren + System-Administratoren',
+            $this->txt('visibility_course_admins'),
             'course_admins',
-            'Kurs-Administratoren, Test-Besitzer und System-Administratoren können den Tab sehen.'
+            $this->txt('visibility_course_admins_info')
         );
         $radio->addOption($opt_course);
 
         $opt_specific = new ilRadioOption(
-            'Nur ausgewählte Benutzer + System-Administratoren',
+            $this->txt('visibility_specific_users'),
             'specific_users',
-            'Nur explizit berechtigte Benutzer und System-Administratoren können den Tab sehen.'
+            $this->txt('visibility_specific_users_info')
         );
         $radio->addOption($opt_specific);
 
@@ -343,35 +330,31 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         // --- ExamAlert Auto-Aktivierung ---
         $section_alert = new ilFormSectionHeaderGUI();
-        $section_alert->setTitle('ExamAlert Auto-Aktivierung');
+        $section_alert->setTitle($this->txt('examalert_auto_section'));
         $form->addItem($section_alert);
 
         $auto_val   = $this->settings->get('examalert_auto_activate', '1');
-        $radio_auto = new ilRadioGroupInputGUI('Standard für neue Tests', 'examalert_auto_activate');
+        $radio_auto = new ilRadioGroupInputGUI($this->txt('examalert_auto_label'), 'examalert_auto_activate');
         $radio_auto->setValue($auto_val);
-        $radio_auto->setInfo(
-            'Diese Einstellung betrifft nur neue Tests. '
-            . 'Bereits existierende Tests behalten ihre aktuellen Einstellungen. '
-            . 'Administratoren können ExamAlert jederzeit in den Test-Einstellungen manuell aktivieren oder deaktivieren.'
-        );
+        $radio_auto->setInfo($this->txt('examalert_auto_info'));
 
         $opt_auto_on = new ilRadioOption(
-            'Aktiviert: Jeder neue Test bekommt automatisch ExamAlert aktiviert (30s Warnung vor Ende)',
+            $this->txt('examalert_auto_on'),
             '1',
-            'Neue Tests erhalten automatisch eine 30-Sekunden-Warnung vor Testende.'
+            $this->txt('examalert_auto_on_info')
         );
         $radio_auto->addOption($opt_auto_on);
 
         $opt_auto_off = new ilRadioOption(
-            'Deaktiviert: ExamAlert muss für jeden Test manuell in den Einstellungen aktiviert werden',
+            $this->txt('examalert_auto_off'),
             '0',
-            'ExamAlert ist bei neuen Tests standardmäßig deaktiviert.'
+            $this->txt('examalert_auto_off_info')
         );
         $radio_auto->addOption($opt_auto_off);
 
         $form->addItem($radio_auto);
 
-        $form->addCommandButton('saveGeneralSettings', 'Einstellungen speichern');
+        $form->addCommandButton('saveGeneralSettings', $this->txt('save_settings'));
 
         return $form;
     }
@@ -386,13 +369,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         $authorized_users = $this->getAuthorizedUsers();
         $add_user_url     = $this->ctrl->getLinkTarget($this, 'showUserSearch');
-        $add_button       = $factory->button()->standard('Benutzer hinzufügen', $add_user_url);
+        $add_button       = $factory->button()->standard($this->txt('add_user'), $add_user_url);
 
         if (empty($authorized_users)) {
             $panel = $factory->panel()->sub(
-                'Berechtigte Benutzer (0)',
+                sprintf($this->txt('authorized_users_title'), 0),
                 [
-                    $factory->messageBox()->info('Noch keine Benutzer hinzugefügt.'),
+                    $factory->messageBox()->info($this->txt('no_users_yet')),
                     $add_button,
                 ]
             );
@@ -412,22 +395,22 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $this->ctrl->setParameter($this, 'user_id', '');
 
             $modal = $factory->modal()->interruptive(
-                'Benutzer entfernen',
-                'Benutzer @' . htmlspecialchars($login) . ' wirklich aus der Berechtigungsliste entfernen?',
+                $this->txt('remove_user_title'),
+                sprintf($this->txt('remove_user_confirm'), htmlspecialchars($login)),
                 $remove_url
-            )->withActionButtonLabel('Entfernen');
+            )->withActionButtonLabel($this->txt('remove'));
             $modals[] = $modal;
 
             $item = $factory->item()->standard($fullname)
                 ->withLeadAvatar($avatar)
                 ->withDescription('@' . $login)
                 ->withProperties([
-                    'Hinzugefügt von' => htmlspecialchars($user['added_by_name']),
-                    'Datum'           => htmlspecialchars($user['added_at_formatted']),
+                    $this->txt('prop_added_by') => htmlspecialchars($user['added_by_name']),
+                    $this->txt('prop_date')     => htmlspecialchars($user['added_at_formatted']),
                 ])
                 ->withActions(
                     $factory->dropdown()->standard([
-                        $factory->button()->shy('Entfernen', $modal->getShowSignal()),
+                        $factory->button()->shy($this->txt('remove'), $modal->getShowSignal()),
                     ])
                 );
 
@@ -435,12 +418,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         }
 
         $item_group = $factory->item()->group(
-            count($authorized_users) . ' Benutzer berechtigt',
+            sprintf($this->txt('users_authorized_count'), count($authorized_users)),
             $items
         );
 
         $panel = $factory->panel()->sub(
-            'Berechtigte Benutzer (' . count($authorized_users) . ')',
+            sprintf($this->txt('authorized_users_title'), count($authorized_users)),
             [$item_group, $add_button]
         );
 
@@ -462,19 +445,16 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         $form = new ilPropertyFormGUI();
         $form->setFormAction($this->ctrl->getLinkTarget($this, 'showUserSearch'));
-        $form->setTitle('Benutzer suchen und hinzufügen');
+        $form->setTitle($this->txt('user_search_title'));
 
-        $search_input = new ilTextInputGUI('Suchbegriff', 'search_query');
+        $search_input = new ilTextInputGUI($this->txt('search_term'), 'search_query');
         $search_input->setValue($search_query);
-        $search_input->setInfo(
-            'Login, Vor- oder Nachname. Mindestens 2 Zeichen. '
-            . 'Bereits berechtigte Benutzer werden ausgeblendet.'
-        );
+        $search_input->setInfo($this->txt('search_term_info'));
         $search_input->setSize(40);
         $form->addItem($search_input);
 
-        $form->addCommandButton('showUserSearch', 'Suchen');
-        $form->addCommandButton('showGeneral', 'Zurück');
+        $form->addCommandButton('showUserSearch', $this->txt('search'));
+        $form->addCommandButton('showGeneral', $this->txt('back'));
 
         global $DIC;
         $factory  = $DIC->ui()->factory();
@@ -485,7 +465,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $results_html = $this->renderUserSearchResults($db, $search_query, $factory, $renderer);
         } elseif (!empty($search_query)) {
             $results_html = $renderer->render(
-                $factory->messageBox()->info('Bitte mindestens 2 Zeichen eingeben.')
+                $factory->messageBox()->info($this->txt('search_min_chars'))
             );
         }
 
@@ -518,7 +498,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         if ($db->numRows($result) === 0) {
             return $renderer->render(
                 $factory->messageBox()->info(
-                    'Keine Benutzer gefunden für "' . htmlspecialchars($search_query) . '".'
+                    sprintf($this->txt('no_users_found'), htmlspecialchars($search_query))
                 )
             );
         }
@@ -536,20 +516,20 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $this->ctrl->setParameter($this, 'user_id', '');
             $this->ctrl->setParameter($this, 'search_query', '');
 
-            $add_btn = $factory->button()->standard('Hinzufügen', $add_url);
+            $add_btn = $factory->button()->standard($this->txt('add'), $add_url);
 
             $item = $factory->item()->standard(htmlspecialchars($fullname))
                 ->withLeadAvatar($avatar)
                 ->withDescription('@' . htmlspecialchars($login))
-                ->withProperties(['E-Mail' => htmlspecialchars($email)])
+                ->withProperties([$this->txt('prop_email') => htmlspecialchars($email)])
                 ->withMainAction($add_btn);
 
             $items[] = $item;
         }
 
         $count       = count($items);
-        $item_group  = $factory->item()->group($count . ' Benutzer gefunden', $items);
-        $panel       = $factory->panel()->standard('Suchergebnisse', $item_group);
+        $item_group  = $factory->item()->group(sprintf($this->txt('users_found_count'), $count), $items);
+        $panel       = $factory->panel()->standard($this->txt('search_results'), $item_group);
 
         return $renderer->render($panel);
     }
@@ -566,7 +546,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $search_query = $_POST['search_query'] ?? $_GET['search_query'] ?? '';
 
         if ($user_id <= 0) {
-            $this->tpl->setOnScreenMessage('failure', 'Ungültige Benutzer-ID');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('invalid_user_id'));
             $this->ctrl->redirect($this, 'showUserSearch');
             return;
         }
@@ -582,7 +562,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             );
 
             if ($db->numRows($check) > 0) {
-                $this->tpl->setOnScreenMessage('info', 'Benutzer war bereits berechtigt.');
+                $this->tpl->setOnScreenMessage('info', $this->txt('user_already_authorized'));
             } else {
                 // Benutzer-Name holen
                 $user_result = $db->queryF(
@@ -603,11 +583,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                     'added_at' => ['timestamp', date('Y-m-d H:i:s')]
                 ]);
 
-                $this->tpl->setOnScreenMessage('success', "Benutzer $user_name wurde erfolgreich hinzugefügt.");
+                $this->tpl->setOnScreenMessage('success', sprintf($this->txt('user_added'), $user_name));
             }
         } catch (Exception $e) {
             error_log("[ExtendedTestSettings] Fehler beim Hinzufügen: " . $e->getMessage());
-            $this->tpl->setOnScreenMessage('failure', 'Fehler: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('error_generic'), $e->getMessage()));
         }
 
         // Zurück zur Suche mit Query
@@ -630,7 +610,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $db = $DIC->database();
 
         if (empty($users)) {
-            $this->tpl->setOnScreenMessage('info', 'Keine Benutzer ausgewählt.');
+            $this->tpl->setOnScreenMessage('info', $this->txt('no_users_selected'));
             $this->ctrl->redirect($this, 'showGeneral');
             return false;
         }
@@ -672,11 +652,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             // Success-Message
             $messages = [];
             if ($added_count > 0) {
-                $messages[] = "$added_count Benutzer erfolgreich hinzugefügt.";
+                $messages[] = sprintf($this->txt('users_added_count'), $added_count);
             }
 
             if ($already_exists > 0) {
-                $messages[] = "$already_exists Benutzer waren bereits berechtigt.";
+                $messages[] = sprintf($this->txt('users_already_count'), $already_exists);
             }
 
             if (!empty($messages)) {
@@ -686,7 +666,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             error_log("[ExtendedTestSettings] Fehler beim Hinzufügen: " . $e->getMessage());
             $this->tpl->setOnScreenMessage(
                 'failure',
-                'Fehler beim Hinzufügen der Benutzer: ' . $e->getMessage()
+                sprintf($this->txt('error_adding_users'), $e->getMessage())
             );
             return false;
         }
@@ -762,7 +742,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $user_id = (int) ($_POST['user_id'] ?? $_GET['user_id'] ?? 0);
 
         if ($user_id <= 0) {
-            $this->tpl->setOnScreenMessage('failure', 'Ungültige Benutzer-ID');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('invalid_user_id'));
             $this->ctrl->redirect($this, 'showGeneral');
             return;
         }
@@ -792,13 +772,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
             $this->tpl->setOnScreenMessage(
                 'success',
-                "Benutzer $user_name wurde entfernt."
+                sprintf($this->txt('user_removed'), $user_name)
             );
         } catch (Exception $e) {
             error_log("[ExtendedTestSettings] Fehler beim Entfernen: " . $e->getMessage());
             $this->tpl->setOnScreenMessage(
                 'failure',
-                'Fehler beim Entfernen: ' . $e->getMessage()
+                sprintf($this->txt('error_removing'), $e->getMessage())
             );
         }
 
@@ -824,11 +804,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $examalert_auto = ($_POST['examalert_auto_activate'] ?? '1') === '0' ? '0' : '1';
             $this->settings->set('examalert_auto_activate', $examalert_auto);
 
-            $this->tpl->setOnScreenMessage('success', 'Einstellungen gespeichert.');
+            $this->tpl->setOnScreenMessage('success', $this->txt('settings_saved'));
         } catch (Exception $e) {
             $this->tpl->setOnScreenMessage(
                 'failure',
-                'Fehler beim Speichern: ' . $e->getMessage()
+                sprintf($this->txt('error_saving'), $e->getMessage())
             );
         }
 
@@ -858,10 +838,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         if (empty($active)) {
             return $renderer->render([
-                $factory->messageBox()->info(
-                    'Aktuell ist kein Modul aktiv. Aktivieren Sie Module im Reiter „Module", '
-                    . 'um hier deren Nutzung zu sehen.'
-                ),
+                $factory->messageBox()->info($this->txt('stats_no_active_module')),
                 $this->buildMaintenancePanel($factory),
             ]);
         }
@@ -885,8 +862,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $label = (string) ($info['label'] ?? $info['id']);
             $tests = $this->getModuleTests($table);
             $count = count($tests);
+            $count_text = $count === 1
+                ? $this->txt('stats_test_one')
+                : sprintf($this->txt('stats_test_many'), $count);
             $header = htmlspecialchars(
-                $label . ' — ' . ($count === 1 ? '1 aktiver Test' : $count . ' aktive Tests'),
+                $label . ' — ' . $count_text,
                 ENT_QUOTES
             );
 
@@ -899,7 +879,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $content = $renderer->render($factory->listing()->unordered($links));
             } else {
                 $content = $renderer->render(
-                    $factory->messageBox()->info('Aktuell in keinem aktiven Test verwendet.')
+                    $factory->messageBox()->info($this->txt('stats_no_test_uses'))
                 );
             }
 
@@ -909,14 +889,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         if (!$any) {
             return $renderer->render([
-                $factory->messageBox()->info(
-                    'Kein aktives Modul mit test-spezifischen Einstellungen vorhanden.'
-                ),
+                $factory->messageBox()->info($this->txt('stats_no_module_settings')),
                 $this->buildMaintenancePanel($factory),
             ]);
         }
 
-        return '<h3>Modul-Nutzung</h3>'
+        return '<h3>' . $this->txt('stats_module_usage') . '</h3>'
             . $accordion->getHTML()
             . $renderer->render($this->buildMaintenancePanel($factory));
     }
@@ -928,17 +906,15 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function buildMaintenancePanel($factory)
     {
         return $factory->panel()->standard(
-            'Wartung',
+            $this->txt('maintenance'),
             [
-                $factory->messageBox()->info(
-                    'Entfernt Einstellungen von Tests, die in ILIAS gelöscht wurden.'
-                ),
+                $factory->messageBox()->info($this->txt('maintenance_info')),
                 $factory->button()->standard(
-                    'Vorschau anzeigen',
+                    $this->txt('preview_show'),
                     $this->ctrl->getLinkTarget($this, 'previewCleanup')
                 ),
                 $factory->button()->standard(
-                    'Jetzt bereinigen',
+                    $this->txt('cleanup_now'),
                     $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries')
                 ),
             ]
@@ -1083,29 +1059,27 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         $form = new ilPropertyFormGUI();
         $form->setFormAction($this->ctrl->getLinkTarget($this, 'saveExamChecker'));
-        $form->setTitle('ExamChecker-Vorgaben konfigurieren');
-        $form->setDescription(
-            'Bestimmen Sie, welche Einstellungen bei der Prüfung von Tests als verpflichtend gelten sollen.'
-        );
+        $form->setTitle($this->txt('examchecker_title'));
+        $form->setDescription($this->txt('examchecker_desc'));
 
         $praesenz_settings = $this->getExamCheckerSettings('praesenz');
         $fern_settings     = $this->getExamCheckerSettings('fern');
 
         $section_p = new ilFormSectionHeaderGUI();
-        $section_p->setTitle('Präsenzprüfungen');
+        $section_p->setTitle($this->txt('examchecker_praesenz'));
         $form->addItem($section_p);
         $form->addItem(
-            $this->buildCheckGroupInput('praesenz', $praesenz_settings, 'Verpflichtende Checks für Prüfungen vor Ort')
+            $this->buildCheckGroupInput('praesenz', $praesenz_settings, $this->txt('examchecker_praesenz_group'))
         );
 
         $section_f = new ilFormSectionHeaderGUI();
-        $section_f->setTitle('Fernprüfungen');
+        $section_f->setTitle($this->txt('examchecker_fern'));
         $form->addItem($section_f);
         $form->addItem(
-            $this->buildCheckGroupInput('fern', $fern_settings, 'Verpflichtende Checks für Online-Prüfungen')
+            $this->buildCheckGroupInput('fern', $fern_settings, $this->txt('examchecker_fern_group'))
         );
 
-        $form->addCommandButton('saveExamChecker', 'Vorgaben speichern');
+        $form->addCommandButton('saveExamChecker', $this->txt('examchecker_save'));
 
         return $form;
     }
@@ -1136,103 +1110,103 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         return [
             'fragenpools_verwenden' => [
-                'title' => 'Fragenpools verwenden',
-                'description' => 'Test muss Fragenpools nutzen',
+                'title' => $this->txt('check_fragenpools_verwenden'),
+                'description' => $this->txt('check_fragenpools_verwenden_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'datenschutz' => [
-                'title' => 'Datenschutz (Testergebnisse mit Namen)',
-                'description' => 'Anonymität muss deaktiviert sein',
+                'title' => $this->txt('check_datenschutz'),
+                'description' => $this->txt('check_datenschutz_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'online' => [
-                'title' => 'Test ist online geschaltet',
-                'description' => 'Test muss online verfügbar sein',
+                'title' => $this->txt('check_online'),
+                'description' => $this->txt('check_online_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'passwort' => [
-                'title' => 'Testpasswort gesetzt',
-                'description' => 'Ein Passwort muss konfiguriert sein',
+                'title' => $this->txt('check_passwort'),
+                'description' => $this->txt('check_passwort_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'nur_ausgewaehlte_teilnehmer' => [
-                'title' => 'Nur ausgewählte Teilnehmer (deaktiviert)',
-                'description' => 'Offener Zugang für alle Teilnehmer',
+                'title' => $this->txt('check_nur_ausgewaehlte_teilnehmer'),
+                'description' => $this->txt('check_nur_ausgewaehlte_teilnehmer_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'testdurchlaeufe_begrenzen' => [
-                'title' => 'Testdurchläufe auf 1 begrenzt',
-                'description' => 'Anzahl der Versuche muss 1 sein',
+                'title' => $this->txt('check_testdurchlaeufe_begrenzen'),
+                'description' => $this->txt('check_testdurchlaeufe_begrenzen_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'wartezeit_erzwingen' => [
-                'title' => 'Wartezeit zwischen Durchläufen (deaktiviert)',
-                'description' => 'Keine Wartezeit zwischen Versuchen',
+                'title' => $this->txt('check_wartezeit_erzwingen'),
+                'description' => $this->txt('check_wartezeit_erzwingen_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'pruefungsansicht' => [
-                'title' => 'Prüfungsansicht (Kiosk-Modus)',
-                'description' => 'Kiosk-Modus muss aktiviert sein',
+                'title' => $this->txt('check_pruefungsansicht'),
+                'description' => $this->txt('check_pruefungsansicht_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'automatisches_speichern' => [
-                'title' => 'Automatisches Speichern (30s)',
-                'description' => 'Auto-Save alle 30 Sekunden',
+                'title' => $this->txt('check_automatisches_speichern'),
+                'description' => $this->txt('check_automatisches_speichern_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'direkte_rueckmeldung' => [
-                'title' => 'Direkte Rückmeldung (deaktiviert)',
-                'description' => 'Sofortige Antwortbewertung ausgeschaltet',
+                'title' => $this->txt('check_direkte_rueckmeldung'),
+                'description' => $this->txt('check_direkte_rueckmeldung_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'fragen_markieren' => [
-                'title' => 'Fragen markieren aktiviert',
-                'description' => 'Teilnehmer können Fragen markieren',
+                'title' => $this->txt('check_fragen_markieren'),
+                'description' => $this->txt('check_fragen_markieren_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'eigenstaendigkeitserklaerung' => [
-                'title' => 'Eigenständigkeitserklärung',
-                'description' => 'Nur für Fernprüfungen erforderlich',
+                'title' => $this->txt('check_eigenstaendigkeitserklaerung'),
+                'description' => $this->txt('check_eigenstaendigkeitserklaerung_info'),
                 'relevant_for' => ['fern']
             ],
             'bearbeitungsdauer' => [
-                'title' => 'Bearbeitungsdauer begrenzen',
-                'description' => 'Zeitlimit muss aktiviert sein',
+                'title' => $this->txt('check_bearbeitungsdauer'),
+                'description' => $this->txt('check_bearbeitungsdauer_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'weiterleitung' => [
-                'title' => 'Weiterleitung zu logout.php',
-                'description' => 'Nur bei Präsenzprüfungen mit Kiosk',
+                'title' => $this->txt('check_weiterleitung'),
+                'description' => $this->txt('check_weiterleitung_info'),
                 'relevant_for' => ['praesenz']
             ],
             'bewertungssystem' => [
-                'title' => 'Teilweise richtige Antworten bewerten',
-                'description' => 'Teilpunkte für unvollständige Antworten',
+                'title' => $this->txt('check_bewertungssystem'),
+                'description' => $this->txt('check_bewertungssystem_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'negative_punkte' => [
-                'title' => 'Negative Punkte (deaktiviert)',
-                'description' => 'Keine Punktabzüge für falsche Antworten',
+                'title' => $this->txt('check_negative_punkte'),
+                'description' => $this->txt('check_negative_punkte_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'besten_durchlauf_bewerten' => [
-                'title' => 'Besten Testdurchlauf bewerten',
-                'description' => 'Beste Leistung zählt',
+                'title' => $this->txt('check_besten_durchlauf_bewerten'),
+                'description' => $this->txt('check_besten_durchlauf_bewerten_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'keine_vorbedingungen' => [
-                'title' => 'Keine Vorbedingungen gesetzt',
-                'description' => 'Test ist ohne Vorbedingungen frei zugänglich',
+                'title' => $this->txt('check_keine_vorbedingungen'),
+                'description' => $this->txt('check_keine_vorbedingungen_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'direkte_notenuebermittlung' => [
-                'title' => 'Direkte Notenübermittlung (deaktiviert)',
-                'description' => 'Noten werden nicht sofort an Teilnehmer übermittelt',
+                'title' => $this->txt('check_direkte_notenuebermittlung'),
+                'description' => $this->txt('check_direkte_notenuebermittlung_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ],
             'zeitlich_begrenzte_verfuegbarkeit' => [
-                'title' => 'Zeitlich begrenzte Verfügbarkeit (deaktiviert)',
-                'description' => 'Test hat keine zusätzliche Kurs-Verfügbarkeitsbegrenzung',
+                'title' => $this->txt('check_zeitlich_begrenzte_verfuegbarkeit'),
+                'description' => $this->txt('check_zeitlich_begrenzte_verfuegbarkeit_info'),
                 'relevant_for' => ['praesenz', 'fern']
             ]
         ];
@@ -1293,9 +1267,9 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $fern_checks = array_intersect($post['checks_fern'] ?? [], $valid_keys);
             $this->settings->set('examchecker_standards_fern', implode(',', $fern_checks));
 
-            $this->tpl->setOnScreenMessage('success', 'ExamChecker-Vorgaben erfolgreich gespeichert.');
+            $this->tpl->setOnScreenMessage('success', $this->txt('examchecker_saved'));
         } catch (Exception $e) {
-            $this->tpl->setOnScreenMessage('failure', 'Fehler beim Speichern: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('error_saving'), $e->getMessage()));
         }
 
         $this->showExamChecker();
@@ -1313,7 +1287,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $preview_html = $this->renderCleanupPreview($orphaned_entries);
             $this->tpl->setContent($preview_html);
         } catch (Exception $e) {
-            $this->tpl->setOnScreenMessage('failure', 'Fehler bei der Vorschau: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('error_preview'), $e->getMessage()));
             $this->showStatistics();
         }
     }
@@ -1383,12 +1357,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         $back_url    = $this->ctrl->getLinkTarget($this, 'showStatistics');
         $cleanup_url = $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries');
-        $back_button = $factory->button()->standard('Zurück zu Statistiken', $back_url);
+        $back_button = $factory->button()->standard($this->txt('back_to_statistics'), $back_url);
 
         if (empty($orphaned_entries)) {
             return $renderer->render([
                 $back_button,
-                $factory->messageBox()->success('Keine verwaisten Einträge – alles in Ordnung.'),
+                $factory->messageBox()->success($this->txt('cleanup_none')),
             ]);
         }
 
@@ -1407,27 +1381,27 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             }
 
             $sub_panels[] = $factory->panel()->sub(
-                $table_name . ' (' . $count . ' Einträge)',
+                sprintf($this->txt('cleanup_table_entries'), $table_name, $count),
                 $factory->listing()->descriptive($items)
             );
         }
 
         $confirm_modal = $factory->modal()->interruptive(
-            'Bereinigung bestätigen',
-            $total_count . ' verwaiste Einträge werden unwiderruflich gelöscht. Fortfahren?',
+            $this->txt('cleanup_confirm_title'),
+            sprintf($this->txt('cleanup_confirm_text'), $total_count),
             $cleanup_url
-        )->withActionButtonLabel('Bereinigen');
+        )->withActionButtonLabel($this->txt('cleanup_action'));
         $confirm_button = $factory->button()->standard(
-            $total_count . ' Einträge jetzt löschen',
+            sprintf($this->txt('cleanup_delete_now'), $total_count),
             $confirm_modal->getShowSignal()
         );
 
         return $renderer->render([
             $back_button,
             $factory->messageBox()->confirmation(
-                $total_count . ' verwaiste Einträge gefunden. Bereinigung empfohlen.'
+                sprintf($this->txt('cleanup_found'), $total_count)
             ),
-            $factory->panel()->report('Details', $sub_panels),
+            $factory->panel()->report($this->txt('details'), $sub_panels),
             $confirm_button,
             $confirm_modal,
         ]);
@@ -1447,12 +1421,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $cleaned = $this->performCleanup();
 
             if ($cleaned > 0) {
-                $this->tpl->setOnScreenMessage('success', "$cleaned verwaiste Einträge wurden erfolgreich bereinigt.");
+                $this->tpl->setOnScreenMessage('success', sprintf($this->txt('cleanup_done'), $cleaned));
             } else {
-                $this->tpl->setOnScreenMessage('info', "Keine verwaisten Einträge gefunden - alles sauber!");
+                $this->tpl->setOnScreenMessage('info', $this->txt('cleanup_none_found'));
             }
         } catch (Exception $e) {
-            $this->tpl->setOnScreenMessage('failure', 'Fehler bei der Bereinigung: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('error_cleanup'), $e->getMessage()));
         }
 
         $this->showStatistics();
@@ -1534,11 +1508,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $registry = $this->getRegistry();
 
         $html = $renderer->render(
-            $factory->messageBox()->info(
-                'Module erweitern das Plugin um zusätzliche Funktionen. Sie werden als '
-                . 'ZIP-Paket hochgeladen, lassen sich aktivieren bzw. deaktivieren und auf '
-                . 'neue Versionen aktualisieren.'
-            )
+            $factory->messageBox()->info($this->txt('modules_intro'))
         );
 
         // ---- Upload-Formular (oben) ----
@@ -1547,11 +1517,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $html .= $this->buildUploadForm()->getHTML();
         } else {
             $html .= $renderer->render(
-                $factory->messageBox()->failure(
-                    'Das Verzeichnis modules/ ist nicht schreibbar – es können keine Module '
-                    . 'hochgeladen werden. Bitte auf dem Server die Schreibrechte für den '
-                    . 'Webserver-Benutzer setzen (z. B. chown www-data: modules/).'
-                )
+                $factory->messageBox()->failure($this->txt('modules_dir_not_writable'))
             );
         }
 
@@ -1575,18 +1541,18 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         // ---- Update-Check-Buttons (nur bei konfiguriertem Repository) ----
         if ($with_check) {
             $components[] = $factory->button()->standard(
-                'Nach Updates suchen',
+                $this->txt('modules_check_updates'),
                 $this->ctrl->getLinkTarget($this, 'checkModuleUpdates')
             );
             $components[] = $factory->button()->standard(
-                'Netzwerk-Diagnose',
+                $this->txt('modules_network_diag'),
                 $this->ctrl->getLinkTarget($this, 'debugNetworkCheck')
             );
         }
 
         // ---- Modul-Liste als Item-Group (dezente Trennlinien zwischen den Modulen) ----
         if (empty($modules)) {
-            $components[] = $factory->messageBox()->info('Keine Module gefunden.');
+            $components[] = $factory->messageBox()->info($this->txt('modules_none'));
         } else {
             $items  = [];
             $modals = [];
@@ -1595,8 +1561,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $items[] = $item;
                 $modals  = array_merge($modals, $item_modals);
             }
-            $group = $factory->item()->group('Module (' . count($items) . ')', $items);
-            $components[] = $factory->panel()->standard('Module', $group);
+            $group = $factory->item()->group(sprintf($this->txt('modules_group_count'), count($items)), $items);
+            $components[] = $factory->panel()->standard($this->txt('tab_modules'), $group);
             $components   = array_merge($components, $modals);
         }
 
@@ -1627,9 +1593,9 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $version_text = 'v' . $version . ' · ILIAS ' . $compat;
         if (!$builtin) {
             if (!empty($info['update_available'])) {
-                $version_text .= ' · Update auf v' . ($info['latest_version'] ?? '?');
+                $version_text .= ' · ' . sprintf($this->txt('module_update_badge'), $info['latest_version'] ?? '?');
             } elseif (isset($info['update_error'])) {
-                $version_text .= ' · Update-Prüfung fehlgeschlagen';
+                $version_text .= ' · ' . $this->txt('module_update_check_failed');
             }
         }
 
@@ -1644,7 +1610,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 . '&module_id=' . urlencode($id)
                 . '&download_url=' . urlencode($info['download_url'])
                 . '&latest_version=' . urlencode($info['latest_version']);
-            $update_action = $factory->button()->shy('Update auf v' . $info['latest_version'], $update_url);
+            $update_action = $factory->button()->shy(sprintf($this->txt('module_update_badge'), $info['latest_version']), $update_url);
         } else {
             $update_action = null;
         }
@@ -1656,15 +1622,15 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $this->ctrl->setParameter($this, 'active', null);
 
         $toggle_modal = $factory->modal()->interruptive(
-            $active ? 'Modul deaktivieren' : 'Modul aktivieren',
+            $active ? $this->txt('module_deactivate_title') : $this->txt('module_activate_title'),
             $active
-                ? 'Modul „' . $label . '" deaktivieren? Der Modul-Code wird danach nicht mehr geladen.'
-                : 'Modul „' . $label . '" aktivieren?',
+                ? sprintf($this->txt('module_deactivate_confirm'), $label)
+                : sprintf($this->txt('module_activate_confirm'), $label),
             $toggle_target
-        )->withActionButtonLabel($active ? 'Deaktivieren' : 'Aktivieren');
+        )->withActionButtonLabel($active ? $this->txt('deactivate') : $this->txt('activate'));
         $modals[]  = $toggle_modal;
         $actions[] = $factory->button()->shy(
-            $active ? 'Deaktivieren' : 'Aktivieren',
+            $active ? $this->txt('deactivate') : $this->txt('activate'),
             $toggle_modal->getShowSignal()
         );
 
@@ -1676,12 +1642,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         if (!$builtin) {
             $uninstall_target = $this->ctrl->getLinkTarget($this, 'uninstallModule');
             $uninstall_modal  = $factory->modal()->interruptive(
-                'Modul deinstallieren',
-                'Modul „' . $label . '" wirklich deinstallieren? Alle zugehörigen Daten werden gelöscht.',
+                $this->txt('module_uninstall_title'),
+                sprintf($this->txt('module_uninstall_confirm'), $label),
                 $uninstall_target
-            )->withActionButtonLabel('Deinstallieren');
+            )->withActionButtonLabel($this->txt('uninstall'));
             $modals[]  = $uninstall_modal;
-            $actions[] = $factory->button()->shy('Deinstallieren', $uninstall_modal->getShowSignal());
+            $actions[] = $factory->button()->shy($this->txt('uninstall'), $uninstall_modal->getShowSignal());
         }
 
         $this->ctrl->setParameter($this, 'module_id', null);
@@ -1689,8 +1655,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $item = $factory->item()->standard($label)
             ->withDescription($desc)
             ->withProperties([
-                'Version' => $version_text,
-                'Status'  => $active ? 'Aktiv' : 'Inaktiv',
+                $this->txt('prop_version') => $version_text,
+                $this->txt('prop_status')  => $active ? $this->txt('status_active') : $this->txt('status_inactive'),
             ])
             ->withActions($factory->dropdown()->standard($actions));
 
@@ -1703,19 +1669,16 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function buildUploadForm(): ilPropertyFormGUI
     {
         $form = new ilPropertyFormGUI();
-        $form->setTitle('Neues Modul installieren');
+        $form->setTitle($this->txt('module_install_title'));
         $form->setFormAction($this->ctrl->getFormAction($this, 'uploadModule'));
 
-        $file = new ilFileInputGUI('Modul-ZIP', 'module_zip');
+        $file = new ilFileInputGUI($this->txt('module_zip_label'), 'module_zip');
         $file->setSuffixes(['zip']);
         $file->setRequired(true);
-        $file->setInfo(
-            'Das Paket muss eine module.json enthalten. Maximale Größe: 20 MB. '
-            . 'Erlaubte Dateitypen: .php, .js, .css, .sql, .json, .html'
-        );
+        $file->setInfo($this->txt('module_zip_info'));
         $form->addItem($file);
 
-        $form->addCommandButton('uploadModule', 'Hochladen und installieren');
+        $form->addCommandButton('uploadModule', $this->txt('module_upload_btn'));
 
         return $form;
     }
@@ -1726,29 +1689,25 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function buildRepoForm(): ilPropertyFormGUI
     {
         $form = new ilPropertyFormGUI();
-        $form->setTitle('Modul-Repository');
-        $form->setDescription(
-            'GitHub-Repository mit den Modul-ZIPs. Die ZIPs müssen der Namenskonvention '
-            . 'ModulName_v1.0.0.zip folgen. Beispiel: '
-            . 'https://github.com/andreschweigert/ExtendedTestSettings-Modules'
-        );
+        $form->setTitle($this->txt('repo_title'));
+        $form->setDescription($this->txt('repo_desc'));
         $form->setFormAction($this->ctrl->getFormAction($this, 'saveModuleRepoUrl'));
 
-        $url = new ilTextInputGUI('Repository-URL', 'module_repo_url');
+        $url = new ilTextInputGUI($this->txt('repo_url_label'), 'module_repo_url');
         $url->setValue((string) $this->settings->get('module_repo_url', ''));
-        $url->setInfo('Vollständige GitHub-URL, z. B. https://github.com/user/Repo');
+        $url->setInfo($this->txt('repo_url_info'));
         $form->addItem($url);
 
-        $branch = new ilTextInputGUI('Branch', 'module_repo_branch');
+        $branch = new ilTextInputGUI($this->txt('repo_branch_label'), 'module_repo_branch');
         $branch->setValue((string) $this->settings->get('module_repo_branch', 'ilias9'));
         $form->addItem($branch);
 
-        $proxy = new ilTextInputGUI('HTTP-Proxy', 'module_repo_proxy');
+        $proxy = new ilTextInputGUI($this->txt('repo_proxy_label'), 'module_repo_proxy');
         $proxy->setValue((string) $this->settings->get('module_repo_proxy', ''));
-        $proxy->setInfo('Nur nötig, wenn GitHub nicht direkt erreichbar ist. Format: http://host:port');
+        $proxy->setInfo($this->txt('repo_proxy_info'));
         $form->addItem($proxy);
 
-        $form->addCommandButton('saveModuleRepoUrl', 'Speichern');
+        $form->addCommandButton('saveModuleRepoUrl', $this->txt('save'));
 
         return $form;
     }
@@ -1769,7 +1728,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $registry = $this->getRegistry();
 
         if (!$registry->moduleExists($module_id)) {
-            $this->tpl->setOnScreenMessage('failure', "Modul '$module_id' nicht gefunden.");
+            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('module_not_found'), $module_id));
             $this->ctrl->redirect($this, 'showModules');
             return;
         }
@@ -1777,8 +1736,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $registry->setModuleActive($module_id, $active);
 
         $msg = $active
-            ? "Modul '$module_id' wurde aktiviert."
-            : "Modul '$module_id' wurde deaktiviert. PHP lädt den Modul-Code nicht mehr.";
+            ? sprintf($this->txt('module_activated'), $module_id)
+            : sprintf($this->txt('module_deactivated'), $module_id);
 
         $this->tpl->setOnScreenMessage('success', $msg);
         $this->ctrl->redirect($this, 'showModules');
@@ -1795,11 +1754,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
             $errors = [
-                UPLOAD_ERR_INI_SIZE  => 'Datei überschreitet upload_max_filesize.',
-                UPLOAD_ERR_FORM_SIZE => 'Datei überschreitet MAX_FILE_SIZE.',
-                UPLOAD_ERR_NO_FILE   => 'Keine Datei ausgewählt.',
+                UPLOAD_ERR_INI_SIZE  => $this->txt('upload_err_ini_size'),
+                UPLOAD_ERR_FORM_SIZE => $this->txt('upload_err_form_size'),
+                UPLOAD_ERR_NO_FILE   => $this->txt('upload_err_no_file'),
             ];
-            $msg = $errors[$file['error'] ?? UPLOAD_ERR_NO_FILE] ?? 'Upload-Fehler.';
+            $msg = $errors[$file['error'] ?? UPLOAD_ERR_NO_FILE] ?? $this->txt('upload_err_generic');
             $this->tpl->setOnScreenMessage('failure', $msg);
             $this->ctrl->redirect($this, 'showModules');
             return;
@@ -1815,14 +1774,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
             $this->tpl->setOnScreenMessage(
                 'success',
-                "Modul '{$module_info['label']}' (v{$module_info['version']}) erfolgreich installiert und aktiviert."
+                sprintf($this->txt('module_installed'), $module_info['label'], $module_info['version'])
             );
         } catch (RuntimeException $e) {
             error_log('[ExtendedTestSettings] uploadModule Fehler: ' . $e->getMessage());
-            $this->tpl->setOnScreenMessage('failure', 'Installation fehlgeschlagen: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('module_install_failed'), $e->getMessage()));
         } catch (Throwable $e) {
             error_log('[ExtendedTestSettings] uploadModule unerwarteter Fehler: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-            $this->tpl->setOnScreenMessage('failure', 'Unerwarteter Fehler: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('error_unexpected'), $e->getMessage()));
         }
 
         $this->ctrl->redirect($this, 'showModules');
@@ -1852,13 +1811,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         }
 
         if ($info === null) {
-            $this->tpl->setOnScreenMessage('failure', "Modul '$module_id' nicht gefunden.");
+            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('module_not_found'), $module_id));
             $this->ctrl->redirect($this, 'showModules');
             return;
         }
 
         if ($info['builtin']) {
-            $this->tpl->setOnScreenMessage('failure', 'Built-in Module können nicht deinstalliert werden.');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('module_builtin_no_uninstall'));
             $this->ctrl->redirect($this, 'showModules');
             return;
         }
@@ -1867,9 +1826,9 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $installer = $this->getInstaller();
             $installer->uninstallModule($module_id, $info);
 
-            $this->tpl->setOnScreenMessage('success', "Modul '$module_id' wurde deinstalliert.");
+            $this->tpl->setOnScreenMessage('success', sprintf($this->txt('module_uninstalled'), $module_id));
         } catch (RuntimeException $e) {
-            $this->tpl->setOnScreenMessage('failure', 'Deinstallation fehlgeschlagen: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('module_uninstall_failed'), $e->getMessage()));
         }
 
         $this->ctrl->redirect($this, 'showModules');
@@ -1885,13 +1844,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $proxy  = trim($_POST['module_repo_proxy'] ?? '');
 
         if ($url !== '' && !str_starts_with($url, 'https://github.com/')) {
-            $this->tpl->setOnScreenMessage('failure', 'Bitte eine gültige GitHub-URL eingeben (https://github.com/...).');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('repo_invalid_github_url'));
             $this->ctrl->redirect($this, 'showModules');
             return;
         }
 
         if ($proxy !== '' && !preg_match('#^https?://.+:\d+$#', $proxy)) {
-            $this->tpl->setOnScreenMessage('failure', 'Proxy-URL muss das Format http://host:port haben.');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('repo_invalid_proxy'));
             $this->ctrl->redirect($this, 'showModules');
             return;
         }
@@ -1899,7 +1858,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $this->settings->set('module_repo_url', $url);
         $this->settings->set('module_repo_branch', $branch ?: 'ilias9');
         $this->settings->set('module_repo_proxy', $proxy);
-        $this->tpl->setOnScreenMessage('success', 'Repository-Einstellungen gespeichert.');
+        $this->tpl->setOnScreenMessage('success', $this->txt('repo_saved'));
         $this->ctrl->redirect($this, 'showModules');
     }
 
@@ -2004,7 +1963,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         }
 
         if (!$this->isAllowedDownloadUrl($download_url)) {
-            $this->tpl->setOnScreenMessage('failure', 'Ungültige Download-URL.');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('invalid_download_url'));
             $this->ctrl->redirect($this, 'showModules');
             return;
         }
@@ -2079,7 +2038,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $repo_branch = trim((string) $this->settings->get('module_repo_branch', 'ilias9'));
 
         if ($repo_url === '') {
-            $this->tpl->setOnScreenMessage('info', 'Kein Repository konfiguriert.');
+            $this->tpl->setOnScreenMessage('info', $this->txt('repo_not_configured'));
             $this->ctrl->redirect($this, 'showModules');
             return;
         }
@@ -2112,9 +2071,9 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $_SESSION['ets_update_cache'] = $cache;
 
         if ($updates > 0) {
-            $this->tpl->setOnScreenMessage('success', "$updates Update(s) verfügbar.");
+            $this->tpl->setOnScreenMessage('success', sprintf($this->txt('updates_available'), $updates));
         } else {
-            $this->tpl->setOnScreenMessage('info', 'Alle Module sind aktuell.');
+            $this->tpl->setOnScreenMessage('info', $this->txt('modules_up_to_date'));
         }
 
         $this->ctrl->redirect($this, 'showModules');
@@ -2304,7 +2263,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $this->tabs->activateTab('netqos');
 
         if (!$this->isExamNetQosInstalled()) {
-            $this->tpl->setContent($this->renderModuleMissing('Das ExamNetQos-Modul ist nicht installiert.'));
+            $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examnetqos_missing')));
             return;
         }
 
@@ -2339,7 +2298,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $this->tabs->activateTab('protocol');
 
         if (!$this->isExamLoggerInstalled()) {
-            $this->tpl->setContent($this->renderModuleMissing('Das ExamLogger-Modul ist nicht installiert.'));
+            $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examlogger_missing')));
             return;
         }
 
@@ -2368,7 +2327,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $this->tabs->activateTab('devices');
 
         if (!$this->isExamLoggerInstalled()) {
-            $this->tpl->setContent($this->renderModuleMissing('Das ExamLogger-Modul ist nicht installiert.'));
+            $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examlogger_missing')));
             return;
         }
 

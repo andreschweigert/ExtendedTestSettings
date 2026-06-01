@@ -23,6 +23,15 @@ class ilExtendedTestSettingsModuleProxyGUI
         $this->plugin_path = dirname(__DIR__);
     }
 
+    /**
+     * Löst eine Sprachvariable des Plugins auf. Die Klasse erbt nicht von einer
+     * Plugin-Basisklasse, daher wird die Instanz über getInstance() bezogen.
+     */
+    private function txt(string $key): string
+    {
+        return ilExtendedTestSettingsPlugin::getInstance()->txt($key);
+    }
+
     public function executeCommand(): void
     {
         global $DIC, $rbacsystem;
@@ -59,14 +68,14 @@ class ilExtendedTestSettingsModuleProxyGUI
             }
         } else {
             if ($ref_id <= 0 || !$rbacsystem->checkAccess('write', $ref_id)) {
-                $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', 'Zugriff verweigert.');
+                $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', $this->txt('access_denied'));
                 $DIC->ui()->mainTemplate()->printToStdout();
                 return;
             }
         }
 
         if ($module_id === '') {
-            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', 'Kein Modul angegeben.');
+            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', $this->txt('no_module_specified'));
             $DIC->ui()->mainTemplate()->printToStdout();
             return;
         }
@@ -79,7 +88,7 @@ class ilExtendedTestSettingsModuleProxyGUI
             $builtin_dir = $this->plugin_path . '/classes/' . ucfirst($module_id);
             $json_file   = $builtin_dir . '/module.json';
             if (!file_exists($json_file)) {
-                $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', "Modul '$module_id' nicht gefunden.");
+                $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', sprintf($this->txt('module_not_found'), $module_id));
                 $DIC->ui()->mainTemplate()->printToStdout();
                 return;
             }
@@ -91,7 +100,7 @@ class ilExtendedTestSettingsModuleProxyGUI
         $gui_class   = $module_info['gui_class'] ?? null;
 
         if (!$gui_file || !$gui_class) {
-            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', "Modul '$module_id' hat keine GUI-Klasse definiert.");
+            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', sprintf($this->txt('module_no_gui_class'), $module_id));
             $DIC->ui()->mainTemplate()->printToStdout();
             return;
         }
@@ -112,7 +121,7 @@ class ilExtendedTestSettingsModuleProxyGUI
 
         $handler_path = $module_dir . '/' . $gui_file;
         if (!file_exists($handler_path)) {
-            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', "GUI-Datei nicht gefunden: $gui_file");
+            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', sprintf($this->txt('gui_file_not_found'), $gui_file));
             $DIC->ui()->mainTemplate()->printToStdout();
             return;
         }
@@ -120,7 +129,7 @@ class ilExtendedTestSettingsModuleProxyGUI
         require_once $handler_path;
 
         if (!class_exists($gui_class)) {
-            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', "GUI-Klasse nicht gefunden: $gui_class");
+            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', sprintf($this->txt('gui_class_not_found'), $gui_class));
             $DIC->ui()->mainTemplate()->printToStdout();
             return;
         }
