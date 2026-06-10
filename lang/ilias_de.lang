@@ -11,6 +11,7 @@ tab_examchecker#:#ExamChecker
 tab_protocol#:#Protokoll
 tab_devices#:#Geräte
 tab_netqos#:#Netzwerk-Qualität
+tab_keymap#:#Tastatur-Layout
 access_denied#:#Zugriff verweigert.
 access_denied_login#:#Zugriff verweigert: Sie müssen angemeldet sein.
 access_denied_admin#:#Zugriff verweigert: Administrator-Rechte erforderlich.
@@ -207,6 +208,7 @@ updates_available#:#%d Update(s) verfügbar.
 modules_up_to_date#:#Alle Module sind aktuell.
 module_examnetqos_missing#:#Das ExamNetQos-Modul ist nicht installiert.
 module_examlogger_missing#:#Das ExamLogger-Modul ist nicht installiert.
+module_examkeymap_missing#:#Das ExamKeymap-Modul ist nicht installiert.
 no_exam_modules#:#Keine Prüfungs-Module gefunden.
 no_modules_to_save#:#Keine Module zum Speichern gefunden.
 save_success_for#:#Einstellungen erfolgreich gespeichert für: %s

@@ -164,6 +164,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $this->exportNetQosCsv();
                 break;
 
+            case 'showKeymap':
+                $this->showKeymap();
+                break;
+
+            case 'saveKeymap':
+                $this->saveKeymap();
+                break;
+
             default:
                 $this->showGeneral();
                 break;
@@ -223,6 +231,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 'netqos',
                 $this->txt('tab_netqos'),
                 $this->ctrl->getLinkTarget($this, 'showNetQos')
+            );
+        }
+
+        if ($registry->isModuleActive('examkeymap')) {
+            $this->tabs->addTab(
+                'keymap',
+                $this->txt('tab_keymap'),
+                $this->ctrl->getLinkTarget($this, 'showKeymap')
             );
         }
     }
@@ -2354,6 +2370,47 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         [$msg, $type] = $view->handleCsvImport();
         $this->tpl->setOnScreenMessage($type, $msg);
         $this->tpl->setContent($view->renderDevicesView());
+    }
+
+    // -------------------------------------------------------------------------
+    // Tastatur-Layout-Tab (ExamKeymap-Modul)
+    // -------------------------------------------------------------------------
+
+    private function isExamKeymapInstalled(): bool
+    {
+        return file_exists(__DIR__ . '/../modules/examkeymap/class.ilExamKeymapAdminGUI.php');
+    }
+
+    protected function showKeymap(): void
+    {
+        $this->tabs->activateTab('keymap');
+
+        if (!$this->isExamKeymapInstalled()) {
+            $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examkeymap_missing')));
+            return;
+        }
+
+        require_once __DIR__ . '/../modules/examkeymap/class.ilExamKeymapAdminGUI.php';
+        $view = new ilExamKeymapAdminGUI();
+        $view->setSaveCmd('saveKeymap');
+        $view->showEditor();
+    }
+
+    protected function saveKeymap(): void
+    {
+        $this->tabs->activateTab('keymap');
+
+        if (!$this->isExamKeymapInstalled()) {
+            return;
+        }
+
+        require_once __DIR__ . '/../modules/examkeymap/class.ilExamKeymapAdminGUI.php';
+        $view = new ilExamKeymapAdminGUI();
+        $view->setSaveCmd('saveKeymap');
+
+        [$msg, $type] = $view->handleSave();
+        $this->tpl->setOnScreenMessage($type, $msg);
+        $view->showEditor();
     }
 }
 

@@ -11,6 +11,7 @@ tab_examchecker#:#ExamChecker
 tab_protocol#:#Protocol
 tab_devices#:#Devices
 tab_netqos#:#Network Quality
+tab_keymap#:#Keyboard Layout
 access_denied#:#Access denied.
 access_denied_login#:#Access denied: you must be logged in.
 access_denied_admin#:#Access denied: administrator privileges required.
@@ -207,6 +208,7 @@ updates_available#:#%d update(s) available.
 modules_up_to_date#:#All modules are up to date.
 module_examnetqos_missing#:#The ExamNetQos module is not installed.
 module_examlogger_missing#:#The ExamLogger module is not installed.
+module_examkeymap_missing#:#The ExamKeymap module is not installed.
 no_exam_modules#:#No exam modules found.
 no_modules_to_save#:#No modules found to save.
 save_success_for#:#Settings saved successfully for: %s
