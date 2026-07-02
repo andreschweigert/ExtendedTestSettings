@@ -172,6 +172,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $this->saveKeymap();
                 break;
 
+            case 'showArchiver':
+                $this->showArchiver();
+                break;
+
             default:
                 $this->showGeneral();
                 break;
@@ -239,6 +243,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 'keymap',
                 $this->txt('tab_keymap'),
                 $this->ctrl->getLinkTarget($this, 'showKeymap')
+            );
+        }
+
+        if ($registry->isModuleActive('examarchiver')) {
+            $this->tabs->addTab(
+                'archiver',
+                $this->txt('tab_archiver'),
+                $this->ctrl->getLinkTarget($this, 'showArchiver')
             );
         }
     }
@@ -2411,6 +2423,29 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         [$msg, $type] = $view->handleSave();
         $this->tpl->setOnScreenMessage($type, $msg);
         $view->showEditor();
+    }
+
+    // -------------------------------------------------------------------------
+    // Archiv-Tab (ExamArchiver-Modul)
+    // -------------------------------------------------------------------------
+
+    private function isExamArchiverInstalled(): bool
+    {
+        return file_exists(__DIR__ . '/../modules/examarchiver/class.ilExamArchiverGUI.php');
+    }
+
+    protected function showArchiver(): void
+    {
+        $this->tabs->activateTab('archiver');
+
+        if (!$this->isExamArchiverInstalled()) {
+            $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examarchiver_missing')));
+            return;
+        }
+
+        require_once __DIR__ . '/../modules/examarchiver/class.ilExamArchiverGUI.php';
+        $view = new ilExamArchiverGUI();
+        $this->tpl->setContent($view->renderAdminView());
     }
 }
 
