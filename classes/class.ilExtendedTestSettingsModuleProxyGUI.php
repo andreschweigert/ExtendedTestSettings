@@ -44,7 +44,6 @@ class ilExtendedTestSettingsModuleProxyGUI
 
         // Datei-Auslieferung: eigene Auth-Prüfung (kein Schreibrecht erforderlich)
         $cmd = strtolower($_GET['cmd'] ?? '');
-        error_log("[ExamResourceSheet] ModuleProxyGUI::executeCommand cmd='$cmd'");
         if ($cmd === 'serveresourcefile') {
             $this->serveResourceFile();
             return;
@@ -150,17 +149,14 @@ class ilExtendedTestSettingsModuleProxyGUI
         $ref_id = (int) ($_GET['ref_id'] ?? 0);
         $token  = preg_replace('/[^a-f0-9]/', '', strtolower($_GET['token'] ?? ''));
 
-        error_log("[ExamResourceSheet] serveResourceFile reached: ref_id=$ref_id token_len=" . strlen($token));
 
         if ($ref_id <= 0 || strlen($token) !== 32) {
-            error_log("[ExamResourceSheet] serveResourceFile 400: bad ref_id or token");
             http_response_code(400);
             exit;
         }
 
         $test_id = ilObject::_lookupObjectId($ref_id);
         if ($test_id <= 0) {
-            error_log("[ExamResourceSheet] serveResourceFile 404: test_id not found for ref_id=$ref_id");
             http_response_code(404);
             exit;
         }
@@ -168,10 +164,8 @@ class ilExtendedTestSettingsModuleProxyGUI
         $has_write  = $rbacsystem->checkAccess('write', $ref_id);
         $has_session = $this->hasActiveTestSession($DIC, $test_id);
         $has_access = $has_session || $has_write;
-        error_log("[ExamResourceSheet] serveResourceFile auth: test_id=$test_id write=$has_write session=$has_session");
 
         if (!$has_access) {
-            error_log("[ExamResourceSheet] serveResourceFile 403: access denied");
             http_response_code(403);
             exit;
         }
@@ -215,7 +209,6 @@ class ilExtendedTestSettingsModuleProxyGUI
 
         // ILIAS bufferiert für jeden ilias.php-Request HTML-Output und setzt eigene
         // Sicherheits-Header. Beides muss verworfen werden bevor wir die Datei senden.
-        error_log("[ExamResourceSheet] headers BEFORE remove: " . implode(' | ', headers_list()));
         while (ob_get_level()) {
             ob_end_clean();
         }
@@ -223,7 +216,6 @@ class ilExtendedTestSettingsModuleProxyGUI
         header_remove('Content-Security-Policy');
         header_remove('X-Content-Security-Policy');
         header_remove('X-WebKit-CSP');
-        error_log("[ExamResourceSheet] headers AFTER remove: " . implode(' | ', headers_list()));
 
         header('Content-Type: ' . $mime);
         header('Content-Disposition: inline; filename="' . addslashes(basename($row['filename'])) . '"');
