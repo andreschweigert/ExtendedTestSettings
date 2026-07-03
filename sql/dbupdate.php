@@ -203,4 +203,52 @@ if (!$db->tableExists('extendedtest_users')) {
     $db->addPrimaryKey('extendedtest_users', array('user_id'));
     $db->addIndex('extendedtest_users', array('added_by'), 'i1');
 }
+?><#7>
+<?php
+global $DIC;
+$db = $DIC->database();
+
+if (!$db->tableExists('etest_hosts')) {
+    $db->createTable('etest_hosts', array(
+        'ip_addr' => array(
+            'type' => 'text',
+            'length' => 45,
+            'notnull' => true,
+            'default' => ''
+        ),
+        'hostname' => array(
+            'type' => 'text',
+            'length' => 255,
+            'notnull' => true,
+            'default' => ''
+        ),
+        'ili_nr' => array(
+            'type' => 'text',
+            'length' => 20,
+            'notnull' => true,
+            'default' => ''
+        ),
+        'koffer' => array(
+            'type' => 'text',
+            'length' => 20,
+            'notnull' => true,
+            'default' => ''
+        ),
+        'geraet_nr' => array(
+            'type' => 'text',
+            'length' => 20,
+            'notnull' => true,
+            'default' => ''
+        ),
+        'import_note' => array(
+            'type' => 'text',
+            'length' => 255,
+            'notnull' => true,
+            'default' => ''
+        )
+    ));
+    $db->addPrimaryKey('etest_hosts', array('ip_addr'));
+    $db->addIndex('etest_hosts', array('ili_nr'), 'h1');
+    $db->addIndex('etest_hosts', array('koffer'), 'h2');
+}
 ?>

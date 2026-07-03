@@ -223,12 +223,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 $this->txt('tab_protocol'),
                 $this->ctrl->getLinkTarget($this, 'showProtocol')
             );
-            $this->tabs->addTab(
-                'devices',
-                $this->txt('tab_devices'),
-                $this->ctrl->getLinkTarget($this, 'showDevices')
-            );
         }
+
+        // Geräte-Inventar ist Plugin-Infrastruktur (etest_hosts), kein Modul-Tab
+        $this->tabs->addTab(
+            'devices',
+            $this->txt('tab_devices'),
+            $this->ctrl->getLinkTarget($this, 'showDevices')
+        );
 
         if ($registry->isModuleActive('examnetqos')) {
             $this->tabs->addTab(
@@ -2353,35 +2355,146 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     protected function showDevices(): void
     {
         $this->tabs->activateTab('devices');
-
-        if (!$this->isExamLoggerInstalled()) {
-            $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examlogger_missing')));
-            return;
-        }
-
-        require_once __DIR__ . '/../modules/examlogger/class.ilExamLoggerViewGUI.php';
-        $view = new ilExamLoggerViewGUI();
-        $view->setDeviceCmd('showDevices');
-        $view->setImportCmd('importDevices');
-        $this->tpl->setContent($view->renderDevicesView());
+        $this->tpl->setContent($this->renderDevicesView());
     }
 
     protected function importDevices(): void
     {
         $this->tabs->activateTab('devices');
 
-        if (!$this->isExamLoggerInstalled()) {
-            return;
+        [$msg, $type] = $this->handleDevicesCsvImport();
+        $this->tpl->setOnScreenMessage($type, $msg);
+        $this->tpl->setContent($this->renderDevicesView());
+    }
+
+    private function renderDevicesView(): string
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        $importUrl = $this->ctrl->getLinkTarget($this, 'importDevices');
+
+        $html  = '<div style="padding:15px;background:#f9f9f9;border:1px solid #ddd;border-radius:4px;margin-bottom:20px;">';
+        $html .= '<h4 style="margin-top:0;">' . $this->txt('devices_import_title') . '</h4>';
+        $html .= '<p style="color:#666;font-size:13px;margin-bottom:10px;">';
+        $html .= $this->txt('devices_import_format_label') . ' <code>ip_addr;hostname;ili_nr;koffer;geraet_nr;import_note</code>';
+        $html .= ' &nbsp;' . $this->txt('devices_import_format_hint');
+        $html .= '</p>';
+        $html .= '<form method="post" action="' . htmlspecialchars($importUrl) . '" enctype="multipart/form-data">';
+        $html .= '<div style="display:flex;align-items:center;gap:12px;">';
+        $html .= '<input type="file" name="geraete_csv" accept=".csv" class="form-control" style="max-width:420px;">';
+        $html .= '<button type="submit" class="btn btn-primary btn-sm">' . $this->txt('devices_btn_import') . '</button>';
+        $html .= '</div>';
+        $html .= '</form>';
+        $html .= '</div>';
+
+        if (!$db->tableExists('etest_hosts')) {
+            $html .= '<div class="alert alert-warning">' . $this->txt('devices_table_missing') . '</div>';
+            return $html;
         }
 
-        require_once __DIR__ . '/../modules/examlogger/class.ilExamLoggerViewGUI.php';
-        $view = new ilExamLoggerViewGUI();
-        $view->setDeviceCmd('showDevices');
-        $view->setImportCmd('importDevices');
+        $result  = $db->query('SELECT ip_addr, hostname, ili_nr, koffer, geraet_nr, import_note FROM etest_hosts ORDER BY koffer, geraet_nr');
+        $devices = [];
+        while ($row = $db->fetchAssoc($result)) {
+            $devices[] = $row;
+        }
 
-        [$msg, $type] = $view->handleCsvImport();
-        $this->tpl->setOnScreenMessage($type, $msg);
-        $this->tpl->setContent($view->renderDevicesView());
+        $html .= '<p>' . sprintf($this->txt('devices_count'), count($devices)) . '</p>';
+
+        if (empty($devices)) {
+            $html .= '<div class="alert alert-info">' . $this->txt('devices_none') . '</div>';
+            return $html;
+        }
+
+        $html .= '<table class="table table-striped table-condensed" style="font-size:13px;">';
+        $html .= '<thead><tr><th>' . $this->txt('devices_th_koffer') . '</th><th>' . $this->txt('devices_th_geraet') . '</th><th>' . $this->txt('devices_th_ili') . '</th><th>' . $this->txt('devices_th_ip') . '</th><th>' . $this->txt('devices_th_hostname') . '</th><th>' . $this->txt('devices_th_note') . '</th></tr></thead><tbody>';
+        foreach ($devices as $dev) {
+            $noteStyle = $dev['import_note'] !== '' ? 'color:#bbb;font-size:12px;' : '';
+            $html .= '<tr>'
+                   . '<td><strong>' . htmlspecialchars($dev['koffer']) . '</strong></td>'
+                   . '<td>' . htmlspecialchars($dev['geraet_nr']) . '</td>'
+                   . '<td>' . htmlspecialchars($dev['ili_nr']) . '</td>'
+                   . '<td style="font-size:12px;color:#666;">' . htmlspecialchars($dev['ip_addr']) . '</td>'
+                   . '<td style="font-size:12px;color:#888;">' . htmlspecialchars($dev['hostname']) . '</td>'
+                   . '<td style="' . $noteStyle . '">' . htmlspecialchars($dev['import_note']) . '</td>'
+                   . '</tr>';
+        }
+        $html .= '</tbody></table>';
+        return $html;
+    }
+
+    private function handleDevicesCsvImport(): array
+    {
+        global $DIC;
+        $db = $DIC->database();
+
+        $errorCode = (int)($_FILES['geraete_csv']['error'] ?? -1);
+        if (empty($_FILES['geraete_csv']['tmp_name']) || $errorCode !== UPLOAD_ERR_OK) {
+            return [sprintf($this->txt('devices_import_no_file'), $errorCode), 'failure'];
+        }
+
+        $content = file_get_contents($_FILES['geraete_csv']['tmp_name']);
+        if ($content === false || $content === '') {
+            return [$this->txt('devices_import_empty'), 'failure'];
+        }
+        // UTF-8 BOM entfernen
+        if (substr($content, 0, 3) === "\xEF\xBB\xBF") {
+            $content = substr($content, 3);
+        }
+
+        $lines = preg_split('/\r?\n/', trim($content));
+        if (empty($lines)) {
+            return [$this->txt('devices_import_empty'), 'failure'];
+        }
+
+        $header   = str_getcsv(array_shift($lines), ';');
+        $expected = ['ip_addr', 'hostname', 'ili_nr', 'koffer', 'geraet_nr', 'import_note'];
+        if (array_map('trim', array_slice($header, 0, 6)) !== $expected) {
+            return [sprintf($this->txt('devices_import_bad_format'), implode(';', $expected)), 'failure'];
+        }
+
+        if (!$db->tableExists('etest_hosts')) {
+            return [$this->txt('devices_table_missing'), 'failure'];
+        }
+
+        $count   = 0;
+        $skipped = 0;
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '') continue;
+
+            $cols     = str_getcsv($line, ';');
+            $ip       = trim($cols[0] ?? '');
+            $hostname = trim($cols[1] ?? '');
+            $ili_nr   = trim($cols[2] ?? '');
+            $koffer   = trim($cols[3] ?? '');
+            $geraet   = trim($cols[4] ?? '');
+            $note     = trim($cols[5] ?? '');
+
+            if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+                $skipped++;
+                continue;
+            }
+
+            $db->replace('etest_hosts',
+                ['ip_addr' => ['text', $ip]],
+                [
+                    'hostname'    => ['text', $hostname],
+                    'ili_nr'      => ['text', $ili_nr],
+                    'koffer'      => ['text', $koffer],
+                    'geraet_nr'   => ['text', $geraet],
+                    'import_note' => ['text', $note],
+                ]
+            );
+            $count++;
+        }
+
+        $msg = sprintf($this->txt('devices_import_done'), $count);
+        if ($skipped > 0) {
+            $msg .= sprintf($this->txt('devices_import_skipped'), $skipped);
+        }
+        return [$msg, 'success'];
     }
 
     // -------------------------------------------------------------------------

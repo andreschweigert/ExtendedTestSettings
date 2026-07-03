@@ -243,3 +243,21 @@ no_module_specified#:#No module specified.
 module_no_gui_class#:#Module '%s' has no GUI class defined.
 gui_file_not_found#:#GUI file not found: %s
 gui_class_not_found#:#GUI class not found: %s
+devices_import_title#:#Import CSV
+devices_import_format_label#:#Format:
+devices_import_format_hint#:#(semicolon-separated, UTF-8 with or without BOM)
+devices_btn_import#:#Import
+devices_table_missing#:#Table etest_hosts is missing — please update the plugin (Administration → Plugins → Update).
+devices_count#:#<strong>%d</strong> devices stored
+devices_none#:#No devices imported yet. Upload a CSV above.
+devices_th_koffer#:#Case
+devices_th_geraet#:#Device no.
+devices_th_ili#:#ILI no.
+devices_th_ip#:#IP address
+devices_th_hostname#:#Hostname
+devices_th_note#:#Note
+devices_import_no_file#:#No file uploaded or upload error (code: %d).
+devices_import_empty#:#File is empty or could not be read.
+devices_import_bad_format#:#Invalid format. Expected header: %s
+devices_import_done#:#%d devices imported/updated successfully.
+devices_import_skipped#:# %d line(s) skipped (invalid IP address).

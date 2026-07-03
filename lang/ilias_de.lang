@@ -243,3 +243,21 @@ no_module_specified#:#Kein Modul angegeben.
 module_no_gui_class#:#Modul '%s' hat keine GUI-Klasse definiert.
 gui_file_not_found#:#GUI-Datei nicht gefunden: %s
 gui_class_not_found#:#GUI-Klasse nicht gefunden: %s
+devices_import_title#:#CSV importieren
+devices_import_format_label#:#Format:
+devices_import_format_hint#:#(Semikolon-getrennt, UTF-8 mit oder ohne BOM)
+devices_btn_import#:#Importieren
+devices_table_missing#:#Tabelle etest_hosts fehlt — Plugin bitte aktualisieren (Administration → Plugins → Aktualisieren).
+devices_count#:#<strong>%d</strong> Geräte gespeichert
+devices_none#:#Noch keine Geräte importiert. CSV oben hochladen.
+devices_th_koffer#:#Koffer
+devices_th_geraet#:#Gerät-Nr
+devices_th_ili#:#ILI-Nr
+devices_th_ip#:#IP-Adresse
+devices_th_hostname#:#Hostname
+devices_th_note#:#Hinweis
+devices_import_no_file#:#Keine Datei hochgeladen oder Fehler beim Upload (Code: %d).
+devices_import_empty#:#Datei ist leer oder konnte nicht gelesen werden.
+devices_import_bad_format#:#Ungültiges Format. Erwartete Kopfzeile: %s
+devices_import_done#:#%d Geräte erfolgreich importiert/aktualisiert.
+devices_import_skipped#:# %d Zeile(n) übersprungen (ungültige IP-Adresse).
