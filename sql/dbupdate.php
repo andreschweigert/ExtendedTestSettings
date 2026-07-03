@@ -203,7 +203,8 @@ if (!$db->tableExists('extendedtest_users')) {
     $db->addPrimaryKey('extendedtest_users', array('user_id'));
     $db->addIndex('extendedtest_users', array('added_by'), 'i1');
 }
-?><#7>
+?>
+<#7>
 <?php
 global $DIC;
 $db = $DIC->database();
