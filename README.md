@@ -270,6 +270,29 @@ Detaillierte Entwicklerdokumentation (inkl. Modul mit eigener GUI-Seite, Proxy-R
 
 ## Changelog
 
+### Version 2.0.1 (2026-07-03)
+
+**Zentrales Geräte-Inventar:**
+- Neue Tabelle `etest_hosts` (dbupdate Step 7): zentrale IP → Koffer/Gerät-Zuordnung als Plugin-Infrastruktur
+- Geräte-Tab mit CSV-Import nativ in der ConfigGUI (immer sichtbar)
+- Module greifen nur lesend zu (LEFT JOIN über IP, mit `tableExists()`-Guard) — keine Code-Abhängigkeit
+- **Update-Reihenfolge beachten:** erst Plugin aktualisieren (legt Tabelle an), dann Modul-ZIPs (z.B. ExamLogger ≥ 1.4.0, ExamBattery ≥ 1.1.0)
+
+**Mehrsprachigkeit (DE/EN):**
+- Hauptplugin auf ILIAS-Plugin-Sprachdateien umgestellt (`lang/ilias_de|en.lang`)
+- Modul-i18n-Infrastruktur: Module bringen eigene `lang/`-Dateien mit (`ilModuleLanguage`, Fallback-Kette Sprache → EN → Default)
+
+**Admin-GUI:**
+- Umstellung auf ILIAS-KitchenSink-Komponenten (Panels, MessageBox, Accordions)
+- Modul-spezifische Tabs erscheinen nur bei aktivem Modul; neue Tabs für ExamNetQos, ExamKeymap und ExamArchiver
+- Statistik-Tab dynamisch an installierte Module gekoppelt
+
+**Fixes & Aufräumarbeiten:**
+- ModuleProxyGUI: Debug-Logging entfernt (Header-/Session-Cookie-Leak in `serveResourceFile()`)
+- `allow_student_access` aus `module.json` respektiert RBAC-Leserecht (ExamMessage)
+- Ungenutzten Legacy-Endpoint `ResourceFileGUI` entfernt
+- dbupdate: Step-Marker `<#7>` korrekt am Zeilenanfang (Step wurde sonst nicht erkannt)
+
 ### Version 2.0.0 (2026-04-14)
 
 **Security Audit & Hardening:**
