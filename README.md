@@ -1,7 +1,7 @@
 # ExtendedTestSettings Plugin für ILIAS
 
 ![ILIAS](https://img.shields.io/badge/ILIAS-9.x-blue)
-![Version](https://img.shields.io/badge/version-2.0.0-success)
+![Version](https://img.shields.io/badge/version-2.0.1-success)
 ![License](https://img.shields.io/badge/license-TBA-lightgrey)
 
 **Version:** 2.0.1  
