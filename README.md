@@ -5,7 +5,9 @@
 ![License](https://img.shields.io/badge/license-TBA-lightgrey)
 
 **Version:** 10.0.0  
-**Für ILIAS:** 9.0 – 9.999
+**Für ILIAS:** 10.0 – 10.999 (Branch `ilias10` — für ILIAS 9 den Branch `ilias9` verwenden)
+
+Versionsschema der ILIAS-10-Linie: Major = ILIAS-Version (10.x), Versionssprünge +0.0.1.
 
 Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Online-Prüfungen. Es basiert auf einem **modularen System**: Funktionalität wird in eigenständigen Modulen gebündelt, die über die Plugin-Administration als ZIP hochgeladen, aktiviert und deaktiviert werden können – ohne den Plugin-Kern zu ändern.
 
@@ -13,13 +15,7 @@ Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Onl
 
 ## Features
 
-- **Modulare Architektur** – Module als eigenständige ZIP-Pakete installier- und aktualisierbar
-- **ExamCalc** – Taschenrechner (einfach oder wissenschaftlich) für Prüfungen
-- **ExamSymbols** – Sonderzeichen-Paletten für Fachbereiche
-- **ExamGuard** – Prüfungsschutz durch Eingabeeinschränkungen
-- **ExamAlert** – Zeitbasierte Warnungen vor Prüfungsende
-- **ExamChecker** – Prüfung der Testeinstellungen gegen konfigurierbare Standards
-- **ExamConnGuard** – Verbindungs-Schutz bei WLAN-Aussetzern im Test-Player
+- **Modulare Architektur** – Funktionalität liegt vollständig in eigenständigen Modulen, die als ZIP-Pakete installiert, aktualisiert, aktiviert und deaktiviert werden
 - **Eigene Module** – über ZIP installierbar, beliebig erweiterbar
 
 Alle Module sind im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) verfügbar.
@@ -29,9 +25,9 @@ Alle Module sind im [Module-Repository](https://github.com/andreschweigert/Exten
 ## Quick Start
 
 ```bash
-# 1. Plugin klonen
+# 1. Plugin klonen (Branch ilias10!)
 cd <pathtoplugin>
-git clone https://github.com/andreschweigert/ExtendedTestSettings ExtendedTestSettings
+git clone -b ilias10 https://github.com/andreschweigert/ExtendedTestSettings ExtendedTestSettings
 
 # 2. ACL setzen: modules/-Verzeichnis für den Web-User beschreibbar machen
 setfacl -R -m u:www-data:rwx <pathtoplugin>/ExtendedTestSettings/modules
@@ -45,7 +41,7 @@ cd /pfad/zu/ilias
 composer dump-autoload
 ```
 
-> `<pathtoplugin>` = `.../Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/`
+> `<pathtoplugin>` = `.../public/Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/` — in ILIAS 10 ist der Webroot `public/`, das Plugin liegt also unterhalb von `public/Customizing/…`.
 
 Nach der Aktivierung erscheint in jedem ILIAS-Test ein neuer Sub-Tab **"Erweiterte Test-Einstellungen"**, in dem die Module einzeln konfiguriert werden können.
 
@@ -57,7 +53,7 @@ Nach der Aktivierung erscheint in jedem ILIAS-Test ein neuer Sub-Tab **"Erweiter
 
 ```bash
 cd <pathtoplugin>
-git clone https://github.com/andreschweigert/ExtendedTestSettings ExtendedTestSettings
+git clone -b ilias10 https://github.com/andreschweigert/ExtendedTestSettings ExtendedTestSettings
 ```
 
 ### Schritt 2: ACL-Rechte setzen
@@ -95,13 +91,13 @@ composer dump-autoload
 
 ### Schritt 6: Module installieren
 
-Alle Module (ExamCalc, ExamSymbols, ExamGuard, ExamAlert, ExamChecker, ExamConnGuard) sind extern und müssen separat installiert werden:
+Alle Module sind extern und müssen separat installiert werden — **immer per ZIP-Upload** (nur dabei wird `sql/install.php` ausgeführt und die Modul-Tabellen angelegt):
 
 ```
 Administration → Plugins → ExtendedTestSettings → Module → ZIP hochladen
 ```
 
-Die ZIPs sind im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) verfügbar.
+Die ZIPs (`<Name>_v10.x.y.zip`) sind im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) auf dem **Branch `ilias10`** verfügbar. Reihenfolge beachten: erst das Plugin installieren/aktualisieren, dann die Module.
 
 ---
 
@@ -136,7 +132,7 @@ Nach dem Upload das Modul in der Liste aktivieren.
 ### ZIP-Paket Struktur
 
 ```
-MeinModul_v1.0.0.zip
+MeinModul_v10.0.0.zip
 ├── module.json              ← Pflicht: Metadaten + Handler-Referenz
 ├── class.ilMeinModulHandler.php
 ├── sql/
@@ -156,9 +152,9 @@ Das ZIP darf einen Wrapper-Ordner enthalten (wie beim GitHub-Download) – der I
     "id": "meinmodul",
     "label": "Mein Modul",
     "description": "Kurze Beschreibung.",
-    "version": "1.0.0",
-    "ilias_min": "9",
-    "ilias_max": "12",
+    "version": "10.0.0",
+    "ilias_min": "10",
+    "ilias_max": "10",
     "handler_class": "ilMeinModulHandler",
     "handler_file": "class.ilMeinModulHandler.php",
     "gui_file": "class.ilMeinModulGUI.php",
@@ -174,14 +170,7 @@ Das ZIP darf einen Wrapper-Ordner enthalten (wie beim GitHub-Download) – der I
 
 ## Module
 
-Alle Module werden separat im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) gepflegt und versioniert. Dort finden sich jeweils die ZIP-Downloads, Dokumentation und Changelogs der einzelnen Module:
-
-- **ExamCalc** – Taschenrechner (einfach + wissenschaftlich mit 2nd-Ebene, Verlauf, Speicher)
-- **ExamSymbols** – Sonderzeichen-Paletten (Mathematik, Sprachen, Naturwissenschaften)
-- **ExamGuard** – Prüfungsschutz (Blockiert Rechtsklick, Copy/Paste, DevTools)
-- **ExamAlert** – Zeitwarnung vor Prüfungsende (konfigurierbare Warnzeit + Nachricht)
-- **ExamChecker** – Einstellungsprüfung gegen Vorgaben (Präsenz-/Fernprüfung)
-- **ExamConnGuard** – Verbindungs-Schutz bei WLAN-Ausfällen (On-Demand-Probe, Overlay, Auto-Replay)
+Alle Module werden separat im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) gepflegt und versioniert (Branch `ilias10`). Dort finden sich die vollständige Modulübersicht, ZIP-Downloads, Dokumentation und Changelogs der einzelnen Module.
 
 ---
 
