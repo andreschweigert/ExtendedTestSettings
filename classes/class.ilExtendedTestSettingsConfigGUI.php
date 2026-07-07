@@ -1512,7 +1512,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function getRegistry(): ilModuleRegistry
     {
         require_once __DIR__ . '/Module/ilModuleRegistry.php';
-        return new ilModuleRegistry($this->getPluginObject()->getDirectory());
+        return ilModuleRegistry::forPlugin($this->getPluginObject());
     }
 
     private function getInstaller(): ilModuleInstaller

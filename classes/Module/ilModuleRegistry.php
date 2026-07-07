@@ -17,16 +17,50 @@ class ilModuleRegistry
     private const SETTINGS_NS = 'extendedtestsettings';
 
     private string $plugin_path;
+    private string $plugin_url_path;
     private ilSetting $settings;
 
     /** @var array[] Alle entdeckten module.json-Inhalte, key = module-id */
     private array $discovered = [];
 
-    public function __construct(string $plugin_path)
+    /**
+     * @param string      $plugin_path     Dateisystem-Pfad des Plugins (ILIAS 10: absolut, ILIAS 9: web-relativ)
+     * @param string|null $plugin_url_path Web-relativer Pfad für Asset-URLs; null = aus $plugin_path ableiten
+     */
+    public function __construct(string $plugin_path, ?string $plugin_url_path = null)
     {
-        $this->plugin_path = rtrim($plugin_path, '/');
-        $this->settings    = new ilSetting(self::SETTINGS_NS);
+        $this->plugin_path     = rtrim($plugin_path, '/');
+        $this->plugin_url_path = rtrim($plugin_url_path ?? self::deriveUrlPath($this->plugin_path), '/');
+        $this->settings        = new ilSetting(self::SETTINGS_NS);
         $this->discover();
+    }
+
+    /**
+     * Registry mit korrektem FS- und Web-Pfad, versionsübergreifend:
+     * ILIAS 10: getDirectory() = absoluter FS-Pfad, getRelativeDirectory() = web-relativ.
+     * ILIAS 9:  getDirectory() = web-relativ (taugt für beides), getRelativeDirectory() existiert nicht.
+     */
+    public static function forPlugin(ilPlugin $plugin): self
+    {
+        $url_path = method_exists($plugin, 'getRelativeDirectory')
+            ? $plugin->getRelativeDirectory()
+            : $plugin->getDirectory();
+
+        return new self($plugin->getDirectory(), $url_path);
+    }
+
+    /**
+     * Web-relativen Pfad aus einem (ggf. absoluten) Plugin-Pfad ableiten —
+     * Fallback für Aufrufer ohne Plugin-Objekt (z. B. AdvancedGUI mit __DIR__-Pfad).
+     * Webroot ist in 9 das ILIAS-Root, in 10 public/ — in beiden liegt das
+     * Plugin unter Customizing/global/plugins/.
+     */
+    private static function deriveUrlPath(string $path): string
+    {
+        $real = realpath($path) ?: $path;
+        $pos  = strpos($real, '/Customizing/global/plugins/');
+
+        return $pos !== false ? substr($real, $pos + 1) : $real;
     }
 
     // -------------------------------------------------------------------------
@@ -222,7 +256,10 @@ class ilModuleRegistry
         }
 
         try {
-            return new $class($this->plugin_path);
+            // Handler bekommen den web-relativen Pfad: er dient in den Modulen
+            // als Basis für addJavaScript/addCss-URLs und funktioniert bei
+            // Web-Requests (CWD = Webroot) auch für require_once.
+            return new $class($this->plugin_url_path);
         } catch (Throwable $e) {
             error_log("[ModuleRegistry] Fehler beim Instanzieren von $class: " . $e->getMessage());
             return null;

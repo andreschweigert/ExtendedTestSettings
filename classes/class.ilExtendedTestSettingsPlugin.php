@@ -49,7 +49,7 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
     {
         if ($this->registry === null) {
             require_once __DIR__ . '/Module/ilModuleRegistry.php';
-            $this->registry = new ilModuleRegistry($this->getDirectory());
+            $this->registry = ilModuleRegistry::forPlugin($this);
         }
         return $this->registry;
     }

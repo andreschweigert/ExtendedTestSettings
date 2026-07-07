@@ -14,7 +14,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
     {
         if ($this->registry === null) {
             require_once __DIR__ . '/Module/ilModuleRegistry.php';
-            $this->registry = new ilModuleRegistry($this->getPluginObject()->getDirectory());
+            $this->registry = ilModuleRegistry::forPlugin($this->getPluginObject());
         }
         return $this->registry;
     }
