@@ -1,10 +1,10 @@
 # ExtendedTestSettings Plugin für ILIAS
 
-![ILIAS](https://img.shields.io/badge/ILIAS-9.x-blue)
-![Version](https://img.shields.io/badge/version-2.0.1-success)
+![ILIAS](https://img.shields.io/badge/ILIAS-10.x-blue)
+![Version](https://img.shields.io/badge/version-10.0.0-success)
 ![License](https://img.shields.io/badge/license-TBA-lightgrey)
 
-**Version:** 2.0.1  
+**Version:** 10.0.0  
 **Für ILIAS:** 9.0 – 9.999
 
 Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Online-Prüfungen. Es basiert auf einem **modularen System**: Funktionalität wird in eigenständigen Modulen gebündelt, die über die Plugin-Administration als ZIP hochgeladen, aktiviert und deaktiviert werden können – ohne den Plugin-Kern zu ändern.
@@ -269,6 +269,17 @@ Detaillierte Entwicklerdokumentation (inkl. Modul mit eigener GUI-Seite, Proxy-R
 ---
 
 ## Changelog
+
+### Version 10.0.0 (2026-07-07)
+
+Start der ILIAS-10-Linie (Branch `ilias10`, Versionsschema: Major = ILIAS-Version, Sprünge +0.0.1).
+Port des 2.0.1-Stands auf ILIAS 10:
+
+- plugin.php: ILIAS-Range 10.0–10.999
+- Erweiterte-Einstellungen-Tab: namespaced 10er-cmdClasses (9er-Strings bleiben für Kompatibilität), zusätzlich Prüfung des URL-Parameters `cmdClass` (getCmdClass() liefert in 10 beim Tab-Rendering ggf. die Parent-Klasse)
+- `ilModuleRegistry::forPlugin()`: zentraler Compat-Layer — Dateisystem-Pfad (`getDirectory()`, in 10 absolut) und Web-Pfad (`getRelativeDirectory()`, in 9 per Fallback) getrennt; Modul-Handler erhalten den Web-Pfad für addJavaScript/addCss
+- `\Throwable` statt `Exception` in den Guards um Modul-Handler-Code
+- Toter `include_once './Modules/Course/...'` entfernt (Autoloader)
 
 ### Version 2.0.1 (2026-07-03)
 
