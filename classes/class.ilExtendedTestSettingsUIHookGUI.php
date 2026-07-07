@@ -53,8 +53,25 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                 return;
             }
 
-            $cmd_class = $ilCtrl->getCmdClass();
-            if (!in_array($cmd_class, ['ilobjtestsettingsmaingui', 'iltestscoringgui'])) {
+            $allowed_cmd_classes = [
+                // ILIAS 9
+                'ilobjtestsettingsmaingui',
+                'iltestscoringgui',
+                // ILIAS 10 (namespaced, belegt im ctrl-Artifact)
+                'ilias\test\settings\mainsettings\settingsmaingui',
+                'ilias\test\settings\scorereporting\settingsscoringgui',
+                'ilias\test\scoring\manual\testscoringbyquestiongui',
+                'ilias\test\scoring\manual\testscoringbyparticipantgui',
+            ];
+
+            // In ILIAS 10 kann getCmdClass() beim Tab-Rendering den Parent
+            // (ilObjTestGUI) liefern statt der weitergeleiteten Settings-GUI,
+            // daher zusätzlich den cmdClass-Parameter der URL prüfen.
+            $cmd_class     = strtolower((string) $ilCtrl->getCmdClass());
+            $url_cmd_class = strtolower(urldecode((string) ($_REQUEST['cmdClass'] ?? '')));
+            if (!in_array($cmd_class, $allowed_cmd_classes, true)
+                && !in_array($url_cmd_class, $allowed_cmd_classes, true)
+            ) {
                 return;
             }
 
@@ -221,7 +238,6 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
 
             foreach ($path as $node) {
                 if ($node['type'] === 'crs') {
-                    include_once './Modules/Course/classes/class.ilCourseParticipants.php';
                     $obj_id      = ilObject::_lookupObjectId($node['ref_id']);
                     $participants = ilCourseParticipants::_getInstanceByObjId($obj_id);
 
