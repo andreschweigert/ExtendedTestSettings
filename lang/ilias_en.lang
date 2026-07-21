@@ -261,3 +261,11 @@ devices_import_empty#:#File is empty or could not be read.
 devices_import_bad_format#:#Invalid format. Expected header: %s
 devices_import_done#:#%d devices imported/updated successfully.
 devices_import_skipped#:# %d line(s) skipped (invalid IP address).
+prop_maturity#:#Development stage
+maturity_konzept#:#Concept
+maturity_experimentell#:#Experimental
+maturity_entwicklung#:#In development
+maturity_test#:#In testing
+maturity_pilot#:#Pilot
+maturity_erprobt#:#Exam-proven
+maturity_eingestellt#:#Discontinued
