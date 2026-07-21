@@ -7,6 +7,17 @@
  */
 class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 {
+    /** Farbpunkte je Entwicklungsstand (Definition: modules-zip/docs/entwicklungsstand.md) */
+    private const MATURITY_DOTS = [
+        'konzept'       => '⚪',
+        'experimentell' => '🟠',
+        'entwicklung'   => '🟡',
+        'test'          => '🔵',
+        'pilot'         => '🟣',
+        'erprobt'       => '🟢',
+        'eingestellt'   => '🔴',
+    ];
+
     protected ilCtrl $ctrl;
     protected ilGlobalTemplateInterface $tpl;
     protected ilLanguage $lng;
@@ -1682,12 +1693,22 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         $this->ctrl->setParameter($this, 'module_id', null);
 
+        $props = [
+            $this->txt('prop_version') => $version_text,
+        ];
+        $maturity = (string) ($info['maturity'] ?? '');
+        if ($maturity !== '') {
+            $dot       = self::MATURITY_DOTS[$maturity] ?? '';
+            $label_txt = isset(self::MATURITY_DOTS[$maturity])
+                ? $this->txt('maturity_' . $maturity)
+                : $maturity;
+            $props[$this->txt('prop_maturity')] = trim($dot . ' ' . $label_txt);
+        }
+        $props[$this->txt('prop_status')] = $active ? $this->txt('status_active') : $this->txt('status_inactive');
+
         $item = $factory->item()->standard($label)
             ->withDescription($desc)
-            ->withProperties([
-                $this->txt('prop_version') => $version_text,
-                $this->txt('prop_status')  => $active ? $this->txt('status_active') : $this->txt('status_inactive'),
-            ])
+            ->withProperties($props)
             ->withActions($factory->dropdown()->standard($actions));
 
         return [$item, $modals];
