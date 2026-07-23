@@ -1,10 +1,10 @@
 # ExtendedTestSettings Plugin für ILIAS
 
 ![ILIAS](https://img.shields.io/badge/ILIAS-9.x-blue)
-![Version](https://img.shields.io/badge/version-2.0.1-success)
+![Version](https://img.shields.io/badge/version-2.0.2-success)
 ![License](https://img.shields.io/badge/license-TBA-lightgrey)
 
-**Version:** 2.0.1  
+**Version:** 2.0.2  
 **Für ILIAS:** 9.0 – 9.999
 
 Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Online-Prüfungen. Es basiert auf einem **modularen System**: Funktionalität wird in eigenständigen Modulen gebündelt, die über die Plugin-Administration als ZIP hochgeladen, aktiviert und deaktiviert werden können – ohne den Plugin-Kern zu ändern.
@@ -269,6 +269,10 @@ Detaillierte Entwicklerdokumentation (inkl. Modul mit eigener GUI-Seite, Proxy-R
 ---
 
 ## Changelog
+
+### Version 2.0.2 (2026-07-21)
+
+- Modulliste zeigt den Entwicklungsstand jedes Moduls (`maturity` aus module.json) als Farbpunkt mit Label — Stufen: Konzept ⚪, Experimentell 🟠, Entwicklung 🟡, Test 🔵, Pilot 🟣, Erprobt 🟢, Eingestellt 🔴 (Definition: `modules-zip/docs/entwicklungsstand.md`)
 
 ### Version 2.0.1 (2026-07-03)
 
