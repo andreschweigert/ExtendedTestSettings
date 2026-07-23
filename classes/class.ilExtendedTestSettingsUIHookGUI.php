@@ -53,13 +53,18 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                 return;
             }
 
-            $cmd_class = $ilCtrl->getCmdClass();
-            if (!in_array($cmd_class, ['ilobjtestsettingsmaingui', 'iltestscoringgui'])) {
+            // Nur im Haupt-Tab "Einstellungen" — unabhängig vom konkreten Sub-Tab/CmdClass
+            if ($ilTabs->getActiveTab() !== 'settings') {
                 return;
             }
 
             $ref_id = (int) ($_GET['ref_id'] ?? 0);
             if ($ref_id <= 0) {
+                return;
+            }
+
+            // ... und nur an Test-Objekten (andere Objekttypen haben ebenfalls einen Tab "settings")
+            if (ilObject::_lookupType($ref_id, true) !== 'tst') {
                 return;
             }
 
