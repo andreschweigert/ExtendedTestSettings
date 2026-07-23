@@ -53,30 +53,33 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                 return;
             }
 
-            $allowed_cmd_classes = [
-                // ILIAS 9
-                'ilobjtestsettingsmaingui',
-                'iltestscoringgui',
-                // ILIAS 10 (namespaced, belegt im ctrl-Artifact)
-                'ilias\test\settings\mainsettings\settingsmaingui',
-                'ilias\test\settings\scorereporting\settingsscoringgui',
-                'ilias\test\scoring\manual\testscoringbyquestiongui',
-                'ilias\test\scoring\manual\testscoringbyparticipantgui',
-            ];
+            // Nur im Haupt-Tab "Einstellungen" — unabhängig vom konkreten Sub-Tab/CmdClass.
+            // Ersetzt die frühere CmdClass-Liste: in 10 sind die Settings-GUIs namespaced
+            // und getCmdClass() liefert beim Tab-Rendering ggf. den Parent (ilObjTestGUI).
+            // Tab-ID 'settings' ist in 9 und 10 identisch (TabsManager::TAB_ID_SETTINGS).
+            $active_tab = $ilTabs->getActiveTab();
 
-            // In ILIAS 10 kann getCmdClass() beim Tab-Rendering den Parent
-            // (ilObjTestGUI) liefern statt der weitergeleiteten Settings-GUI,
-            // daher zusätzlich den cmdClass-Parameter der URL prüfen.
-            $cmd_class     = strtolower((string) $ilCtrl->getCmdClass());
-            $url_cmd_class = strtolower(urldecode((string) ($_REQUEST['cmdClass'] ?? '')));
-            if (!in_array($cmd_class, $allowed_cmd_classes, true)
-                && !in_array($url_cmd_class, $allowed_cmd_classes, true)
-            ) {
+            if ($active_tab === '') {
+                // Kein Tab explizit aktiviert: In ILIAS 10 ruft ilObjTestGUI im Case
+                // SettingsScoringGUI kein activateTab(TAB_ID_SETTINGS) auf (anders als bei
+                // SettingsMainGUI/MarkSchemaGUI) — der Haupt-Tab wird dort nur über das
+                // cmd-Matching von addTarget() hervorgehoben, getActiveTab() bleibt leer.
+                // Fallback: Klassenkette gegen die GUIs prüfen, für die der Core selbst
+                // die Settings-Sub-Tabs baut (TabsManager::setupTabsGuiConfig).
+                if (!$this->isTestSettingsClassPath($ilCtrl)) {
+                    return;
+                }
+            } elseif ($active_tab !== 'settings') {
                 return;
             }
 
             $ref_id = (int) ($_GET['ref_id'] ?? 0);
             if ($ref_id <= 0) {
+                return;
+            }
+
+            // ... und nur an Test-Objekten (andere Objekttypen haben ebenfalls einen Tab "settings")
+            if (ilObject::_lookupType($ref_id, true) !== 'tst') {
                 return;
             }
 
@@ -99,6 +102,29 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                 error_log("[ExtendedTestSettings] Tab-Fehler: " . $e->getMessage());
             }
         }
+    }
+
+    /**
+     * Fallback für Settings-GUIs, die den Haupt-Tab nicht explizit aktivieren.
+     * Liste = die Klassen, für die der Core selbst die Settings-Sub-Tabs baut
+     * (9: ilTestTabsManager, 10: TabsManager::setupTabsGuiConfig).
+     */
+    private function isTestSettingsClassPath($ilCtrl): bool
+    {
+        $settings_guis = [
+            // ILIAS 9
+            'ilobjtestsettingsmaingui',
+            'ilobjtestsettingsscoringresultsgui',
+            'ilmarkschemagui',
+            // ILIAS 10 (namespaced)
+            'ilias\test\settings\mainsettings\settingsmaingui',
+            'ilias\test\settings\scorereporting\settingsscoringgui',
+            'ilias\test\scoring\marks\markschemagui',
+        ];
+
+        $class_path = array_map('strtolower', $ilCtrl->getCurrentClassPath());
+
+        return array_intersect($class_path, $settings_guis) !== [];
     }
 
     /**

@@ -1,10 +1,10 @@
 # ExtendedTestSettings Plugin für ILIAS
 
 ![ILIAS](https://img.shields.io/badge/ILIAS-10.x-blue)
-![Version](https://img.shields.io/badge/version-10.0.0-success)
+![Version](https://img.shields.io/badge/version-10.0.2-success)
 ![License](https://img.shields.io/badge/license-TBA-lightgrey)
 
-**Version:** 10.0.0  
+**Version:** 10.0.2  
 **Für ILIAS:** 10.0 – 10.999 (Branch `ilias10` — für ILIAS 9 den Branch `ilias9` verwenden)
 
 Versionsschema der ILIAS-10-Linie: Major = ILIAS-Version (10.x), Versionssprünge +0.0.1.
@@ -258,6 +258,10 @@ Detaillierte Entwicklerdokumentation (inkl. Modul mit eigener GUI-Seite, Proxy-R
 ---
 
 ## Changelog
+
+### Version 10.0.2 (2026-07-23)
+
+- Sub-Tab „Erweiterte Test-Einstellungen" erscheint nur noch im Haupt-Tab „Einstellungen" von Test-Objekten (Prüfung auf aktiven Haupt-Tab statt auf CmdClass) — behebt zugleich das Erscheinen in der Manuellen Bewertung und das Verschwinden in Sub-Tabs wie „Notenschema" (`MarkSchemaGUI`); die 10er-cmdClass-Liste aus 10.0.0 entfällt damit. Port von 2.0.3, danke an [@rfcmaXi](https://github.com/rfcmaXi) für Meldung und Lösungsvorschlag (#8)
 
 ### Version 10.0.0 (2026-07-07)
 
