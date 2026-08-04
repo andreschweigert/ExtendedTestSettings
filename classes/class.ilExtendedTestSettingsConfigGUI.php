@@ -2,11 +2,45 @@
 
 /**
  * Plugin Configuration GUI for ExtendedTestSettings
- * 
+ *
+ * CSRF-Modell (siehe .dev/security/SICHERHEITSREGELN.md, R4):
+ * ILIAS hängt einen CSRF-Token nur an URLs aus getFormAction() an (dort steht
+ * cmd=post) und validiert auch nur dort. Ein <form method="post"> auf ein
+ * getLinkTarget()-Ziel ist für ilCtrl KEIN POST — dort gäbe es weder Token noch
+ * Prüfung. Deshalb gilt hier:
+ *   - jede zustandsändernde Aktion wird mit getFormAction() erzeugt
+ *   - die Handler erzwingen zusätzlich serverseitig POST (requirePost()),
+ *     unabhängig von ilCtrl
+ *   - keine $_GET-Fallbacks in schreibenden Handlern
+ *
+ * ilCtrlSecurityInterface deklariert die Commands zusätzlich explizit. Wirksam
+ * wird die GET-Seite davon erst nach einem Setup-Lauf "build-artifacts"
+ * (Services/UICore/artifacts/ctrl_security.php) — die Absicherung oben hängt
+ * bewusst nicht davon ab.
+ *
  * @ilCtrl_isCalledBy ilExtendedTestSettingsConfigGUI: ilObjComponentSettingsGUI
  */
-class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
+class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtrlSecurityInterface
 {
+    /**
+     * Zustandsändernde Commands. Werden über getFormAction() erzeugt und von
+     * requirePost() zusätzlich auf POST festgenagelt.
+     */
+    private const WRITE_COMMANDS = [
+        'saveGeneralSettings',
+        'saveExamChecker',
+        'addSingleUser',
+        'removeUser',
+        'cleanupOrphanedEntries',
+        'toggleModule',
+        'uploadModule',
+        'uninstallModule',
+        'doUpdateModule',
+        'saveModuleRepoUrl',
+        'importDevices',
+        'saveKeymap',
+        'checkModuleUpdates',
+    ];
     /** Farbpunkte je Entwicklungsstand (Definition: modules-zip/docs/entwicklungsstand.md) */
     private const MATURITY_DOTS = [
         'konzept'       => '⚪',
@@ -42,6 +76,45 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function txt(string $key): string
     {
         return $this->getPluginObject()->txt($key);
+    }
+
+    /**
+     * @inheritDoc
+     * Alle schreibenden Commands sind als GET unsicher.
+     */
+    public function getUnsafeGetCommands(): array
+    {
+        return self::WRITE_COMMANDS;
+    }
+
+    /**
+     * @inheritDoc
+     * Kein POST-Command darf ohne Token durchgehen.
+     */
+    public function getSafePostCommands(): array
+    {
+        return [];
+    }
+
+    /**
+     * Erzwingt POST für zustandsändernde Commands — serverseitig und unabhängig
+     * von ilCtrl bzw. vom Zustand des ctrl_security-Artefakts.
+     *
+     * @return bool true, wenn weitergearbeitet werden darf
+     */
+    private function requirePost(): bool
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+            return true;
+        }
+
+        error_log('[ExtendedTestSettings] Schreibender Command ohne POST abgewiesen: '
+            . ($_GET['cmd'] ?? $_GET['fallbackCmd'] ?? '?'));
+
+        $this->tpl->setOnScreenMessage('failure', $this->txt('invalid_request_method'));
+        $this->ctrl->redirect($this, 'showGeneral');
+
+        return false;
     }
 
     /**
@@ -333,7 +406,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function buildGeneralSettingsForm(): ilPropertyFormGUI
     {
         $form = new ilPropertyFormGUI();
-        $form->setFormAction($this->ctrl->getLinkTarget($this, 'saveGeneralSettings'));
+        $form->setFormAction($this->ctrl->getFormAction($this, 'saveGeneralSettings'));
 
         // --- Tab-Sichtbarkeit ---
         $section_visibility = new ilFormSectionHeaderGUI();
@@ -432,7 +505,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $avatar   = $factory->symbol()->avatar()->letter($login);
 
             $this->ctrl->setParameter($this, 'user_id', (int) $user['user_id']);
-            $remove_url = $this->ctrl->getLinkTarget($this, 'removeUser');
+            $remove_url = $this->ctrl->getFormAction($this, 'removeUser');
             $this->ctrl->setParameter($this, 'user_id', '');
 
             $modal = $factory->modal()->interruptive(
@@ -553,7 +626,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
             $this->ctrl->setParameter($this, 'user_id', (int) $row['usr_id']);
             $this->ctrl->setParameter($this, 'search_query', $search_query);
-            $add_url = $this->ctrl->getLinkTarget($this, 'addSingleUser');
+            $add_url = $this->ctrl->getFormAction($this, 'addSingleUser');
             $this->ctrl->setParameter($this, 'user_id', '');
             $this->ctrl->setParameter($this, 'search_query', '');
 
@@ -583,6 +656,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         global $DIC;
         $db = $DIC->database();
 
+        // Bewusste Ausnahme von der POST-Regel: Das Hinzufügen wird aus der
+        // Trefferliste heraus als Link ausgelöst. Die URL stammt aus
+        // getFormAction() und trägt den rtoken — CSRF ist damit geschlossen,
+        // auch wenn der Klick technisch ein GET ist.
         $user_id      = (int) ($_POST['user_id'] ?? $_GET['user_id'] ?? 0);
         $search_query = $_POST['search_query'] ?? $_GET['search_query'] ?? '';
 
@@ -776,10 +853,17 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     public function removeUser(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         global $DIC;
         $db = $DIC->database();
 
         // user_id kann per POST (Formular) oder GET (Interruptive Modal URL) kommen
+        // ilCtrl-Parameter stehen im Query-String der Formular-Action; das
+        // Interruptive Modal postet nur darauf. Das ist unkritisch, weil
+        // requirePost() POST erzwingt und ilCtrl den rtoken dieser URL prüft.
         $user_id = (int) ($_POST['user_id'] ?? $_GET['user_id'] ?? 0);
 
         if ($user_id <= 0) {
@@ -833,6 +917,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function saveGeneralSettings(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         try {
             // Tab-Sichtbarkeit
             $tab_visibility = $_POST['tab_visibility'] ?? 'course_admins';
@@ -878,10 +966,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         );
 
         if (empty($active)) {
-            return $renderer->render([
-                $factory->messageBox()->info($this->txt('stats_no_active_module')),
-                $this->buildMaintenancePanel($factory),
-            ]);
+            [$panel, $modals] = $this->buildMaintenancePanel($factory);
+            return $renderer->render(array_merge(
+                [$factory->messageBox()->info($this->txt('stats_no_active_module')), $panel],
+                $modals
+            ));
         }
 
         ilAccordionGUI::addJavaScript();
@@ -929,24 +1018,39 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         }
 
         if (!$any) {
-            return $renderer->render([
-                $factory->messageBox()->info($this->txt('stats_no_module_settings')),
-                $this->buildMaintenancePanel($factory),
-            ]);
+            [$panel, $modals] = $this->buildMaintenancePanel($factory);
+            return $renderer->render(array_merge(
+                [$factory->messageBox()->info($this->txt('stats_no_module_settings')), $panel],
+                $modals
+            ));
         }
+
+        [$panel, $modals] = $this->buildMaintenancePanel($factory);
 
         return '<h3>' . $this->txt('stats_module_usage') . '</h3>'
             . $accordion->getHTML()
-            . $renderer->render($this->buildMaintenancePanel($factory));
+            . $renderer->render(array_merge([$panel], $modals));
     }
 
     /**
      * Wartungs-Panel (Bereinigung verwaister Einträge).
+     *
+     * Die Bereinigung löscht über alle Modultabellen hinweg und läuft deshalb
+     * über ein Interruptive Modal — das postet auf die getFormAction()-URL und
+     * ist damit CSRF-geschützt und bestätigungspflichtig (R4).
+     *
      * @param mixed $factory
+     * @return array{0: mixed, 1: array} [Panel, Modals]
      */
-    private function buildMaintenancePanel($factory)
+    private function buildMaintenancePanel($factory): array
     {
-        return $factory->panel()->standard(
+        $modal = $factory->modal()->interruptive(
+            $this->txt('cleanup_confirm_title'),
+            $this->txt('cleanup_confirm_blind'),
+            $this->ctrl->getFormAction($this, 'cleanupOrphanedEntries')
+        )->withActionButtonLabel($this->txt('cleanup_action'));
+
+        $panel = $factory->panel()->standard(
             $this->txt('maintenance'),
             [
                 $factory->messageBox()->info($this->txt('maintenance_info')),
@@ -956,10 +1060,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 ),
                 $factory->button()->standard(
                     $this->txt('cleanup_now'),
-                    $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries')
+                    $modal->getShowSignal()
                 ),
             ]
         );
+
+        return [$panel, [$modal]];
     }
 
     /**
@@ -1099,7 +1205,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function buildExamCheckerForm(): ilPropertyFormGUI
     {
         $form = new ilPropertyFormGUI();
-        $form->setFormAction($this->ctrl->getLinkTarget($this, 'saveExamChecker'));
+        $form->setFormAction($this->ctrl->getFormAction($this, 'saveExamChecker'));
         $form->setTitle($this->txt('examchecker_title'));
         $form->setDescription($this->txt('examchecker_desc'));
 
@@ -1296,6 +1402,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function saveExamChecker(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         try {
             $post = $_POST;
             $valid_keys = array_keys($this->getCheckDefinitions());
@@ -1397,7 +1507,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $renderer = $DIC->ui()->renderer();
 
         $back_url    = $this->ctrl->getLinkTarget($this, 'showStatistics');
-        $cleanup_url = $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries');
+        $cleanup_url = $this->ctrl->getFormAction($this, 'cleanupOrphanedEntries');
         $back_button = $factory->button()->standard($this->txt('back_to_statistics'), $back_url);
 
         if (empty($orphaned_entries)) {
@@ -1453,6 +1563,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function cleanupOrphanedEntries(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         try {
             // Erst Vorschau sammeln für Meldung
             $orphaned_before = $this->getOrphanedEntries();
@@ -1583,7 +1697,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         if ($with_check) {
             $components[] = $factory->button()->standard(
                 $this->txt('modules_check_updates'),
-                $this->ctrl->getLinkTarget($this, 'checkModuleUpdates')
+                $this->ctrl->getFormAction($this, 'checkModuleUpdates')
             );
             $components[] = $factory->button()->standard(
                 $this->txt('modules_network_diag'),
@@ -1659,7 +1773,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         // Aktivieren / Deaktivieren via Interruptive Modal (POST)
         $this->ctrl->setParameter($this, 'module_id', $id);
         $this->ctrl->setParameter($this, 'active', $active ? '0' : '1');
-        $toggle_target = $this->ctrl->getLinkTarget($this, 'toggleModule');
+        $toggle_target = $this->ctrl->getFormAction($this, 'toggleModule');
         $this->ctrl->setParameter($this, 'active', null);
 
         $toggle_modal = $factory->modal()->interruptive(
@@ -1681,7 +1795,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         // Deinstallieren via Interruptive Modal (POST), nur externe Module
         if (!$builtin) {
-            $uninstall_target = $this->ctrl->getLinkTarget($this, 'uninstallModule');
+            $uninstall_target = $this->ctrl->getFormAction($this, 'uninstallModule');
             $uninstall_modal  = $factory->modal()->interruptive(
                 $this->txt('module_uninstall_title'),
                 sprintf($this->txt('module_uninstall_confirm'), $label),
@@ -1768,6 +1882,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function toggleModule(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
+        // ilCtrl-Parameter stehen im Query-String der Formular-Action; das
+        // Interruptive Modal postet nur darauf. Das ist unkritisch, weil
+        // requirePost() POST erzwingt und ilCtrl den rtoken dieser URL prüft.
         $module_id = (string) ($_POST['module_id'] ?? $_GET['module_id'] ?? '');
         $active    = (bool) (int) ($_POST['active'] ?? $_GET['active'] ?? 0);
 
@@ -1799,6 +1920,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function uploadModule(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         $this->tabs->activateTab('modules');
 
         $file = $_FILES['module_zip'] ?? null;
@@ -1843,6 +1968,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function uninstallModule(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
+        // ilCtrl-Parameter stehen im Query-String der Formular-Action; das
+        // Interruptive Modal postet nur darauf. Das ist unkritisch, weil
+        // requirePost() POST erzwingt und ilCtrl den rtoken dieser URL prüft.
         $module_id = (string) ($_POST['module_id'] ?? $_GET['module_id'] ?? '');
 
         if ($module_id === '') {
@@ -1890,6 +2022,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function saveModuleRepoUrl(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         $url    = trim($_POST['module_repo_url'] ?? '');
         $branch = trim($_POST['module_repo_branch'] ?? 'ilias9');
         $proxy  = trim($_POST['module_repo_proxy'] ?? '');
@@ -1960,7 +2096,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             return;
         }
 
-        $do_url     = $this->ctrl->getLinkTarget($this, 'doUpdateModule');
+        $do_url     = $this->ctrl->getFormAction($this, 'doUpdateModule');
         $back_url   = $this->ctrl->getLinkTarget($this, 'showModules');
         $module_esc = htmlspecialchars($module_id, ENT_QUOTES);
         $dl_esc     = htmlspecialchars($download_url, ENT_QUOTES);
@@ -2005,6 +2141,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function doUpdateModule(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         $module_id    = preg_replace('/[^a-z0-9_]/', '', strtolower($_POST['module_id'] ?? ''));
         $download_url = $_POST['download_url'] ?? '';
 
@@ -2418,6 +2558,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
     protected function importDevices(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         $this->tabs->activateTab('devices');
 
         [$msg, $type] = $this->handleDevicesCsvImport();
@@ -2430,7 +2574,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         global $DIC;
         $db = $DIC->database();
 
-        $importUrl = $this->ctrl->getLinkTarget($this, 'importDevices');
+        $importUrl = $this->ctrl->getFormAction($this, 'importDevices');
 
         $html  = '<div style="padding:15px;background:#f9f9f9;border:1px solid #ddd;border-radius:4px;margin-bottom:20px;">';
         $html .= '<h4 style="margin-top:0;">' . $this->txt('devices_import_title') . '</h4>';
@@ -2581,11 +2725,35 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         $view = new $class();
         $view->setSaveCmd('saveKeymap');
+        $this->passFormActionTo($view, 'saveKeymap');
         $view->showEditor();
+    }
+
+    /**
+     * Übergibt einer Modul-Admin-GUI die CSRF-geschützte Formular-Action des
+     * zugehörigen Kern-Commands — sofern das Modul den Setter bereits kennt.
+     *
+     * Hintergrund: Module wie ExamKeymap bauen ihre Formular-Action bisher selbst
+     * aus buildBaseUrl() . '&cmd=' . $saveCmd zusammen; darin steckt kein rtoken.
+     * Der Kern kann das nicht allein reparieren — requirePost() verhindert
+     * immerhin GET. Sobald das Modul setSaveUrl() implementiert, greift auch der
+     * Token, ohne dass hier nochmal etwas geändert werden muss.
+     *
+     * @param object $view
+     */
+    private function passFormActionTo($view, string $cmd): void
+    {
+        if (method_exists($view, 'setSaveUrl')) {
+            $view->setSaveUrl($this->ctrl->getFormAction($this, $cmd));
+        }
     }
 
     protected function saveKeymap(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         $this->tabs->activateTab('keymap');
 
         $class = $this->loadKeymapGuiClass();
@@ -2595,6 +2763,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         $view = new $class();
         $view->setSaveCmd('saveKeymap');
+        $this->passFormActionTo($view, 'saveKeymap');
 
         [$msg, $type] = $view->handleSave();
         $this->tpl->setOnScreenMessage($type, $msg);
