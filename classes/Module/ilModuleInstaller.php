@@ -78,16 +78,7 @@ class ilModuleInstaller
                 throw new RuntimeException('modules/-Verzeichnis konnte nicht erstellt werden. Bitte Schreibrechte prüfen.');
             }
 
-            // Altes Modul entfernen falls vorhanden (Update)
-            if (is_dir($target_dir)) {
-                $this->removeDirectory($target_dir);
-            }
-
-            // Entpacken
-            $this->extractZip($zip, $target_dir);
-
-            // DB-Tabellen anlegen
-            $this->runInstallSql($target_dir);
+            $this->installAtomically($zip, $module_info, $target_dir);
 
             // Audit-Log mit User-Details
             global $DIC;
@@ -98,6 +89,111 @@ class ilModuleInstaller
 
         } finally {
             $zip->close();
+        }
+    }
+
+    /**
+     * Installiert das Modul atomar (Regel R13).
+     *
+     * Ablauf: in ein Staging-Verzeichnis auf DEMSELBEN Dateisystem entpacken,
+     * dort auf Vollständigkeit prüfen, den alten Stand beiseite legen, per
+     * rename() umschalten und erst danach die DB-Migration ausführen. Jeder
+     * Fehler stellt den alten Stand wieder her.
+     *
+     * Damit ist das bisherige "erst löschen, dann entpacken" beseitigt — ein
+     * abgebrochenes Update kann kein funktionierendes Modul mehr aushöhlen.
+     *
+     * Staging- und Backup-Verzeichnisse beginnen mit einem Punkt und werden
+     * deshalb von der Registry-Discovery (glob 'modules/&#42;/module.json') nicht erfasst.
+     *
+     * @throws RuntimeException
+     */
+    private function installAtomically(ZipArchive $zip, array $module_info, string $target_dir): void
+    {
+        $module_id = $module_info['id'];
+        $suffix    = bin2hex(random_bytes(6));
+        $staging   = $this->modules_dir . '/.ets-staging-' . $module_id . '-' . $suffix;
+        $backup    = null;
+
+        try {
+            $this->extractZip($zip, $staging);
+            $this->verifyExtraction($staging, $module_info);
+
+            // Alten Stand beiseite legen (nicht löschen!)
+            if (is_dir($target_dir)) {
+                $backup = $this->modules_dir . '/.ets-backup-' . $module_id . '-' . $suffix;
+                if (!@rename($target_dir, $backup)) {
+                    throw new RuntimeException(
+                        'Bestehendes Modul konnte nicht beiseite gelegt werden. '
+                        . 'Häufigste Ursache: Dateien in modules/' . $module_id
+                        . ' gehören nicht www-data.'
+                    );
+                }
+            }
+
+            // Umschalten — atomar, da gleiches Dateisystem
+            if (!@rename($staging, $target_dir)) {
+                if ($backup !== null) {
+                    @rename($backup, $target_dir);
+                }
+                throw new RuntimeException('Neues Modul konnte nicht aktiviert werden (rename fehlgeschlagen).');
+            }
+
+            // DB-Migration erst nach erfolgreichem Umschalten
+            try {
+                $this->runInstallSql($target_dir);
+            } catch (Throwable $e) {
+                $this->removeDirectoryQuietly($target_dir);
+                if ($backup !== null && @rename($backup, $target_dir)) {
+                    $backup = null;
+                    error_log("[ModuleInstaller] Rollback nach DB-Fehler: alter Stand von '$module_id' wiederhergestellt");
+                }
+                throw new RuntimeException('DB-Installation fehlgeschlagen: ' . $e->getMessage());
+            }
+
+            // Erfolg: alten Stand endgültig entfernen (Restmüll darf die
+            // erfolgreiche Installation nicht scheitern lassen)
+            if ($backup !== null) {
+                $this->removeDirectoryQuietly($backup);
+                $backup = null;
+            }
+        } finally {
+            // Reste aufräumen; ein noch vorhandenes Backup heißt: es gab einen Fehler
+            if (is_dir($staging)) {
+                $this->removeDirectoryQuietly($staging);
+            }
+            if ($backup !== null && is_dir($backup)) {
+                error_log("[ModuleInstaller] Update von '$module_id' fehlgeschlagen — Backup liegt in $backup");
+            }
+        }
+    }
+
+    /**
+     * Prüft nach dem Entpacken, ob das Modul vollständig ist: die im Manifest
+     * genannten PHP-Dateien müssen tatsächlich im Modulordner liegen.
+     *
+     * @throws RuntimeException
+     */
+    private function verifyExtraction(string $dir, array $module_info): void
+    {
+        if (!is_file($dir . '/module.json')) {
+            throw new RuntimeException('Entpacktes Modul ist unvollständig: module.json fehlt.');
+        }
+
+        $required = [$module_info['handler_file']];
+        if (!empty($module_info['gui_file'])) {
+            $required[] = $module_info['gui_file'];
+        }
+        foreach ($module_info['require_files'] ?? [] as $rel_path) {
+            $required[] = $rel_path;
+        }
+
+        foreach ($required as $rel_path) {
+            if (ilModuleManifest::resolveFile($dir, (string) $rel_path) === null) {
+                throw new RuntimeException(
+                    "Entpacktes Modul ist unvollständig: '$rel_path' fehlt oder liegt außerhalb des Modulordners."
+                );
+            }
         }
     }
 
@@ -283,8 +379,8 @@ class ilModuleInstaller
             if ($relative === '' || str_ends_with($relative, '/')) {
                 // Verzeichnis-Eintrag
                 $dir = $target_dir . '/' . $relative;
-                if (!is_dir($dir)) {
-                    mkdir($dir, 0755, true);
+                if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+                    throw new RuntimeException("Konnte Verzeichnis nicht anlegen: $relative");
                 }
                 continue;
             }
@@ -292,8 +388,8 @@ class ilModuleInstaller
             $target_file = $target_dir . '/' . $relative;
             $parent      = dirname($target_file);
 
-            if (!is_dir($parent)) {
-                mkdir($parent, 0755, true);
+            if (!is_dir($parent) && !mkdir($parent, 0755, true) && !is_dir($parent)) {
+                throw new RuntimeException("Konnte Verzeichnis nicht anlegen: " . dirname($relative));
             }
 
             $content = $zip->getFromIndex($i);
@@ -301,7 +397,13 @@ class ilModuleInstaller
                 throw new RuntimeException("Konnte Datei nicht lesen: $name");
             }
 
-            file_put_contents($target_file, $content);
+            // Rückgabewert prüfen: ein unbemerkter Schreibfehler (volle Platte,
+            // Rechte) erzeugte bisher ein halb installiertes Modul, das als
+            // "erfolgreich installiert" gemeldet wurde.
+            $written = file_put_contents($target_file, $content);
+            if ($written === false || $written !== strlen($content)) {
+                throw new RuntimeException("Konnte Datei nicht vollständig schreiben: $relative");
+            }
         }
     }
 
@@ -386,6 +488,13 @@ class ilModuleInstaller
     // Hilfsmethoden
     // -------------------------------------------------------------------------
 
+    /**
+     * Löscht ein Verzeichnis rekursiv. Fehler werden gesammelt und gemeldet —
+     * ein stillschweigend fehlgeschlagenes unlink() hinterließ bisher einen
+     * halb gelöschten Modulordner ohne jeden Hinweis.
+     *
+     * @throws RuntimeException
+     */
     private function removeDirectory(string $dir): void
     {
         if (!is_dir($dir)) {
@@ -397,10 +506,40 @@ class ilModuleInstaller
             RecursiveIteratorIterator::CHILD_FIRST
         );
 
+        $failed = [];
         foreach ($items as $item) {
-            $item->isDir() ? rmdir($item->getRealPath()) : unlink($item->getRealPath());
+            $path = $item->getRealPath();
+            $ok   = $item->isDir() ? @rmdir($path) : @unlink($path);
+            if (!$ok) {
+                $failed[] = $path;
+            }
         }
 
-        rmdir($dir);
+        if (!@rmdir($dir)) {
+            $failed[] = $dir;
+        }
+
+        if (!empty($failed)) {
+            error_log('[ModuleInstaller] Konnte nicht löschen: ' . implode(', ', array_slice($failed, 0, 5)));
+            throw new RuntimeException(
+                'Verzeichnis konnte nicht vollständig gelöscht werden (' . count($failed) . ' Einträge). '
+                . 'Häufigste Ursache: Dateien gehören nicht www-data.'
+            );
+        }
+    }
+
+    /**
+     * Aufräumen ohne zu werfen — für Rollback- und finally-Pfade, in denen eine
+     * neue Exception die eigentliche Fehlerursache überdecken würde.
+     */
+    private function removeDirectoryQuietly(string $dir): bool
+    {
+        try {
+            $this->removeDirectory($dir);
+            return true;
+        } catch (Throwable $e) {
+            error_log('[ModuleInstaller] Aufräumen von ' . $dir . ' fehlgeschlagen: ' . $e->getMessage());
+            return false;
+        }
     }
 }
