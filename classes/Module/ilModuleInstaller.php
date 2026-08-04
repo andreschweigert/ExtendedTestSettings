@@ -83,6 +83,32 @@ class ilModuleInstaller
         }
     }
 
+    /**
+     * Liest und validiert das Manifest eines ZIPs, OHNE etwas zu installieren.
+     *
+     * Damit lässt sich vor dem Schreiben prüfen, ob das heruntergeladene Artefakt
+     * wirklich das angeforderte Modul in der erwarteten Version ist (Regel R13).
+     *
+     * @throws RuntimeException
+     */
+    public function readManifestFromZip(string $zip_file_path): array
+    {
+        if (!file_exists($zip_file_path)) {
+            throw new RuntimeException('ZIP-Datei nicht gefunden.');
+        }
+
+        $zip = new ZipArchive();
+        if ($zip->open($zip_file_path) !== true) {
+            throw new RuntimeException('Datei ist kein gültiges ZIP-Archiv.');
+        }
+
+        try {
+            return $this->validateZip($zip);
+        } finally {
+            $zip->close();
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Deinstallieren
     // -------------------------------------------------------------------------
