@@ -2064,35 +2064,20 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
         $url_allowed    = $this->isAllowedDownloadUrl($download_url);
         $back_url       = $this->ctrl->getLinkTarget($this, 'showModules');
 
-        // Debug-Panel: immer anzeigen damit Probleme sichtbar werden
-        $get_dump = htmlspecialchars(print_r($_GET, true), ENT_QUOTES);
-        $debug_html = "
-        <div class='card mt-3 mb-3 border-warning'>
-            <div class='card-header bg-warning text-dark'><strong>Debug-Info: updateModule</strong></div>
-            <div class='card-body' style='font-family:monospace;font-size:0.85em;'>
-                <table class='table table-sm table-bordered mb-0'>
-                    <tr><th style='width:200px'>module_id (raw GET)</th><td>" . htmlspecialchars($_GET['module_id'] ?? '(leer)', ENT_QUOTES) . "</td></tr>
-                    <tr><th>module_id (bereinigt)</th><td>" . htmlspecialchars($module_id, ENT_QUOTES) . "</td></tr>
-                    <tr><th>download_url</th><td style='word-break:break-all'>" . htmlspecialchars($download_url, ENT_QUOTES) . "</td></tr>
-                    <tr><th>latest_version</th><td>$latest_version</td></tr>
-                    <tr><th>Repo-URL (gespeichert)</th><td>" . htmlspecialchars($repo_url, ENT_QUOTES) . "</td></tr>
-                    <tr><th>isAllowedDownloadUrl</th><td>" . ($url_allowed ? '<span class=\"text-success\">erlaubt</span>' : '<span class=\"text-danger\">blockiert</span>') . "</td></tr>
-                    <tr><th>download_url Host</th><td>" . htmlspecialchars((string) parse_url($download_url, PHP_URL_HOST), ENT_QUOTES) . "</td></tr>
-                    <tr><th>Repo Host (erwartet)</th><td>" . htmlspecialchars((string) parse_url($repo_url, PHP_URL_HOST), ENT_QUOTES) . "</td></tr>
-                    <tr><th>module_id leer?</th><td>" . ($module_id === '' ? 'ja' : 'nein') . "</td></tr>
-                    <tr><th>download_url leer?</th><td>" . ($download_url === '' ? 'ja' : 'nein') . "</td></tr>
-                </table>
-                <details class='mt-2'><summary>Alle GET-Parameter</summary><pre>$get_dump</pre></details>
-            </div>
-        </div>";
-
+        // Kein Debug-Panel im Produktivpfad (R6): Requestdaten und interne
+        // Konfiguration gehören nicht in die Oberfläche. Diagnose läuft über
+        // den Tab "Netzwerk-Diagnose" und das PHP-Errorlog.
         if ($module_id === '' || $download_url === '') {
-            $this->tpl->setContent($debug_html . "<div class='alert alert-danger'>Fehlende Parameter: module_id oder download_url leer. <a href='$back_url'>Zurück</a></div>");
+            error_log('[ExtendedTestSettings] updateModule ohne module_id/download_url aufgerufen');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('update_missing_params'));
+            $this->ctrl->redirect($this, 'showModules');
             return;
         }
 
         if (!$url_allowed) {
-            $this->tpl->setContent($debug_html . "<div class='alert alert-danger'>Download-URL nicht erlaubt (Host-Mismatch, s. oben). <a href='$back_url'>Zurück</a></div>");
+            error_log('[ExtendedTestSettings] updateModule: Download-URL abgelehnt (Host/Pfad ausserhalb des konfigurierten Repositorys)');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('invalid_download_url'));
+            $this->ctrl->redirect($this, 'showModules');
             return;
         }
 
@@ -2133,7 +2118,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
         });
         </script>";
 
-        $this->tpl->setContent($debug_html . $html);
+        $this->tpl->setContent($html);
     }
 
     /**
