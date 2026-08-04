@@ -2293,13 +2293,55 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     // Netzwerk-Qualität-Tab (ExamNetQos-Modul)
     // -------------------------------------------------------------------------
 
-    private function isExamNetQosInstalled(): bool
+    /**
+     * Lädt die Admin-GUI-Klasse eines Moduls für einen ConfigGUI-Tab.
+     *
+     * Ersetzt die früheren isExamXxxInstalled()-Prüfungen: file_exists() sagt nur,
+     * dass eine Datei existiert — nicht, dass das Modul aktiviert ist. Modulcode
+     * wird ausschließlich über die Registry aufgelöst (Regel R3), Pfade per
+     * realpath() in den Modulordner gezwungen (Regel R11).
+     *
+     * $gui_file/$gui_class dürfen explizit gesetzt werden, weil ExamKeymap seine
+     * Admin-GUI nicht im Manifest führt.
+     *
+     * @return string|null Klassenname oder null (fehlt, inaktiv oder nicht ladbar)
+     */
+    private function loadModuleGuiClass(string $module_id, ?string $gui_file = null, ?string $gui_class = null): ?string
     {
-        return file_exists(__DIR__ . '/../modules/examnetqos/class.ilExamNetQosViewGUI.php');
+        require_once __DIR__ . '/Module/ilModuleManifest.php';
+
+        $info = $this->getRegistry()->getActiveModuleInfo($module_id);
+        if ($info === null) {
+            return null;
+        }
+
+        $gui_file  = $gui_file  ?? ($info['gui_file']  ?? null);
+        $gui_class = $gui_class ?? ($info['gui_class'] ?? null);
+
+        if (empty($gui_file) || empty($gui_class)) {
+            return null;
+        }
+
+        foreach ($info['require_files'] ?? [] as $rel_path) {
+            $dep_path = ilModuleManifest::resolveFile($info['path'], (string) $rel_path);
+            if ($dep_path !== null) {
+                require_once $dep_path;
+            }
+        }
+
+        $gui_path = ilModuleManifest::resolveFile($info['path'], (string) $gui_file);
+        if ($gui_path === null) {
+            error_log("[ExtendedTestSettings] Admin-GUI von '$module_id' nicht auflösbar: $gui_file");
+            return null;
+        }
+
+        require_once $gui_path;
+
+        return class_exists($gui_class) ? $gui_class : null;
     }
 
     /**
-     * Rendert eine "Modul nicht installiert"-Meldung als ILIAS MessageBox.
+     * Rendert eine "Modul nicht installiert/aktiviert"-Meldung als ILIAS MessageBox.
      */
     private function renderModuleMissing(string $message): string
     {
@@ -2313,13 +2355,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         $this->tabs->activateTab('netqos');
 
-        if (!$this->isExamNetQosInstalled()) {
+        $class = $this->loadModuleGuiClass('examnetqos');
+        if ($class === null) {
             $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examnetqos_missing')));
             return;
         }
 
-        require_once __DIR__ . '/../modules/examnetqos/class.ilExamNetQosViewGUI.php';
-        $view = new ilExamNetQosViewGUI();
+        $view = new $class();
         $view->setChartCmd('showNetQos');
         $view->setExportCmd('exportNetQosCsv');
         $view->showChart();
@@ -2327,34 +2369,29 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
     protected function exportNetQosCsv(): void
     {
-        if (!$this->isExamNetQosInstalled()) {
+        $class = $this->loadModuleGuiClass('examnetqos');
+        if ($class === null) {
             return;
         }
 
-        require_once __DIR__ . '/../modules/examnetqos/class.ilExamNetQosViewGUI.php';
-        $view = new ilExamNetQosViewGUI();
+        $view = new $class();
         $view->exportCsv();
     }
 
     // Protokoll-Tab (ExamLogger-Modul)
     // -------------------------------------------------------------------------
 
-    private function isExamLoggerInstalled(): bool
-    {
-        return file_exists(__DIR__ . '/../modules/examlogger/class.ilExamLoggerViewGUI.php');
-    }
-
     protected function showProtocol(): void
     {
         $this->tabs->activateTab('protocol');
 
-        if (!$this->isExamLoggerInstalled()) {
+        $class = $this->loadModuleGuiClass('examlogger');
+        if ($class === null) {
             $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examlogger_missing')));
             return;
         }
 
-        require_once __DIR__ . '/../modules/examlogger/class.ilExamLoggerViewGUI.php';
-        $view = new ilExamLoggerViewGUI();
+        $view = new $class();
         $view->setFormCmd('showProtocol');
         $view->setExportCmd('exportProtocolCsv');
         $view->executeCommand();
@@ -2362,12 +2399,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
     protected function exportProtocolCsv(): void
     {
-        if (!$this->isExamLoggerInstalled()) {
+        $class = $this->loadModuleGuiClass('examlogger');
+        if ($class === null) {
             return;
         }
 
-        require_once __DIR__ . '/../modules/examlogger/class.ilExamLoggerViewGUI.php';
-        $view = new ilExamLoggerViewGUI();
+        $view = new $class();
         $view->setFormCmd('showProtocol');
         $view->setExportCmd('exportProtocolCsv');
         $view->executeCommand();
@@ -2522,22 +2559,27 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     // Tastatur-Layout-Tab (ExamKeymap-Modul)
     // -------------------------------------------------------------------------
 
-    private function isExamKeymapInstalled(): bool
+    /** ExamKeymap führt seine Admin-GUI nicht im Manifest — daher explizit benannt. */
+    private function loadKeymapGuiClass(): ?string
     {
-        return file_exists(__DIR__ . '/../modules/examkeymap/class.ilExamKeymapAdminGUI.php');
+        return $this->loadModuleGuiClass(
+            'examkeymap',
+            'class.ilExamKeymapAdminGUI.php',
+            'ilExamKeymapAdminGUI'
+        );
     }
 
     protected function showKeymap(): void
     {
         $this->tabs->activateTab('keymap');
 
-        if (!$this->isExamKeymapInstalled()) {
+        $class = $this->loadKeymapGuiClass();
+        if ($class === null) {
             $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examkeymap_missing')));
             return;
         }
 
-        require_once __DIR__ . '/../modules/examkeymap/class.ilExamKeymapAdminGUI.php';
-        $view = new ilExamKeymapAdminGUI();
+        $view = new $class();
         $view->setSaveCmd('saveKeymap');
         $view->showEditor();
     }
@@ -2546,12 +2588,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         $this->tabs->activateTab('keymap');
 
-        if (!$this->isExamKeymapInstalled()) {
+        $class = $this->loadKeymapGuiClass();
+        if ($class === null) {
             return;
         }
 
-        require_once __DIR__ . '/../modules/examkeymap/class.ilExamKeymapAdminGUI.php';
-        $view = new ilExamKeymapAdminGUI();
+        $view = new $class();
         $view->setSaveCmd('saveKeymap');
 
         [$msg, $type] = $view->handleSave();
@@ -2563,22 +2605,17 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     // Archiv-Tab (ExamArchiver-Modul)
     // -------------------------------------------------------------------------
 
-    private function isExamArchiverInstalled(): bool
-    {
-        return file_exists(__DIR__ . '/../modules/examarchiver/class.ilExamArchiverGUI.php');
-    }
-
     protected function showArchiver(): void
     {
         $this->tabs->activateTab('archiver');
 
-        if (!$this->isExamArchiverInstalled()) {
+        $class = $this->loadModuleGuiClass('examarchiver');
+        if ($class === null) {
             $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examarchiver_missing')));
             return;
         }
 
-        require_once __DIR__ . '/../modules/examarchiver/class.ilExamArchiverGUI.php';
-        $view = new ilExamArchiverGUI();
+        $view = new $class();
         $this->tpl->setContent($view->renderAdminView());
     }
 }
