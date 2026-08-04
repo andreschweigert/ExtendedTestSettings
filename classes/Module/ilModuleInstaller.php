@@ -13,7 +13,25 @@ require_once __DIR__ . '/ilModuleManifest.php';
 class ilModuleInstaller
 {
     private const ALLOWED_EXTENSIONS = ['php', 'js', 'css', 'sql', 'json', 'html', 'tpl', 'md', 'txt', 'lang', 'png', 'svg', 'gif', 'jpg', 'jpeg', 'woff', 'woff2', 'ttf'];
-    private const MAX_ZIP_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
+
+    /**
+     * Ressourcengrenzen gegen Dekompressions-DoS (Regel R11).
+     *
+     * Ein Limit auf die komprimierte Datei allein schützt nicht: ein 20-MB-Archiv
+     * kann sich auf ein Vielfaches aufblasen. Deshalb werden Einträge, entpackte
+     * Gesamtgröße, Einzeldateigröße und Kompressionsverhältnis VOR dem Entpacken
+     * über statIndex() summiert.
+     *
+     * Referenzwerte der 18 produktiven Module (Stand 2026-08): max. 24 Dateien,
+     * 1,4 MB entpackt, größte Einzeldatei 1,0 MB, Verhältnis 4,7.
+     */
+    private const MAX_ZIP_SIZE_BYTES        = 20 * 1024 * 1024;  // 20 MB komprimiert
+    private const MAX_ZIP_ENTRIES           = 500;
+    private const MAX_UNCOMPRESSED_BYTES    = 60 * 1024 * 1024;  // 60 MB entpackt
+    private const MAX_SINGLE_FILE_BYTES     = 20 * 1024 * 1024;  // 20 MB je Datei
+    private const MAX_COMPRESSION_RATIO     = 50;
+    /** Unterhalb dieser Größe ist das Verhältnis nicht aussagekräftig. */
+    private const RATIO_CHECK_MIN_BYTES     = 64 * 1024;
 
     private string $modules_dir;
     private string $plugin_path;
@@ -156,6 +174,15 @@ class ilModuleInstaller
     {
         $module_json_content = null;
 
+        if ($zip->numFiles > self::MAX_ZIP_ENTRIES) {
+            throw new RuntimeException(
+                'ZIP enthält zu viele Einträge (' . $zip->numFiles . ', max. ' . self::MAX_ZIP_ENTRIES . ').'
+            );
+        }
+
+        $total_uncompressed = 0;
+        $total_compressed   = 0;
+
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $name = $zip->getNameIndex($i);
 
@@ -175,10 +202,44 @@ class ilModuleInstaller
                 throw new RuntimeException("Nicht erlaubte Dateiendung '$ext' in: $name");
             }
 
+            // Größen VOR dem Entpacken aus dem Zentralverzeichnis summieren
+            $stat = $zip->statIndex($i);
+            if ($stat === false) {
+                throw new RuntimeException("ZIP-Eintrag nicht lesbar: $name");
+            }
+
+            $size = (int) ($stat['size'] ?? 0);
+            if ($size > self::MAX_SINGLE_FILE_BYTES) {
+                throw new RuntimeException(sprintf(
+                    'Datei im ZIP ist zu groß: %s (%d MB, max. %d MB).',
+                    $name,
+                    (int) round($size / 1048576),
+                    (int) (self::MAX_SINGLE_FILE_BYTES / 1048576)
+                ));
+            }
+
+            $total_uncompressed += $size;
+            $total_compressed   += (int) ($stat['comp_size'] ?? 0);
+
+            if ($total_uncompressed > self::MAX_UNCOMPRESSED_BYTES) {
+                throw new RuntimeException(sprintf(
+                    'Entpackter Inhalt ist zu groß (max. %d MB).',
+                    (int) (self::MAX_UNCOMPRESSED_BYTES / 1048576)
+                ));
+            }
+
             // module.json einlesen (darf in keinem Unterordner liegen)
             if ($name === 'module.json' || preg_match('#^[^/]+/module\.json$#', $name)) {
                 $module_json_content = $zip->getFromIndex($i);
             }
+        }
+
+        // Kompressionsverhältnis — nur bei nennenswerter Größe aussagekräftig
+        if ($total_compressed >= self::RATIO_CHECK_MIN_BYTES
+            && $total_uncompressed / $total_compressed > self::MAX_COMPRESSION_RATIO) {
+            throw new RuntimeException(
+                'Verdächtiges Kompressionsverhältnis — das Archiv wird abgelehnt.'
+            );
         }
 
         if ($module_json_content === null) {
