@@ -158,6 +158,22 @@ class ilModuleRegistry
     }
 
     /**
+     * Entfernt den gespeicherten Aktivstatus eines Moduls.
+     *
+     * Muss bei der Deinstallation passieren: der Eintrag überlebt sonst in der
+     * settings-Tabelle und ein später erneut hochgeladenes Modul wäre sofort
+     * wieder aktiv — obwohl frisch installierter Handler-Code erst bewusst
+     * freigegeben werden soll (Regel R13).
+     *
+     * Für Updates bleibt der Status dagegen absichtlich erhalten.
+     */
+    public function forgetModuleState(string $module_id): void
+    {
+        $this->settings->delete('module_active_' . $module_id);
+        unset($this->discovered[$module_id]);
+    }
+
+    /**
      * Gibt die Tabellennamen eines Moduls zurück (aus module.json).
      */
     public function getModuleTables(string $module_id): array
