@@ -226,7 +226,11 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
         }
 
         if ($visibility === 'specific_users') {
-            return $this->isUserAuthorized($DIC->user()->getId());
+            // Whitelist = Sichtbarkeit des Features, nicht Zugriff auf jeden Test.
+            // Der Tab erscheint nur, wenn zusätzlich ein Recht am Test besteht (R1) —
+            // konsistent zur Prüfung in der AdvancedGUI.
+            return $this->isUserAuthorized($DIC->user()->getId())
+                && ($rbacsystem->checkAccess('write', $ref_id) || $this->isUserCourseAdmin($ref_id));
         }
 
         if ($rbacsystem->checkAccess('write', $ref_id)) {

@@ -69,36 +69,94 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
         error_log("[ExtendedTestSettings] Plugin erfolgreich aktualisiert");
     }
 
+    /**
+     * Vom Kern selbst angelegte Tabellen (sql/dbupdate.php).
+     *
+     * Diese Liste ist unabhängig davon, ob das jeweilige Modul bei der
+     * Deinstallation noch installiert ist — die Registry kennt nur Tabellen aus
+     * aktuell vorhandenen module.json-Dateien. Ohne diese Liste blieben die in
+     * den Migrationen 1-5 und 7 angelegten Tabellen samt Daten zurück.
+     *
+     * WICHTIG (Regel R14): Wird in sql/dbupdate.php eine Tabelle angelegt, gehört
+     * sie im selben Commit hier hinein.
+     */
+    private const CORE_TABLES = [
+        'examcalc_settings',      // dbupdate <#1>
+        'examguard_settings',     // dbupdate <#2>
+        'examsymbols_settings',   // dbupdate <#3>
+        'examalert_settings',     // dbupdate <#4>
+        'extendedtest_users',     // dbupdate <#6>
+        'etest_hosts',            // dbupdate <#7>
+    ];
+
     protected function beforeUninstall(): bool
     {
         global $DIC;
         error_log("[ExtendedTestSettings] Deinstallation gestartet von: " . $DIC->user()->getLogin());
 
-        $this->dropTables();
+        [$dropped, $failed] = $this->dropTables();
 
-        error_log("[ExtendedTestSettings] Alle Tabellen erfolgreich gelöscht");
+        if (empty($failed)) {
+            error_log('[ExtendedTestSettings] Deinstallation abgeschlossen, ' . count($dropped) . ' Tabellen gelöscht'
+                . ($dropped ? ': ' . implode(', ', $dropped) : ''));
+            return true;
+        }
+
+        // Wahrheitsgemäß melden statt pauschal Erfolg zu loggen
+        error_log('[ExtendedTestSettings] Deinstallation UNVOLLSTÄNDIG — nicht gelöscht: ' . implode(', ', $failed));
+
         return true;
     }
 
     /**
-     * Löscht alle Modul-Tabellen — Liste kommt aus der Registry (nicht hardcodiert)
+     * Löscht alle Tabellen des Plugins: die vom Kern angelegten (feste Liste)
+     * plus alle in Modul-Manifesten deklarierten.
+     *
+     * @return array{0: string[], 1: string[]} [gelöscht, fehlgeschlagen]
      */
-    private function dropTables(): void
+    private function dropTables(): array
     {
         global $DIC;
         $db = $DIC->database();
 
-        foreach ($this->getRegistry()->getAllTables() as $table) {
-            if ($db->tableExists($table)) {
+        $tables = array_unique(array_merge(
+            self::CORE_TABLES,
+            $this->getRegistry()->getAllTables()
+        ));
+
+        $dropped = [];
+        $failed  = [];
+
+        foreach ($tables as $table) {
+            // Sicherheitsnetz: Tabellennamen werden zwar validiert, hier wird
+            // aber ohne Bindung an die DB-API gearbeitet.
+            if (!preg_match('/^[a-z][a-z0-9_]{2,63}$/', $table)) {
+                $failed[] = $table;
+                continue;
+            }
+
+            try {
+                if (!$db->tableExists($table)) {
+                    continue;
+                }
+
                 $db->dropTable($table);
+
+                // Ergebnis je Tabelle prüfen statt Erfolg zu unterstellen
+                if ($db->tableExists($table)) {
+                    $failed[] = $table;
+                    continue;
+                }
+
+                $dropped[] = $table;
                 error_log("[ExtendedTestSettings] Tabelle '$table' gelöscht");
+            } catch (Throwable $e) {
+                error_log("[ExtendedTestSettings] Tabelle '$table' konnte nicht gelöscht werden: " . $e->getMessage());
+                $failed[] = $table;
             }
         }
 
-        // Plugin-eigene Tabelle (kein Modul)
-        if ($db->tableExists('extendedtest_users')) {
-            $db->dropTable('extendedtest_users');
-        }
+        return [$dropped, $failed];
     }
 
     /**
@@ -223,10 +281,5 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
         }
 
         return $translated;
-    }
-
-    public function getVersion(): string
-    {
-        return "1.0.0";
     }
 }
