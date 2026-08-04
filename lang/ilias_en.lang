@@ -269,3 +269,4 @@ maturity_test#:#In testing
 maturity_pilot#:#Pilot
 maturity_erprobt#:#Exam-proven
 maturity_eingestellt#:#Discontinued
+module_not_active#:#Module '%s' is not activated.

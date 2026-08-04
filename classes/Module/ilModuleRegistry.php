@@ -89,6 +89,28 @@ class ilModuleRegistry
     }
 
     /**
+     * Liefert die validierten Manifest-Daten eines Moduls (inkl. 'active', 'builtin',
+     * 'path') oder null. Einzige zulässige Art, Modul-Metadaten aufzulösen —
+     * module.json darf nirgends sonst direkt vom Dateisystem gelesen werden.
+     */
+    public function getModuleInfo(string $module_id): ?array
+    {
+        return $this->discovered[$module_id] ?? null;
+    }
+
+    /**
+     * Wie getModuleInfo(), liefert aber nur aktive Module. Für jeden Pfad, der
+     * Modul-Code lädt oder ausführt (Proxy, ConfigGUI-Tabs), ist das die Pflichtprüfung:
+     * "deaktiviert" muss ein echter Kill-Switch sein.
+     */
+    public function getActiveModuleInfo(string $module_id): ?array
+    {
+        $info = $this->discovered[$module_id] ?? null;
+
+        return ($info !== null && !empty($info['active'])) ? $info : null;
+    }
+
+    /**
      * Aktiviert oder deaktiviert ein Modul global (kein PHP-Code wird geladen wenn inaktiv).
      */
     public function setModuleActive(string $module_id, bool $active): void
