@@ -1944,16 +1944,37 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
         }
 
         try {
-            $installer  = $this->getInstaller();
+            $installer = $this->getInstaller();
+            $registry  = $this->getRegistry();
+
+            // Vor der Installation feststellen, ob das Modul schon vorhanden ist:
+            // danach ist die Registry-Discovery dieses Requests nicht mehr aktuell.
+            $manifest  = $installer->readManifestFromZip($file['tmp_name']);
+            $was_known = $registry->moduleExists((string) $manifest['id']);
+
             $module_info = $installer->installFromZip($file['tmp_name']);
 
-            // KEINE Auto-Aktivierung: frisch hochgeladener Handler-Code darf nicht
-            // ohne separaten Freigabeschritt im Testplayer aller Nutzer laufen.
-            // Installieren -> prüfen -> bewusst aktivieren (Regel R13).
-            $this->tpl->setOnScreenMessage(
-                'success',
-                sprintf($this->txt('module_installed_inactive'), $module_info['label'], $module_info['version'])
-            );
+            if ($was_known) {
+                // Update über den Upload-Weg: Aktivstatus bleibt wie er war.
+                $this->tpl->setOnScreenMessage(
+                    'success',
+                    sprintf($this->txt('module_installed'), $module_info['label'], $module_info['version'])
+                );
+            } else {
+                // Neuinstallation: KEINE Auto-Aktivierung. Frisch hochgeladener
+                // Handler-Code darf nicht ohne Freigabeschritt im Testplayer aller
+                // Nutzer laufen (Regel R13).
+                //
+                // Einen etwaigen Alt-Eintrag entfernen statt '0' zu schreiben:
+                // setModuleActive() greift nur bei bereits entdeckten Modulen, und
+                // ohne Eintrag gilt für hochgeladene Module ohnehin der Default
+                // "inaktiv". Das deckt auch manuell gelöschte Modulordner ab.
+                $registry->forgetModuleState((string) $module_info['id']);
+                $this->tpl->setOnScreenMessage(
+                    'success',
+                    sprintf($this->txt('module_installed_inactive'), $module_info['label'], $module_info['version'])
+                );
+            }
         } catch (RuntimeException $e) {
             error_log('[ExtendedTestSettings] uploadModule Fehler: ' . $e->getMessage());
             $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('module_install_failed'), $e->getMessage()));
@@ -2010,6 +2031,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
         try {
             $installer = $this->getInstaller();
             $installer->uninstallModule($module_id, $info);
+
+            // Aktivstatus mit entfernen — sonst bliebe der Eintrag in der
+            // settings-Tabelle stehen und ein später erneut hochgeladenes Modul
+            // wäre sofort wieder aktiv.
+            $registry->forgetModuleState($module_id);
+            if (isset($_SESSION['ets_update_cache'][$module_id])) {
+                unset($_SESSION['ets_update_cache'][$module_id]);
+            }
 
             $this->tpl->setOnScreenMessage('success', sprintf($this->txt('module_uninstalled'), $module_id));
         } catch (RuntimeException $e) {
