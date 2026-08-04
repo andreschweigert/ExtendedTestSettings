@@ -207,10 +207,10 @@ invalid_download_url#:#Invalid download URL.
 repo_not_configured#:#No repository configured.
 updates_available#:#%d update(s) available.
 modules_up_to_date#:#All modules are up to date.
-module_examnetqos_missing#:#The ExamNetQos module is not installed.
-module_examlogger_missing#:#The ExamLogger module is not installed.
-module_examkeymap_missing#:#The ExamKeymap module is not installed.
-module_examarchiver_missing#:#The ExamArchiver module is not installed.
+module_examnetqos_missing#:#The ExamNetQos module is not installed or not activated.
+module_examlogger_missing#:#The ExamLogger module is not installed or not activated.
+module_examkeymap_missing#:#The ExamKeymap module is not installed or not activated.
+module_examarchiver_missing#:#The ExamArchiver module is not installed or not activated.
 no_exam_modules#:#No exam modules found.
 no_modules_to_save#:#No modules found to save.
 save_success_for#:#Settings saved successfully for: %s
