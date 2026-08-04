@@ -269,3 +269,4 @@ maturity_test#:#Im Test
 maturity_pilot#:#Pilotbetrieb
 maturity_erprobt#:#Prüfungserprobt
 maturity_eingestellt#:#Eingestellt
+module_not_active#:#Modul '%s' ist nicht aktiviert.
