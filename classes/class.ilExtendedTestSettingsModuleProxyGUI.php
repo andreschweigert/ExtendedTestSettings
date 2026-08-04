@@ -172,6 +172,8 @@ class ilExtendedTestSettingsModuleProxyGUI
             exit;
         }
 
+        // obj_id des Tests — so heißt die Spalte test_id in den Modultabellen.
+        // NICHT zu verwechseln mit tst_tests.test_id (siehe hasActiveTestSession).
         $test_id = ilObject::_lookupObjectId($ref_id);
         if ($test_id <= 0) {
             http_response_code(404);
@@ -224,8 +226,20 @@ class ilExtendedTestSettingsModuleProxyGUI
             exit;
         }
 
+        $is_html = ($mime === 'text/html');
+
+        // Diese URL ist ein Endpunkt für den Player (fetch), keine Seite.
+        // Der Browser markiert Top-Level-Navigation selbst; Seiten-JS kann die
+        // Sec-Fetch-*-Header nicht fälschen (forbidden header names).
+        // Fehlt der Header (Safari < 16.4), greift unten Content-Disposition.
+        if ($is_html && ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '') === 'document') {
+            http_response_code(403);
+            exit;
+        }
+
         // ILIAS bufferiert für jeden ilias.php-Request HTML-Output und setzt eigene
-        // Sicherheits-Header. Beides muss verworfen werden bevor wir die Datei senden.
+        // Sicherheits-Header. Beides muss verworfen werden bevor wir die Datei senden —
+        // an ihre Stelle tritt eine EIGENE, engere Policy (nie ersatzlos entfernen).
         while (ob_get_level()) {
             ob_end_clean();
         }
@@ -234,8 +248,17 @@ class ilExtendedTestSettingsModuleProxyGUI
         header_remove('X-Content-Security-Policy');
         header_remove('X-WebKit-CSP');
 
+        // sandbox ohne allow-scripts: der Inhalt läuft in einer opaken Origin
+        // und führt kein JavaScript aus, auch nicht als Top-Level-Dokument.
+        header("Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:");
+        header('X-Frame-Options: DENY');
+        header('Referrer-Policy: no-referrer');
+
+        // Hochgeladenes HTML wird nie gerendert — nur PDF darf inline.
+        $disposition = $is_html ? 'attachment' : 'inline';
+
         header('Content-Type: ' . $mime);
-        header('Content-Disposition: inline; filename="' . addslashes(basename($row['filename'])) . '"');
+        header('Content-Disposition: ' . $disposition . '; filename="' . addslashes(basename($row['filename'])) . '"');
         header('Content-Length: ' . filesize($file_path));
         header('Cache-Control: private, max-age=3600');
         header('X-Content-Type-Options: nosniff');
@@ -243,20 +266,36 @@ class ilExtendedTestSettingsModuleProxyGUI
         exit;
     }
 
-    private function hasActiveTestSession($DIC, int $test_id): bool
+    /**
+     * Prüft, ob der Benutzer einen LAUFENDEN Testdurchlauf hat.
+     *
+     * Ein tst_active-Eintrag bleibt nach der Abgabe bestehen und beweist nur, dass
+     * jemand den Test irgendwann begonnen hat — ohne submitted = 0 behielten
+     * ehemalige Teilnehmer den Zugriff dauerhaft (Regel R7).
+     *
+     * Achtung: tst_active.test_fi referenziert tst_tests.test_id, nicht die obj_id.
+     */
+    private function hasActiveTestSession($DIC, int $test_obj_id): bool
     {
         $user_id = $DIC->user()->getId();
         $db      = $DIC->database();
 
+        if ($user_id <= 0) {
+            return false;
+        }
+
         try {
             $result = $db->queryF(
-                "SELECT active_id FROM tst_active WHERE test_fi = %s AND user_fi = %s",
-                ['integer', 'integer'],
-                [$test_id, $user_id]
+                "SELECT a.active_id
+                   FROM tst_active a
+                   JOIN tst_tests t ON t.test_id = a.test_fi
+                  WHERE t.obj_fi = %s AND a.user_fi = %s AND a.submitted = %s",
+                ['integer', 'integer', 'integer'],
+                [$test_obj_id, $user_id, 0]
             );
             return (bool) $db->fetchAssoc($result);
         } catch (Exception $e) {
-            error_log("[ExamMessage] hasActiveTestSession Fehler: " . $e->getMessage());
+            error_log("[ModuleProxyGUI] hasActiveTestSession Fehler: " . $e->getMessage());
             return false;
         }
     }
