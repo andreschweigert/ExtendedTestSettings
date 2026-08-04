@@ -2014,6 +2014,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
 
             $this->tpl->setOnScreenMessage('success', sprintf($this->txt('module_uninstalled'), $module_id));
         } catch (RuntimeException $e) {
+            // Bei fehlgeschlagener Datenbereinigung bleibt das Modul absichtlich
+            // installiert, damit die Deinstallation wiederholt werden kann.
+            error_log('[ExtendedTestSettings] uninstallModule fehlgeschlagen: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('module_uninstall_failed'), $e->getMessage()));
+        } catch (Throwable $e) {
+            error_log('[ExtendedTestSettings] uninstallModule unerwarteter Fehler: ' . $e->getMessage());
             $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('module_uninstall_failed'), $e->getMessage()));
         }
 

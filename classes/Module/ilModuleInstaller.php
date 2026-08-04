@@ -127,10 +127,13 @@ class ilModuleInstaller
 
         $module_dir = $this->modules_dir . '/' . $module_id;
 
-        // 1. Uninstall-SQL ausführen (Tabellen löschen)
+        // 1. Uninstall-SQL ausführen (Tabellen löschen).
+        //    Schlägt das fehl, wird NICHT weitergemacht: sonst verschwände der
+        //    einzige mitgelieferte Deinstallationscode, während die Tabellen samt
+        //    personenbezogener Daten stehen bleiben (Regel R10/R14).
         $this->runUninstallSql($module_dir);
 
-        // 2. Modul-Ordner entfernen
+        // 2. Modul-Ordner entfernen — erst nach erfolgreicher Datenbereinigung
         if (is_dir($module_dir)) {
             $this->removeDirectory($module_dir);
         }
@@ -290,6 +293,13 @@ class ilModuleInstaller
         }
     }
 
+    /**
+     * Führt sql/uninstall.php aus. Fehler werden an den Aufrufer propagiert —
+     * ein stillschweigend verschluckter Fehler hätte zur Folge, dass die GUI
+     * "erfolgreich deinstalliert" meldet, während Tabellen und Daten bleiben.
+     *
+     * @throws RuntimeException
+     */
     private function runUninstallSql(string $module_dir): void
     {
         $uninstall_file = $module_dir . '/sql/uninstall.php';
@@ -303,6 +313,10 @@ class ilModuleInstaller
                 })();
             } catch (Throwable $e) {
                 error_log("[ModuleInstaller] Fehler in uninstall.php: " . $e->getMessage());
+                throw new RuntimeException(
+                    'Datenbank-Deinstallation fehlgeschlagen, das Modul wurde NICHT entfernt: '
+                    . $e->getMessage()
+                );
             }
         }
     }
