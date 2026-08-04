@@ -276,3 +276,4 @@ update_missing_params#:#Update not possible: module ID or download URL is missin
 update_expectation_mismatch#:#The update request does not match the previously confirmed selection. Please restart the update.
 update_id_mismatch#:#Aborted: expected module '%1$s', but the downloaded package contains '%2$s'.
 update_version_mismatch#:#Aborted: expected version %1$s, but the downloaded package contains version %2$s.
+module_installed_inactive#:#Module %s v%s installed. It is still deactivated — enable it via "Activate".

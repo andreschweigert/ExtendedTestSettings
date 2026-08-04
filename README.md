@@ -1,10 +1,10 @@
 # ExtendedTestSettings Plugin für ILIAS
 
 ![ILIAS](https://img.shields.io/badge/ILIAS-9.x-blue)
-![Version](https://img.shields.io/badge/version-2.0.3-success)
+![Version](https://img.shields.io/badge/version-2.1.0-success)
 ![License](https://img.shields.io/badge/license-TBA-lightgrey)
 
-**Version:** 2.0.3  
+**Version:** 2.1.0  
 **Für ILIAS:** 9.0 – 9.999
 
 Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Online-Prüfungen. Es basiert auf einem **modularen System**: Funktionalität wird in eigenständigen Modulen gebündelt, die über die Plugin-Administration als ZIP hochgeladen, aktiviert und deaktiviert werden können – ohne den Plugin-Kern zu ändern.
@@ -269,6 +269,43 @@ Detaillierte Entwicklerdokumentation (inkl. Modul mit eigener GUI-Seite, Proxy-R
 ---
 
 ## Changelog
+
+### Version 2.1.0 (2026-08-03)
+
+**Sicherheits-Nacharbeit (Kern).** 
+
+- **Modul-Proxy** löst Module nur noch über die Registry auf und prüft den Objekttyp:
+  deaktivierte Module sind über keinen Aufruf mehr erreichbar, `ref_id` muss auf einen
+  Test zeigen (C-01, C-08). Gleiches gilt für die Modul-Tabs der Plugin-Konfiguration (Z-01).
+- **CSRF:** alle zustandsändernden Aktionen der Konfiguration laufen über
+  `getFormAction()` und erzwingen serverseitig POST; keine `$_GET`-Fallbacks mehr.
+  Die Bereinigung verwaister Einträge verlangt jetzt eine Bestätigung (C-02).
+- **Hilfsmittelblätter:** HTML wird nicht mehr im ILIAS-Kontext gerendert (Auslieferung
+  als Download, eigene restriktive CSP statt entfernter Header). Die Anzeige im
+  Testplayer bleibt unverändert (C-03).
+- **Zugriff auf Hilfsmittelblätter** setzt einen laufenden, nicht abgegebenen
+  Testdurchlauf voraus. Behebt zugleich einen Fehler, durch den die Prüfung wegen einer
+  verwechselten Test-ID nie zutraf (C-07).
+- **Benutzer-Whitelist** steuert nur noch die Sichtbarkeit; der Zugriff auf einen
+  konkreten Test verlangt zusätzlich ein Recht daran (C-04).
+- **Modulinstallation** ist atomar: Staging-Verzeichnis, Prüfung auf Vollständigkeit,
+  Umschalten per `rename()`, Rollback auf den alten Stand bei Fehlern. Alle
+  Dateisystem-Rückgabewerte werden ausgewertet (C-05).
+- **Deinstallation** eines Moduls bricht ab, wenn die Datenbereinigung scheitert —
+  das Modul bleibt für einen erneuten Versuch erhalten (C-06).
+- **Modulupdate** wird an die bestätigte Modul-ID und Version gebunden und vor der
+  Installation gegen das heruntergeladene Paket geprüft (C-09).
+- **ZIP-/Download-Grenzen** gegen Dekompressions-DoS: Einträge, entpackte Größe,
+  Einzeldateigröße und Kompressionsverhältnis werden vor dem Entpacken geprüft,
+  Downloads laufen gestreamt statt komplett im Speicher (C-10).
+- **Manifest-Validierung** ist für Installer, Registry und Proxy vereinheitlicht; alle
+  Dateipfade werden per `realpath()` in den Modulordner gezwungen (C-11).
+- **Plugin-Deinstallation** entfernt alle vom Kern angelegten Tabellen (u. a.
+  `etest_hosts`) und protokolliert das Ergebnis je Tabelle (C-12).
+- **Modulfehler** werden an den Modulgrenzen als `Throwable` abgefangen — ein
+  fehlerhaftes Modul kann den Testplayer nicht mehr lahmlegen (C-13).
+- **Versionsangabe** kommt nur noch aus `plugin.php`; das permanente Debug-Panel im
+  Update-Pfad ist entfernt (C-14, C-15).
 
 ### Version 2.0.3 (2026-07-23)
 

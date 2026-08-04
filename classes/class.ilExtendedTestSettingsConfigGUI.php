@@ -1947,13 +1947,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
             $installer  = $this->getInstaller();
             $module_info = $installer->installFromZip($file['tmp_name']);
 
-            // Modul direkt aktivieren nach Installation
-            $registry = $this->getRegistry();
-            $registry->setModuleActive($module_info['id'], true);
-
+            // KEINE Auto-Aktivierung: frisch hochgeladener Handler-Code darf nicht
+            // ohne separaten Freigabeschritt im Testplayer aller Nutzer laufen.
+            // Installieren -> prüfen -> bewusst aktivieren (Regel R13).
             $this->tpl->setOnScreenMessage(
                 'success',
-                sprintf($this->txt('module_installed'), $module_info['label'], $module_info['version'])
+                sprintf($this->txt('module_installed_inactive'), $module_info['label'], $module_info['version'])
             );
         } catch (RuntimeException $e) {
             error_log('[ExtendedTestSettings] uploadModule Fehler: ' . $e->getMessage());
@@ -2176,6 +2175,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
         }
 
         $expected_version = (string) ($pending['version'] ?? '');
+        $was_active       = $this->getRegistry()->isModuleActive($module_id);
 
         $this->tabs->activateTab('modules');
         $back_url = $this->ctrl->getLinkTarget($this, 'showModules');
@@ -2225,10 +2225,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
             @unlink($tmp_file);
             $log[] = "Modul '{$module_info['label']}' v{$module_info['version']} installiert";
 
-            $log[] = 'Modul wird aktiviert…';
-            $registry = $this->getRegistry();
-            $registry->setModuleActive($module_id, true);
-            $log[] = 'Modul aktiv';
+            // Beim Update den vorherigen Aktivstatus beibehalten — ein bewusst
+            // deaktiviertes Modul darf durch ein Update nicht wieder anspringen.
+            if ($was_active) {
+                $this->getRegistry()->setModuleActive($module_id, true);
+                $log[] = 'Modul bleibt aktiv';
+            } else {
+                $log[] = 'Modul bleibt deaktiviert (war vor dem Update inaktiv)';
+            }
 
             // Session-Cache für dieses Modul zurücksetzen, damit kein veraltetes Update-Badge erscheint
             if (isset($_SESSION['ets_update_cache'][$module_id])) {

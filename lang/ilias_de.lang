@@ -276,3 +276,4 @@ update_missing_params#:#Update nicht möglich: Modul-ID oder Download-URL fehlt.
 update_expectation_mismatch#:#Die Update-Anfrage passt nicht zur zuvor bestätigten Auswahl. Bitte den Update-Vorgang neu starten.
 update_id_mismatch#:#Abgebrochen: Erwartet wurde Modul '%1$s', das heruntergeladene Paket enthält aber '%2$s'.
 update_version_mismatch#:#Abgebrochen: Erwartet wurde Version %1$s, das heruntergeladene Paket enthält aber Version %2$s.
+module_installed_inactive#:#Modul %s v%s installiert. Es ist noch deaktiviert — über „Aktivieren" freigeben.

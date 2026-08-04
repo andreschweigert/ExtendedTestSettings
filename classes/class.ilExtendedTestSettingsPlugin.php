@@ -282,9 +282,4 @@ class ilExtendedTestSettingsPlugin extends ilUserInterfaceHookPlugin
 
         return $translated;
     }
-
-    public function getVersion(): string
-    {
-        return "1.0.0";
-    }
 }
