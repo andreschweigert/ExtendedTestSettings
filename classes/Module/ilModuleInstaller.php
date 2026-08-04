@@ -8,10 +8,30 @@
  * - ZIP-Inhalt wird vor dem Entpacken validiert (module.json, erlaubte Endungen, kein Path-Traversal)
  * - Dateien werden in modules/<id>/ entpackt (außerhalb des classes/-Autoloaders)
  */
+require_once __DIR__ . '/ilModuleManifest.php';
+
 class ilModuleInstaller
 {
     private const ALLOWED_EXTENSIONS = ['php', 'js', 'css', 'sql', 'json', 'html', 'tpl', 'md', 'txt', 'lang', 'png', 'svg', 'gif', 'jpg', 'jpeg', 'woff', 'woff2', 'ttf'];
-    private const MAX_ZIP_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
+
+    /**
+     * Ressourcengrenzen gegen Dekompressions-DoS (Regel R11).
+     *
+     * Ein Limit auf die komprimierte Datei allein schützt nicht: ein 20-MB-Archiv
+     * kann sich auf ein Vielfaches aufblasen. Deshalb werden Einträge, entpackte
+     * Gesamtgröße, Einzeldateigröße und Kompressionsverhältnis VOR dem Entpacken
+     * über statIndex() summiert.
+     *
+     * Referenzwerte der 18 produktiven Module (Stand 2026-08): max. 24 Dateien,
+     * 1,4 MB entpackt, größte Einzeldatei 1,0 MB, Verhältnis 4,7.
+     */
+    private const MAX_ZIP_SIZE_BYTES        = 20 * 1024 * 1024;  // 20 MB komprimiert
+    private const MAX_ZIP_ENTRIES           = 500;
+    private const MAX_UNCOMPRESSED_BYTES    = 60 * 1024 * 1024;  // 60 MB entpackt
+    private const MAX_SINGLE_FILE_BYTES     = 20 * 1024 * 1024;  // 20 MB je Datei
+    private const MAX_COMPRESSION_RATIO     = 50;
+    /** Unterhalb dieser Größe ist das Verhältnis nicht aussagekräftig. */
+    private const RATIO_CHECK_MIN_BYTES     = 64 * 1024;
 
     private string $modules_dir;
     private string $plugin_path;
@@ -58,16 +78,7 @@ class ilModuleInstaller
                 throw new RuntimeException('modules/-Verzeichnis konnte nicht erstellt werden. Bitte Schreibrechte prüfen.');
             }
 
-            // Altes Modul entfernen falls vorhanden (Update)
-            if (is_dir($target_dir)) {
-                $this->removeDirectory($target_dir);
-            }
-
-            // Entpacken
-            $this->extractZip($zip, $target_dir);
-
-            // DB-Tabellen anlegen
-            $this->runInstallSql($target_dir);
+            $this->installAtomically($zip, $module_info, $target_dir);
 
             // Audit-Log mit User-Details
             global $DIC;
@@ -76,6 +87,137 @@ class ilModuleInstaller
 
             return $module_info;
 
+        } finally {
+            $zip->close();
+        }
+    }
+
+    /**
+     * Installiert das Modul atomar (Regel R13).
+     *
+     * Ablauf: in ein Staging-Verzeichnis auf DEMSELBEN Dateisystem entpacken,
+     * dort auf Vollständigkeit prüfen, den alten Stand beiseite legen, per
+     * rename() umschalten und erst danach die DB-Migration ausführen. Jeder
+     * Fehler stellt den alten Stand wieder her.
+     *
+     * Damit ist das bisherige "erst löschen, dann entpacken" beseitigt — ein
+     * abgebrochenes Update kann kein funktionierendes Modul mehr aushöhlen.
+     *
+     * Staging- und Backup-Verzeichnisse beginnen mit einem Punkt und werden
+     * deshalb von der Registry-Discovery (glob 'modules/&#42;/module.json') nicht erfasst.
+     *
+     * @throws RuntimeException
+     */
+    private function installAtomically(ZipArchive $zip, array $module_info, string $target_dir): void
+    {
+        $module_id = $module_info['id'];
+        $suffix    = bin2hex(random_bytes(6));
+        $staging   = $this->modules_dir . '/.ets-staging-' . $module_id . '-' . $suffix;
+        $backup    = null;
+
+        try {
+            $this->extractZip($zip, $staging);
+            $this->verifyExtraction($staging, $module_info);
+
+            // Alten Stand beiseite legen (nicht löschen!)
+            if (is_dir($target_dir)) {
+                $backup = $this->modules_dir . '/.ets-backup-' . $module_id . '-' . $suffix;
+                if (!@rename($target_dir, $backup)) {
+                    throw new RuntimeException(
+                        'Bestehendes Modul konnte nicht beiseite gelegt werden. '
+                        . 'Häufigste Ursache: Dateien in modules/' . $module_id
+                        . ' gehören nicht www-data.'
+                    );
+                }
+            }
+
+            // Umschalten — atomar, da gleiches Dateisystem
+            if (!@rename($staging, $target_dir)) {
+                if ($backup !== null) {
+                    @rename($backup, $target_dir);
+                }
+                throw new RuntimeException('Neues Modul konnte nicht aktiviert werden (rename fehlgeschlagen).');
+            }
+
+            // DB-Migration erst nach erfolgreichem Umschalten
+            try {
+                $this->runInstallSql($target_dir);
+            } catch (Throwable $e) {
+                $this->removeDirectoryQuietly($target_dir);
+                if ($backup !== null && @rename($backup, $target_dir)) {
+                    $backup = null;
+                    error_log("[ModuleInstaller] Rollback nach DB-Fehler: alter Stand von '$module_id' wiederhergestellt");
+                }
+                throw new RuntimeException('DB-Installation fehlgeschlagen: ' . $e->getMessage());
+            }
+
+            // Erfolg: alten Stand endgültig entfernen (Restmüll darf die
+            // erfolgreiche Installation nicht scheitern lassen)
+            if ($backup !== null) {
+                $this->removeDirectoryQuietly($backup);
+                $backup = null;
+            }
+        } finally {
+            // Reste aufräumen; ein noch vorhandenes Backup heißt: es gab einen Fehler
+            if (is_dir($staging)) {
+                $this->removeDirectoryQuietly($staging);
+            }
+            if ($backup !== null && is_dir($backup)) {
+                error_log("[ModuleInstaller] Update von '$module_id' fehlgeschlagen — Backup liegt in $backup");
+            }
+        }
+    }
+
+    /**
+     * Prüft nach dem Entpacken, ob das Modul vollständig ist: die im Manifest
+     * genannten PHP-Dateien müssen tatsächlich im Modulordner liegen.
+     *
+     * @throws RuntimeException
+     */
+    private function verifyExtraction(string $dir, array $module_info): void
+    {
+        if (!is_file($dir . '/module.json')) {
+            throw new RuntimeException('Entpacktes Modul ist unvollständig: module.json fehlt.');
+        }
+
+        $required = [$module_info['handler_file']];
+        if (!empty($module_info['gui_file'])) {
+            $required[] = $module_info['gui_file'];
+        }
+        foreach ($module_info['require_files'] ?? [] as $rel_path) {
+            $required[] = $rel_path;
+        }
+
+        foreach ($required as $rel_path) {
+            if (ilModuleManifest::resolveFile($dir, (string) $rel_path) === null) {
+                throw new RuntimeException(
+                    "Entpacktes Modul ist unvollständig: '$rel_path' fehlt oder liegt außerhalb des Modulordners."
+                );
+            }
+        }
+    }
+
+    /**
+     * Liest und validiert das Manifest eines ZIPs, OHNE etwas zu installieren.
+     *
+     * Damit lässt sich vor dem Schreiben prüfen, ob das heruntergeladene Artefakt
+     * wirklich das angeforderte Modul in der erwarteten Version ist (Regel R13).
+     *
+     * @throws RuntimeException
+     */
+    public function readManifestFromZip(string $zip_file_path): array
+    {
+        if (!file_exists($zip_file_path)) {
+            throw new RuntimeException('ZIP-Datei nicht gefunden.');
+        }
+
+        $zip = new ZipArchive();
+        if ($zip->open($zip_file_path) !== true) {
+            throw new RuntimeException('Datei ist kein gültiges ZIP-Archiv.');
+        }
+
+        try {
+            return $this->validateZip($zip);
         } finally {
             $zip->close();
         }
@@ -99,10 +241,13 @@ class ilModuleInstaller
 
         $module_dir = $this->modules_dir . '/' . $module_id;
 
-        // 1. Uninstall-SQL ausführen (Tabellen löschen)
+        // 1. Uninstall-SQL ausführen (Tabellen löschen).
+        //    Schlägt das fehl, wird NICHT weitergemacht: sonst verschwände der
+        //    einzige mitgelieferte Deinstallationscode, während die Tabellen samt
+        //    personenbezogener Daten stehen bleiben (Regel R10/R14).
         $this->runUninstallSql($module_dir);
 
-        // 2. Modul-Ordner entfernen
+        // 2. Modul-Ordner entfernen — erst nach erfolgreicher Datenbereinigung
         if (is_dir($module_dir)) {
             $this->removeDirectory($module_dir);
         }
@@ -125,6 +270,15 @@ class ilModuleInstaller
     {
         $module_json_content = null;
 
+        if ($zip->numFiles > self::MAX_ZIP_ENTRIES) {
+            throw new RuntimeException(
+                'ZIP enthält zu viele Einträge (' . $zip->numFiles . ', max. ' . self::MAX_ZIP_ENTRIES . ').'
+            );
+        }
+
+        $total_uncompressed = 0;
+        $total_compressed   = 0;
+
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $name = $zip->getNameIndex($i);
 
@@ -144,10 +298,44 @@ class ilModuleInstaller
                 throw new RuntimeException("Nicht erlaubte Dateiendung '$ext' in: $name");
             }
 
+            // Größen VOR dem Entpacken aus dem Zentralverzeichnis summieren
+            $stat = $zip->statIndex($i);
+            if ($stat === false) {
+                throw new RuntimeException("ZIP-Eintrag nicht lesbar: $name");
+            }
+
+            $size = (int) ($stat['size'] ?? 0);
+            if ($size > self::MAX_SINGLE_FILE_BYTES) {
+                throw new RuntimeException(sprintf(
+                    'Datei im ZIP ist zu groß: %s (%d MB, max. %d MB).',
+                    $name,
+                    (int) round($size / 1048576),
+                    (int) (self::MAX_SINGLE_FILE_BYTES / 1048576)
+                ));
+            }
+
+            $total_uncompressed += $size;
+            $total_compressed   += (int) ($stat['comp_size'] ?? 0);
+
+            if ($total_uncompressed > self::MAX_UNCOMPRESSED_BYTES) {
+                throw new RuntimeException(sprintf(
+                    'Entpackter Inhalt ist zu groß (max. %d MB).',
+                    (int) (self::MAX_UNCOMPRESSED_BYTES / 1048576)
+                ));
+            }
+
             // module.json einlesen (darf in keinem Unterordner liegen)
             if ($name === 'module.json' || preg_match('#^[^/]+/module\.json$#', $name)) {
                 $module_json_content = $zip->getFromIndex($i);
             }
+        }
+
+        // Kompressionsverhältnis — nur bei nennenswerter Größe aussagekräftig
+        if ($total_compressed >= self::RATIO_CHECK_MIN_BYTES
+            && $total_uncompressed / $total_compressed > self::MAX_COMPRESSION_RATIO) {
+            throw new RuntimeException(
+                'Verdächtiges Kompressionsverhältnis — das Archiv wird abgelehnt.'
+            );
         }
 
         if ($module_json_content === null) {
@@ -159,25 +347,8 @@ class ilModuleInstaller
             throw new RuntimeException('module.json ist kein gültiges JSON.');
         }
 
-        foreach (['id', 'handler_file', 'handler_class', 'label'] as $required_field) {
-            if (empty($info[$required_field])) {
-                throw new RuntimeException("Pflichtfeld '$required_field' fehlt in module.json.");
-            }
-        }
-
-        // id darf nur alphanumerisch + Unterstrich sein
-        if (!preg_match('/^[a-z][a-z0-9_]{2,39}$/', $info['id'])) {
-            throw new RuntimeException("Ungültige Modul-ID '{$info['id']}'. Erlaubt: a-z, 0-9, _ (3-40 Zeichen).");
-        }
-
-        // Tabellennamen validieren (SQL-Injection-Schutz)
-        foreach ($info['tables'] ?? [] as $table) {
-            if (!preg_match('/^[a-z][a-z0-9_]{2,63}$/', $table)) {
-                throw new RuntimeException("Ungültiger Tabellenname '$table' in module.json. Erlaubt: a-z, 0-9, _ (3-64 Zeichen).");
-            }
-        }
-
-        return $info;
+        // Gemeinsame Validierung mit Registry und Proxy (ilModuleManifest)
+        return ilModuleManifest::validate($info);
     }
 
     // -------------------------------------------------------------------------
@@ -208,8 +379,8 @@ class ilModuleInstaller
             if ($relative === '' || str_ends_with($relative, '/')) {
                 // Verzeichnis-Eintrag
                 $dir = $target_dir . '/' . $relative;
-                if (!is_dir($dir)) {
-                    mkdir($dir, 0755, true);
+                if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+                    throw new RuntimeException("Konnte Verzeichnis nicht anlegen: $relative");
                 }
                 continue;
             }
@@ -217,8 +388,8 @@ class ilModuleInstaller
             $target_file = $target_dir . '/' . $relative;
             $parent      = dirname($target_file);
 
-            if (!is_dir($parent)) {
-                mkdir($parent, 0755, true);
+            if (!is_dir($parent) && !mkdir($parent, 0755, true) && !is_dir($parent)) {
+                throw new RuntimeException("Konnte Verzeichnis nicht anlegen: " . dirname($relative));
             }
 
             $content = $zip->getFromIndex($i);
@@ -226,7 +397,13 @@ class ilModuleInstaller
                 throw new RuntimeException("Konnte Datei nicht lesen: $name");
             }
 
-            file_put_contents($target_file, $content);
+            // Rückgabewert prüfen: ein unbemerkter Schreibfehler (volle Platte,
+            // Rechte) erzeugte bisher ein halb installiertes Modul, das als
+            // "erfolgreich installiert" gemeldet wurde.
+            $written = file_put_contents($target_file, $content);
+            if ($written === false || $written !== strlen($content)) {
+                throw new RuntimeException("Konnte Datei nicht vollständig schreiben: $relative");
+            }
         }
     }
 
@@ -279,6 +456,13 @@ class ilModuleInstaller
         }
     }
 
+    /**
+     * Führt sql/uninstall.php aus. Fehler werden an den Aufrufer propagiert —
+     * ein stillschweigend verschluckter Fehler hätte zur Folge, dass die GUI
+     * "erfolgreich deinstalliert" meldet, während Tabellen und Daten bleiben.
+     *
+     * @throws RuntimeException
+     */
     private function runUninstallSql(string $module_dir): void
     {
         $uninstall_file = $module_dir . '/sql/uninstall.php';
@@ -292,6 +476,10 @@ class ilModuleInstaller
                 })();
             } catch (Throwable $e) {
                 error_log("[ModuleInstaller] Fehler in uninstall.php: " . $e->getMessage());
+                throw new RuntimeException(
+                    'Datenbank-Deinstallation fehlgeschlagen, das Modul wurde NICHT entfernt: '
+                    . $e->getMessage()
+                );
             }
         }
     }
@@ -300,6 +488,13 @@ class ilModuleInstaller
     // Hilfsmethoden
     // -------------------------------------------------------------------------
 
+    /**
+     * Löscht ein Verzeichnis rekursiv. Fehler werden gesammelt und gemeldet —
+     * ein stillschweigend fehlgeschlagenes unlink() hinterließ bisher einen
+     * halb gelöschten Modulordner ohne jeden Hinweis.
+     *
+     * @throws RuntimeException
+     */
     private function removeDirectory(string $dir): void
     {
         if (!is_dir($dir)) {
@@ -311,10 +506,40 @@ class ilModuleInstaller
             RecursiveIteratorIterator::CHILD_FIRST
         );
 
+        $failed = [];
         foreach ($items as $item) {
-            $item->isDir() ? rmdir($item->getRealPath()) : unlink($item->getRealPath());
+            $path = $item->getRealPath();
+            $ok   = $item->isDir() ? @rmdir($path) : @unlink($path);
+            if (!$ok) {
+                $failed[] = $path;
+            }
         }
 
-        rmdir($dir);
+        if (!@rmdir($dir)) {
+            $failed[] = $dir;
+        }
+
+        if (!empty($failed)) {
+            error_log('[ModuleInstaller] Konnte nicht löschen: ' . implode(', ', array_slice($failed, 0, 5)));
+            throw new RuntimeException(
+                'Verzeichnis konnte nicht vollständig gelöscht werden (' . count($failed) . ' Einträge). '
+                . 'Häufigste Ursache: Dateien gehören nicht www-data.'
+            );
+        }
+    }
+
+    /**
+     * Aufräumen ohne zu werfen — für Rollback- und finally-Pfade, in denen eine
+     * neue Exception die eigentliche Fehlerursache überdecken würde.
+     */
+    private function removeDirectoryQuietly(string $dir): bool
+    {
+        try {
+            $this->removeDirectory($dir);
+            return true;
+        } catch (Throwable $e) {
+            error_log('[ModuleInstaller] Aufräumen von ' . $dir . ' fehlgeschlagen: ' . $e->getMessage());
+            return false;
+        }
     }
 }

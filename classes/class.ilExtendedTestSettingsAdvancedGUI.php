@@ -78,8 +78,12 @@ class ilExtendedTestSettingsAdvancedGUI
             // Nur System-Admins erlaubt
             $access_granted = false;
         } elseif ($visibility === 'specific_users') {
-            // Nur spezifische Benutzer erlaubt
-            $access_granted = $this->isUserAuthorized($user_id);
+            // Die Whitelist steuert die SICHTBARKEIT des Features, sie ist keine
+            // testübergreifende Rolle: zusätzlich ist ein Recht am konkreten Test
+            // nötig, sonst könnte ein gelisteter Nutzer über eine geratene ref_id
+            // die Einstellungen beliebiger Tests ändern (Regel R1).
+            $access_granted = $this->isUserAuthorized($user_id)
+                && $this->hasTestSettingsAccess($ref_id);
         } else {
             // Standard: Kurs-Admins + System-Admins
             $access_granted = $this->hasTestSettingsAccess($ref_id);
@@ -380,12 +384,12 @@ class ilExtendedTestSettingsAdvancedGUI
                             $custom->setHtml($handler->getSettingsHTML($ref_id));
                             $form->addItem($custom);
                         }
-                    } catch (Exception $e) {
+                    } catch (Throwable $e) {
                         error_log("[ExtendedTestSettings] Fehler beim Laden von Modul '$moduleName': " . $e->getMessage());
                     }
                 }
             }
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Fehler beim Generieren der Module: " . $e->getMessage());
             }
@@ -607,7 +611,9 @@ class ilExtendedTestSettingsAdvancedGUI
         } elseif ($visibility === 'admins_only') {
             $access_granted = false;
         } elseif ($visibility === 'specific_users') {
-            $access_granted = $this->isUserAuthorized($user_id);
+            // wie beim Anzeigen: Whitelist UND Recht am konkreten Test (R1)
+            $access_granted = $this->isUserAuthorized($user_id)
+                && $this->hasTestSettingsAccess($ref_id);
         } else {
             $access_granted = $this->hasTestSettingsAccess($ref_id);
         }
@@ -652,7 +658,7 @@ class ilExtendedTestSettingsAdvancedGUI
                         $results[$moduleName] = false;
                         error_log("[ExtendedTestSettings] Handler '$moduleName' hat keine saveSettings() Methode");
                     }
-                } catch (Exception $e) {
+                } catch (Throwable $e) {
                     $results[$moduleName] = false;
                     error_log("[ExtendedTestSettings] Fehler beim Speichern von '$moduleName': " . $e->getMessage());
                 }
@@ -681,7 +687,7 @@ class ilExtendedTestSettingsAdvancedGUI
             if (empty($results)) {
                 $this->tpl->setOnScreenMessage('info', 'ℹ️ ' . $this->txt('no_modules_to_save'));
             }
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Fehler beim Speichern: " . $e->getMessage());
             }

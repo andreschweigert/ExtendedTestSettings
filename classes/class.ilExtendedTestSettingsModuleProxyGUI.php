@@ -12,15 +12,20 @@
  *   "gui_file": "class.ilMyModuleGUI.php"
  *   "gui_class": "ilMyModuleGUI"
  *
+ * Sicherheitsgrenze (siehe .dev/security/SICHERHEITSREGELN.md):
+ * - R3: Module werden ausschließlich über die Registry aufgelöst; deaktivierte
+ *       Module sind nicht erreichbar.
+ * - R2: ref_id muss auf ein Testobjekt zeigen.
+ * - R1: Der Proxy autorisiert NUR ref_id. Welche Daten die Modul-GUI danach über
+ *       eigene Parameter selektiert, muss sie selbst autorisieren.
+ *
  * @ilCtrl_isCalledBy ilExtendedTestSettingsModuleProxyGUI: ilUIPluginRouterGUI
  */
 class ilExtendedTestSettingsModuleProxyGUI
 {
-    private string $plugin_path;
-
     public function __construct()
     {
-        $this->plugin_path = dirname(__DIR__);
+        require_once __DIR__ . '/Module/ilModuleManifest.php';
     }
 
     /**
@@ -52,10 +57,39 @@ class ilExtendedTestSettingsModuleProxyGUI
         $ref_id    = (int) ($_GET['ref_id'] ?? 0);
         $module_id = preg_replace('/[^a-z0-9_]/', '', strtolower($_GET['module_id'] ?? ''));
 
-        // 2. Zugriffsprüfung: Schreibrecht oder (bei allow_student_access) Leserecht
-        if ($this->moduleAllowsStudentAccess($module_id)) {
-            $has_write = $ref_id > 0 && $rbacsystem->checkAccess('write', $ref_id);
-            $has_read  = $ref_id > 0 && $rbacsystem->checkAccess('read',  $ref_id);
+        if ($module_id === '') {
+            $this->fail($this->txt('no_module_specified'));
+            return;
+        }
+
+        // 2. Modul ausschließlich über die Registry auflösen.
+        //    Damit ist der Aktivstatus ein echter Kill-Switch: deaktivierte Module
+        //    sind über keinen Proxy-Aufruf mehr erreichbar.
+        $registry    = ilExtendedTestSettingsPlugin::getInstance()->getRegistry();
+        $module_info = $registry->getActiveModuleInfo($module_id);
+
+        if ($module_info === null) {
+            $exists = $registry->moduleExists($module_id);
+            error_log("[ModuleProxyGUI] Dispatch abgelehnt für '$module_id' ("
+                . ($exists ? 'inaktiv' : 'unbekannt') . ')');
+            $this->fail(sprintf(
+                $this->txt($exists ? 'module_not_active' : 'module_not_found'),
+                $module_id
+            ));
+            return;
+        }
+
+        // 3. Objekttyp prüfen — checkAccess() sagt nur "darf schreiben",
+        //    nicht "ist ein Test".
+        if ($ref_id <= 0 || ilObject::_lookupType($ref_id, true) !== 'tst') {
+            $this->fail($this->txt('not_a_test'));
+            return;
+        }
+
+        // 4. Zugriffsprüfung: Schreibrecht oder (bei allow_student_access) Leserecht
+        if (!empty($module_info['allow_student_access'])) {
+            $has_write = $rbacsystem->checkAccess('write', $ref_id);
+            $has_read  = $rbacsystem->checkAccess('read',  $ref_id);
             if (!$has_write && !$has_read) {
                 while (ob_get_level()) {
                     ob_end_clean();
@@ -66,75 +100,58 @@ class ilExtendedTestSettingsModuleProxyGUI
                 exit;
             }
         } else {
-            if ($ref_id <= 0 || !$rbacsystem->checkAccess('write', $ref_id)) {
-                $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', $this->txt('access_denied'));
-                $DIC->ui()->mainTemplate()->printToStdout();
+            if (!$rbacsystem->checkAccess('write', $ref_id)) {
+                $this->fail($this->txt('access_denied'));
                 return;
             }
         }
 
-        if ($module_id === '') {
-            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', $this->txt('no_module_specified'));
-            $DIC->ui()->mainTemplate()->printToStdout();
-            return;
-        }
-
-        $module_dir = $this->plugin_path . '/modules/' . $module_id;
-        $json_file  = $module_dir . '/module.json';
-
-        if (!file_exists($json_file)) {
-            // Built-in Modul? Dann in classes/ suchen
-            $builtin_dir = $this->plugin_path . '/classes/' . ucfirst($module_id);
-            $json_file   = $builtin_dir . '/module.json';
-            if (!file_exists($json_file)) {
-                $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', sprintf($this->txt('module_not_found'), $module_id));
-                $DIC->ui()->mainTemplate()->printToStdout();
-                return;
-            }
-            $module_dir = $builtin_dir;
-        }
-
-        $module_info = json_decode((string) file_get_contents($json_file), true);
-        $gui_file    = $module_info['gui_file']  ?? null;
-        $gui_class   = $module_info['gui_class'] ?? null;
+        $module_dir = $module_info['path'];
+        $gui_file   = $module_info['gui_file']  ?? null;
+        $gui_class  = $module_info['gui_class'] ?? null;
 
         if (!$gui_file || !$gui_class) {
-            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', sprintf($this->txt('module_no_gui_class'), $module_id));
-            $DIC->ui()->mainTemplate()->printToStdout();
+            $this->fail(sprintf($this->txt('module_no_gui_class'), $module_id));
             return;
         }
 
-        // Abhängigkeiten laden (mit Path-Traversal-Schutz)
-        $base_real = realpath($module_dir);
+        // Abhängigkeiten laden — Pfade sind bereits validiert, werden aber
+        // zusätzlich per realpath() in den Modulordner gezwungen.
         foreach ($module_info['require_files'] ?? [] as $rel_file) {
-            if (str_contains($rel_file, '..')) {
-                error_log("[ModuleProxyGUI] Blocked path traversal in require_files: $rel_file");
+            $dep_path = ilModuleManifest::resolveFile($module_dir, (string) $rel_file);
+            if ($dep_path === null) {
+                error_log("[ModuleProxyGUI] require_files-Eintrag abgelehnt: $rel_file");
                 continue;
             }
-            $path = $module_dir . '/' . $rel_file;
-            $real = realpath($path);
-            if ($real && $base_real && str_starts_with($real, $base_real . '/')) {
-                require_once $real;
-            }
+            require_once $dep_path;
         }
 
-        $handler_path = $module_dir . '/' . $gui_file;
-        if (!file_exists($handler_path)) {
-            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', sprintf($this->txt('gui_file_not_found'), $gui_file));
-            $DIC->ui()->mainTemplate()->printToStdout();
+        $handler_path = ilModuleManifest::resolveFile($module_dir, (string) $gui_file);
+        if ($handler_path === null) {
+            $this->fail(sprintf($this->txt('gui_file_not_found'), $gui_file));
             return;
         }
 
         require_once $handler_path;
 
         if (!class_exists($gui_class)) {
-            $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', sprintf($this->txt('gui_class_not_found'), $gui_class));
-            $DIC->ui()->mainTemplate()->printToStdout();
+            $this->fail(sprintf($this->txt('gui_class_not_found'), $gui_class));
             return;
         }
 
         $gui = new $gui_class();
         $gui->executeCommand();
+    }
+
+    /**
+     * Bricht den Dispatch mit einer Meldung ab.
+     */
+    private function fail(string $message): void
+    {
+        global $DIC;
+
+        $DIC->ui()->mainTemplate()->setOnScreenMessage('failure', $message);
+        $DIC->ui()->mainTemplate()->printToStdout();
     }
 
     /**
@@ -155,6 +172,8 @@ class ilExtendedTestSettingsModuleProxyGUI
             exit;
         }
 
+        // obj_id des Tests — so heißt die Spalte test_id in den Modultabellen.
+        // NICHT zu verwechseln mit tst_tests.test_id (siehe hasActiveTestSession).
         $test_id = ilObject::_lookupObjectId($ref_id);
         if ($test_id <= 0) {
             http_response_code(404);
@@ -207,8 +226,20 @@ class ilExtendedTestSettingsModuleProxyGUI
             exit;
         }
 
+        $is_html = ($mime === 'text/html');
+
+        // Diese URL ist ein Endpunkt für den Player (fetch), keine Seite.
+        // Der Browser markiert Top-Level-Navigation selbst; Seiten-JS kann die
+        // Sec-Fetch-*-Header nicht fälschen (forbidden header names).
+        // Fehlt der Header (Safari < 16.4), greift unten Content-Disposition.
+        if ($is_html && ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? '') === 'document') {
+            http_response_code(403);
+            exit;
+        }
+
         // ILIAS bufferiert für jeden ilias.php-Request HTML-Output und setzt eigene
-        // Sicherheits-Header. Beides muss verworfen werden bevor wir die Datei senden.
+        // Sicherheits-Header. Beides muss verworfen werden bevor wir die Datei senden —
+        // an ihre Stelle tritt eine EIGENE, engere Policy (nie ersatzlos entfernen).
         while (ob_get_level()) {
             ob_end_clean();
         }
@@ -217,8 +248,17 @@ class ilExtendedTestSettingsModuleProxyGUI
         header_remove('X-Content-Security-Policy');
         header_remove('X-WebKit-CSP');
 
+        // sandbox ohne allow-scripts: der Inhalt läuft in einer opaken Origin
+        // und führt kein JavaScript aus, auch nicht als Top-Level-Dokument.
+        header("Content-Security-Policy: sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:");
+        header('X-Frame-Options: DENY');
+        header('Referrer-Policy: no-referrer');
+
+        // Hochgeladenes HTML wird nie gerendert — nur PDF darf inline.
+        $disposition = $is_html ? 'attachment' : 'inline';
+
         header('Content-Type: ' . $mime);
-        header('Content-Disposition: inline; filename="' . addslashes(basename($row['filename'])) . '"');
+        header('Content-Disposition: ' . $disposition . '; filename="' . addslashes(basename($row['filename'])) . '"');
         header('Content-Length: ' . filesize($file_path));
         header('Cache-Control: private, max-age=3600');
         header('X-Content-Type-Options: nosniff');
@@ -226,33 +266,36 @@ class ilExtendedTestSettingsModuleProxyGUI
         exit;
     }
 
-    private function moduleAllowsStudentAccess(string $module_id): bool
-    {
-        if ($module_id === '') {
-            return false;
-        }
-        $json_file = $this->plugin_path . '/modules/' . $module_id . '/module.json';
-        if (!file_exists($json_file)) {
-            return false;
-        }
-        $info = json_decode((string) file_get_contents($json_file), true);
-        return !empty($info['allow_student_access']);
-    }
-
-    private function hasActiveTestSession($DIC, int $test_id): bool
+    /**
+     * Prüft, ob der Benutzer einen LAUFENDEN Testdurchlauf hat.
+     *
+     * Ein tst_active-Eintrag bleibt nach der Abgabe bestehen und beweist nur, dass
+     * jemand den Test irgendwann begonnen hat — ohne submitted = 0 behielten
+     * ehemalige Teilnehmer den Zugriff dauerhaft (Regel R7).
+     *
+     * Achtung: tst_active.test_fi referenziert tst_tests.test_id, nicht die obj_id.
+     */
+    private function hasActiveTestSession($DIC, int $test_obj_id): bool
     {
         $user_id = $DIC->user()->getId();
         $db      = $DIC->database();
 
+        if ($user_id <= 0) {
+            return false;
+        }
+
         try {
             $result = $db->queryF(
-                "SELECT active_id FROM tst_active WHERE test_fi = %s AND user_fi = %s",
-                ['integer', 'integer'],
-                [$test_id, $user_id]
+                "SELECT a.active_id
+                   FROM tst_active a
+                   JOIN tst_tests t ON t.test_id = a.test_fi
+                  WHERE t.obj_fi = %s AND a.user_fi = %s AND a.submitted = %s",
+                ['integer', 'integer', 'integer'],
+                [$test_obj_id, $user_id, 0]
             );
             return (bool) $db->fetchAssoc($result);
         } catch (Exception $e) {
-            error_log("[ExamMessage] hasActiveTestSession Fehler: " . $e->getMessage());
+            error_log("[ModuleProxyGUI] hasActiveTestSession Fehler: " . $e->getMessage());
             return false;
         }
     }

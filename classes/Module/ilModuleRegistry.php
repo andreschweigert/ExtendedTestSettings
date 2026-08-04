@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/../Contracts/ilExamModuleInterface.php';
+require_once __DIR__ . '/ilModuleManifest.php';
 
 /**
  * Entdeckt und verwaltet alle verfügbaren Module (built-in + uploaded).
@@ -88,6 +89,28 @@ class ilModuleRegistry
     }
 
     /**
+     * Liefert die validierten Manifest-Daten eines Moduls (inkl. 'active', 'builtin',
+     * 'path') oder null. Einzige zulässige Art, Modul-Metadaten aufzulösen —
+     * module.json darf nirgends sonst direkt vom Dateisystem gelesen werden.
+     */
+    public function getModuleInfo(string $module_id): ?array
+    {
+        return $this->discovered[$module_id] ?? null;
+    }
+
+    /**
+     * Wie getModuleInfo(), liefert aber nur aktive Module. Für jeden Pfad, der
+     * Modul-Code lädt oder ausführt (Proxy, ConfigGUI-Tabs), ist das die Pflichtprüfung:
+     * "deaktiviert" muss ein echter Kill-Switch sein.
+     */
+    public function getActiveModuleInfo(string $module_id): ?array
+    {
+        $info = $this->discovered[$module_id] ?? null;
+
+        return ($info !== null && !empty($info['active'])) ? $info : null;
+    }
+
+    /**
      * Aktiviert oder deaktiviert ein Modul global (kein PHP-Code wird geladen wenn inaktiv).
      */
     public function setModuleActive(string $module_id, bool $active): void
@@ -98,6 +121,22 @@ class ilModuleRegistry
 
         $this->settings->set('module_active_' . $module_id, $active ? '1' : '0');
         $this->discovered[$module_id]['active'] = $active;
+    }
+
+    /**
+     * Entfernt den gespeicherten Aktivstatus eines Moduls.
+     *
+     * Muss bei der Deinstallation passieren: der Eintrag überlebt sonst in der
+     * settings-Tabelle und ein später erneut hochgeladenes Modul wäre sofort
+     * wieder aktiv — obwohl frisch installierter Handler-Code erst bewusst
+     * freigegeben werden soll (Regel R13).
+     *
+     * Für Updates bleibt der Status dagegen absichtlich erhalten.
+     */
+    public function forgetModuleState(string $module_id): void
+    {
+        $this->settings->delete('module_active_' . $module_id);
+        unset($this->discovered[$module_id]);
     }
 
     /**
@@ -157,20 +196,21 @@ class ilModuleRegistry
         }
 
         $info = json_decode($raw, true);
-        if (!is_array($info) || empty($info['id']) || empty($info['handler_file'])) {
-            error_log("[ModuleRegistry] Ungültige module.json: $json_file");
+        if (!is_array($info)) {
+            error_log("[ModuleRegistry] Ungültige module.json (kein JSON-Objekt): $json_file");
+            return;
+        }
+
+        // Dieselbe Validierung wie beim ZIP-Upload — ein manuell abgelegtes Modul
+        // darf nicht laxer geprüft werden als ein hochgeladenes.
+        try {
+            $info = ilModuleManifest::validate($info);
+        } catch (RuntimeException $e) {
+            error_log("[ModuleRegistry] Ungültige module.json ($json_file): " . $e->getMessage() . ' -- Modul wird übersprungen');
             return;
         }
 
         $id = $info['id'];
-
-        // Tabellennamen validieren (SQL-Injection-Schutz)
-        foreach ($info['tables'] ?? [] as $table) {
-            if (!preg_match('/^[a-z][a-z0-9_]{2,63}$/', $table)) {
-                error_log("[ModuleRegistry] Ungültiger Tabellenname '$table' in $json_file -- Modul wird übersprungen");
-                return;
-            }
-        }
 
         // Standard-Aktivierung: built-in = an, uploaded = aus (bis Admin aktiviert)
         $default_active = $builtin ? '1' : '0';
@@ -192,25 +232,24 @@ class ilModuleRegistry
 
     private function loadHandler(array $info): ?ilExamModuleInterface
     {
-        $handler_file = $info['path'] . '/' . $info['handler_file'];
+        // handler_file wird wie require_files per realpath() in den Modulordner
+        // gezwungen — sonst könnte ein manipuliertes Manifest PHP von außerhalb laden.
+        $handler_file = ilModuleManifest::resolveFile($info['path'], (string) $info['handler_file']);
 
-        if (!file_exists($handler_file)) {
-            error_log("[ModuleRegistry] Handler nicht gefunden: $handler_file");
+        if ($handler_file === null) {
+            error_log("[ModuleRegistry] Handler nicht gefunden oder außerhalb des Modulordners: "
+                . $info['path'] . '/' . $info['handler_file']);
             return null;
         }
 
         // Abhängigkeiten laden (Config-Klassen etc.), falls angegeben
-        $base_real = realpath($info['path']);
         foreach ($info['require_files'] ?? [] as $rel_path) {
-            if (str_contains($rel_path, '..')) {
-                error_log("[ModuleRegistry] Blocked path traversal in require_files: $rel_path");
+            $dep_file = ilModuleManifest::resolveFile($info['path'], (string) $rel_path);
+            if ($dep_file === null) {
+                error_log("[ModuleRegistry] require_files-Eintrag abgelehnt: $rel_path");
                 continue;
             }
-            $dep_file = $info['path'] . '/' . $rel_path;
-            $real = realpath($dep_file);
-            if ($real && $base_real && str_starts_with($real, $base_real . '/')) {
-                require_once $real;
-            }
+            require_once $dep_file;
         }
 
         require_once $handler_file;

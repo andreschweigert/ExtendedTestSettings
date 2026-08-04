@@ -20,6 +20,9 @@ class ilModuleUpdateChecker
     /** Regex um Version aus ZIP-Dateinamen zu extrahieren: Foo_v1.2.3.zip */
     private const VERSION_REGEX = '/_v(\d+\.\d+(?:\.\d+)?)\.zip$/i';
 
+    /** Harte Obergrenze für Downloads — deckungsgleich mit dem Upload-Limit des Installers. */
+    private const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
+
     public function __construct(string $github_repo_url, string $branch, int $timeout_seconds = 8, string $proxy = '')
     {
         $this->repo_url = rtrim($github_repo_url, '/');
@@ -197,9 +200,22 @@ class ilModuleUpdateChecker
             throw new RuntimeException('cURL ist nicht verfügbar.');
         }
 
+        $tmp = tempnam(sys_get_temp_dir(), 'ilias_module_update_');
+        if ($tmp === false) {
+            throw new RuntimeException('Temporäre Datei konnte nicht angelegt werden.');
+        }
+
+        $fh = fopen($tmp, 'wb');
+        if ($fh === false) {
+            @unlink($tmp);
+            throw new RuntimeException('Temporäre Datei konnte nicht geöffnet werden.');
+        }
+
         $ch = curl_init($url);
         curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
+            // Direkt in die Datei streamen statt die gesamte Antwort im RAM zu
+            // puffern; zusätzlich hart bei MAX_DOWNLOAD_BYTES abbrechen (Regel R11).
+            CURLOPT_FILE           => $fh,
             CURLOPT_TIMEOUT        => 60,
             CURLOPT_CONNECTTIMEOUT => 30,
             CURLOPT_USERAGENT      => 'ILIAS-ExtendedTestSettings-UpdateChecker/1.0',
@@ -207,30 +223,42 @@ class ilModuleUpdateChecker
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS      => 5,
+            CURLOPT_MAXFILESIZE    => self::MAX_DOWNLOAD_BYTES,
+            CURLOPT_NOPROGRESS     => false,
+            // Greift auch, wenn der Server keine Content-Length schickt —
+            // CURLOPT_MAXFILESIZE allein prüft nur den angekündigten Wert.
+            CURLOPT_PROGRESSFUNCTION => static function ($res, $download_size, $downloaded) {
+                return ($downloaded > self::MAX_DOWNLOAD_BYTES) ? 1 : 0;
+            },
         ]);
 
         if ($this->proxy !== '') {
             curl_setopt($ch, CURLOPT_PROXY, $this->proxy);
         }
 
-        $content  = curl_exec($ch);
+        $ok        = curl_exec($ch);
         $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curl_err  = curl_error($ch);
+        $curl_no   = curl_errno($ch);
         curl_close($ch);
+        fclose($fh);
 
-        if ($content === false || $http_code >= 400) {
+        if ($curl_no === CURLE_ABORTED_BY_CALLBACK || $curl_no === CURLE_FILESIZE_EXCEEDED) {
+            @unlink($tmp);
+            throw new RuntimeException(sprintf(
+                'Download abgebrochen: Datei überschreitet %d MB.',
+                (int) (self::MAX_DOWNLOAD_BYTES / 1048576)
+            ));
+        }
+
+        if ($ok === false || $http_code >= 400) {
+            @unlink($tmp);
             throw new RuntimeException("ZIP konnte nicht heruntergeladen werden: $url (HTTP $http_code, $curl_err)");
         }
 
-        if (strlen((string) $content) < 100) {
+        if (filesize($tmp) < 100) {
+            @unlink($tmp);
             throw new RuntimeException("ZIP konnte nicht heruntergeladen werden: $url");
-        }
-
-        $content = (string) $content;
-
-        $tmp = tempnam(sys_get_temp_dir(), 'ilias_module_update_');
-        if (!$tmp || file_put_contents($tmp, $content) === false) {
-            throw new RuntimeException('Temporäre Datei konnte nicht geschrieben werden.');
         }
 
         return $tmp;

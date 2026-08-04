@@ -2,11 +2,48 @@
 
 /**
  * Plugin Configuration GUI for ExtendedTestSettings
- * 
+ *
+ * CSRF-Modell (siehe .dev/security/SICHERHEITSREGELN.md, R4):
+ * ILIAS hängt einen CSRF-Token nur an URLs aus getFormAction() an (dort steht
+ * cmd=post) und validiert auch nur dort. Ein <form method="post"> auf ein
+ * getLinkTarget()-Ziel ist für ilCtrl KEIN POST — dort gäbe es weder Token noch
+ * Prüfung. Deshalb gilt hier:
+ *   - jede zustandsändernde Aktion wird mit getFormAction() erzeugt
+ *   - die Handler erzwingen zusätzlich serverseitig POST (requirePost()),
+ *     unabhängig von ilCtrl
+ *   - keine $_GET-Fallbacks in schreibenden Handlern
+ *
+ * ilCtrlSecurityInterface deklariert die Commands zusätzlich explizit. Wirksam
+ * wird die GET-Seite davon erst nach einem Setup-Lauf "build-artifacts"
+ * (Services/UICore/artifacts/ctrl_security.php) — die Absicherung oben hängt
+ * bewusst nicht davon ab.
+ *
  * @ilCtrl_isCalledBy ilExtendedTestSettingsConfigGUI: ilObjComponentSettingsGUI
  */
-class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
+class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtrlSecurityInterface
 {
+    /**
+     * Zustandsändernde Commands. Werden über getFormAction() erzeugt und von
+     * requirePost() zusätzlich auf POST festgenagelt.
+     */
+    /** Session-Schlüssel für die serverseitig gemerkte Update-Erwartung (C-09). */
+    private const SESSION_PENDING_UPDATE = 'ets_pending_update';
+
+    private const WRITE_COMMANDS = [
+        'saveGeneralSettings',
+        'saveExamChecker',
+        'addSingleUser',
+        'removeUser',
+        'cleanupOrphanedEntries',
+        'toggleModule',
+        'uploadModule',
+        'uninstallModule',
+        'doUpdateModule',
+        'saveModuleRepoUrl',
+        'importDevices',
+        'saveKeymap',
+        'checkModuleUpdates',
+    ];
     /** Farbpunkte je Entwicklungsstand (Definition: modules-zip/docs/entwicklungsstand.md) */
     private const MATURITY_DOTS = [
         'konzept'       => '⚪',
@@ -42,6 +79,45 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function txt(string $key): string
     {
         return $this->getPluginObject()->txt($key);
+    }
+
+    /**
+     * @inheritDoc
+     * Alle schreibenden Commands sind als GET unsicher.
+     */
+    public function getUnsafeGetCommands(): array
+    {
+        return self::WRITE_COMMANDS;
+    }
+
+    /**
+     * @inheritDoc
+     * Kein POST-Command darf ohne Token durchgehen.
+     */
+    public function getSafePostCommands(): array
+    {
+        return [];
+    }
+
+    /**
+     * Erzwingt POST für zustandsändernde Commands — serverseitig und unabhängig
+     * von ilCtrl bzw. vom Zustand des ctrl_security-Artefakts.
+     *
+     * @return bool true, wenn weitergearbeitet werden darf
+     */
+    private function requirePost(): bool
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+            return true;
+        }
+
+        error_log('[ExtendedTestSettings] Schreibender Command ohne POST abgewiesen: '
+            . ($_GET['cmd'] ?? $_GET['fallbackCmd'] ?? '?'));
+
+        $this->tpl->setOnScreenMessage('failure', $this->txt('invalid_request_method'));
+        $this->ctrl->redirect($this, 'showGeneral');
+
+        return false;
     }
 
     /**
@@ -333,7 +409,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function buildGeneralSettingsForm(): ilPropertyFormGUI
     {
         $form = new ilPropertyFormGUI();
-        $form->setFormAction($this->ctrl->getLinkTarget($this, 'saveGeneralSettings'));
+        $form->setFormAction($this->ctrl->getFormAction($this, 'saveGeneralSettings'));
 
         // --- Tab-Sichtbarkeit ---
         $section_visibility = new ilFormSectionHeaderGUI();
@@ -432,7 +508,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $avatar   = $factory->symbol()->avatar()->letter($login);
 
             $this->ctrl->setParameter($this, 'user_id', (int) $user['user_id']);
-            $remove_url = $this->ctrl->getLinkTarget($this, 'removeUser');
+            $remove_url = $this->ctrl->getFormAction($this, 'removeUser');
             $this->ctrl->setParameter($this, 'user_id', '');
 
             $modal = $factory->modal()->interruptive(
@@ -553,7 +629,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
             $this->ctrl->setParameter($this, 'user_id', (int) $row['usr_id']);
             $this->ctrl->setParameter($this, 'search_query', $search_query);
-            $add_url = $this->ctrl->getLinkTarget($this, 'addSingleUser');
+            $add_url = $this->ctrl->getFormAction($this, 'addSingleUser');
             $this->ctrl->setParameter($this, 'user_id', '');
             $this->ctrl->setParameter($this, 'search_query', '');
 
@@ -583,6 +659,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         global $DIC;
         $db = $DIC->database();
 
+        // Bewusste Ausnahme von der POST-Regel: Das Hinzufügen wird aus der
+        // Trefferliste heraus als Link ausgelöst. Die URL stammt aus
+        // getFormAction() und trägt den rtoken — CSRF ist damit geschlossen,
+        // auch wenn der Klick technisch ein GET ist.
         $user_id      = (int) ($_POST['user_id'] ?? $_GET['user_id'] ?? 0);
         $search_query = $_POST['search_query'] ?? $_GET['search_query'] ?? '';
 
@@ -776,10 +856,17 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     public function removeUser(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         global $DIC;
         $db = $DIC->database();
 
         // user_id kann per POST (Formular) oder GET (Interruptive Modal URL) kommen
+        // ilCtrl-Parameter stehen im Query-String der Formular-Action; das
+        // Interruptive Modal postet nur darauf. Das ist unkritisch, weil
+        // requirePost() POST erzwingt und ilCtrl den rtoken dieser URL prüft.
         $user_id = (int) ($_POST['user_id'] ?? $_GET['user_id'] ?? 0);
 
         if ($user_id <= 0) {
@@ -833,6 +920,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function saveGeneralSettings(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         try {
             // Tab-Sichtbarkeit
             $tab_visibility = $_POST['tab_visibility'] ?? 'course_admins';
@@ -878,10 +969,11 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         );
 
         if (empty($active)) {
-            return $renderer->render([
-                $factory->messageBox()->info($this->txt('stats_no_active_module')),
-                $this->buildMaintenancePanel($factory),
-            ]);
+            [$panel, $modals] = $this->buildMaintenancePanel($factory);
+            return $renderer->render(array_merge(
+                [$factory->messageBox()->info($this->txt('stats_no_active_module')), $panel],
+                $modals
+            ));
         }
 
         ilAccordionGUI::addJavaScript();
@@ -929,24 +1021,39 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         }
 
         if (!$any) {
-            return $renderer->render([
-                $factory->messageBox()->info($this->txt('stats_no_module_settings')),
-                $this->buildMaintenancePanel($factory),
-            ]);
+            [$panel, $modals] = $this->buildMaintenancePanel($factory);
+            return $renderer->render(array_merge(
+                [$factory->messageBox()->info($this->txt('stats_no_module_settings')), $panel],
+                $modals
+            ));
         }
+
+        [$panel, $modals] = $this->buildMaintenancePanel($factory);
 
         return '<h3>' . $this->txt('stats_module_usage') . '</h3>'
             . $accordion->getHTML()
-            . $renderer->render($this->buildMaintenancePanel($factory));
+            . $renderer->render(array_merge([$panel], $modals));
     }
 
     /**
      * Wartungs-Panel (Bereinigung verwaister Einträge).
+     *
+     * Die Bereinigung löscht über alle Modultabellen hinweg und läuft deshalb
+     * über ein Interruptive Modal — das postet auf die getFormAction()-URL und
+     * ist damit CSRF-geschützt und bestätigungspflichtig (R4).
+     *
      * @param mixed $factory
+     * @return array{0: mixed, 1: array} [Panel, Modals]
      */
-    private function buildMaintenancePanel($factory)
+    private function buildMaintenancePanel($factory): array
     {
-        return $factory->panel()->standard(
+        $modal = $factory->modal()->interruptive(
+            $this->txt('cleanup_confirm_title'),
+            $this->txt('cleanup_confirm_blind'),
+            $this->ctrl->getFormAction($this, 'cleanupOrphanedEntries')
+        )->withActionButtonLabel($this->txt('cleanup_action'));
+
+        $panel = $factory->panel()->standard(
             $this->txt('maintenance'),
             [
                 $factory->messageBox()->info($this->txt('maintenance_info')),
@@ -956,10 +1063,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
                 ),
                 $factory->button()->standard(
                     $this->txt('cleanup_now'),
-                    $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries')
+                    $modal->getShowSignal()
                 ),
             ]
         );
+
+        return [$panel, [$modal]];
     }
 
     /**
@@ -1099,7 +1208,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     private function buildExamCheckerForm(): ilPropertyFormGUI
     {
         $form = new ilPropertyFormGUI();
-        $form->setFormAction($this->ctrl->getLinkTarget($this, 'saveExamChecker'));
+        $form->setFormAction($this->ctrl->getFormAction($this, 'saveExamChecker'));
         $form->setTitle($this->txt('examchecker_title'));
         $form->setDescription($this->txt('examchecker_desc'));
 
@@ -1296,6 +1405,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function saveExamChecker(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         try {
             $post = $_POST;
             $valid_keys = array_keys($this->getCheckDefinitions());
@@ -1397,7 +1510,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         $renderer = $DIC->ui()->renderer();
 
         $back_url    = $this->ctrl->getLinkTarget($this, 'showStatistics');
-        $cleanup_url = $this->ctrl->getLinkTarget($this, 'cleanupOrphanedEntries');
+        $cleanup_url = $this->ctrl->getFormAction($this, 'cleanupOrphanedEntries');
         $back_button = $factory->button()->standard($this->txt('back_to_statistics'), $back_url);
 
         if (empty($orphaned_entries)) {
@@ -1453,6 +1566,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function cleanupOrphanedEntries(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         try {
             // Erst Vorschau sammeln für Meldung
             $orphaned_before = $this->getOrphanedEntries();
@@ -1583,7 +1700,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         if ($with_check) {
             $components[] = $factory->button()->standard(
                 $this->txt('modules_check_updates'),
-                $this->ctrl->getLinkTarget($this, 'checkModuleUpdates')
+                $this->ctrl->getFormAction($this, 'checkModuleUpdates')
             );
             $components[] = $factory->button()->standard(
                 $this->txt('modules_network_diag'),
@@ -1659,7 +1776,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         // Aktivieren / Deaktivieren via Interruptive Modal (POST)
         $this->ctrl->setParameter($this, 'module_id', $id);
         $this->ctrl->setParameter($this, 'active', $active ? '0' : '1');
-        $toggle_target = $this->ctrl->getLinkTarget($this, 'toggleModule');
+        $toggle_target = $this->ctrl->getFormAction($this, 'toggleModule');
         $this->ctrl->setParameter($this, 'active', null);
 
         $toggle_modal = $factory->modal()->interruptive(
@@ -1681,7 +1798,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         // Deinstallieren via Interruptive Modal (POST), nur externe Module
         if (!$builtin) {
-            $uninstall_target = $this->ctrl->getLinkTarget($this, 'uninstallModule');
+            $uninstall_target = $this->ctrl->getFormAction($this, 'uninstallModule');
             $uninstall_modal  = $factory->modal()->interruptive(
                 $this->txt('module_uninstall_title'),
                 sprintf($this->txt('module_uninstall_confirm'), $label),
@@ -1768,6 +1885,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function toggleModule(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
+        // ilCtrl-Parameter stehen im Query-String der Formular-Action; das
+        // Interruptive Modal postet nur darauf. Das ist unkritisch, weil
+        // requirePost() POST erzwingt und ilCtrl den rtoken dieser URL prüft.
         $module_id = (string) ($_POST['module_id'] ?? $_GET['module_id'] ?? '');
         $active    = (bool) (int) ($_POST['active'] ?? $_GET['active'] ?? 0);
 
@@ -1799,6 +1923,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function uploadModule(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         $this->tabs->activateTab('modules');
 
         $file = $_FILES['module_zip'] ?? null;
@@ -1816,17 +1944,37 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         }
 
         try {
-            $installer  = $this->getInstaller();
+            $installer = $this->getInstaller();
+            $registry  = $this->getRegistry();
+
+            // Vor der Installation feststellen, ob das Modul schon vorhanden ist:
+            // danach ist die Registry-Discovery dieses Requests nicht mehr aktuell.
+            $manifest  = $installer->readManifestFromZip($file['tmp_name']);
+            $was_known = $registry->moduleExists((string) $manifest['id']);
+
             $module_info = $installer->installFromZip($file['tmp_name']);
 
-            // Modul direkt aktivieren nach Installation
-            $registry = $this->getRegistry();
-            $registry->setModuleActive($module_info['id'], true);
-
-            $this->tpl->setOnScreenMessage(
-                'success',
-                sprintf($this->txt('module_installed'), $module_info['label'], $module_info['version'])
-            );
+            if ($was_known) {
+                // Update über den Upload-Weg: Aktivstatus bleibt wie er war.
+                $this->tpl->setOnScreenMessage(
+                    'success',
+                    sprintf($this->txt('module_installed'), $module_info['label'], $module_info['version'])
+                );
+            } else {
+                // Neuinstallation: KEINE Auto-Aktivierung. Frisch hochgeladener
+                // Handler-Code darf nicht ohne Freigabeschritt im Testplayer aller
+                // Nutzer laufen (Regel R13).
+                //
+                // Einen etwaigen Alt-Eintrag entfernen statt '0' zu schreiben:
+                // setModuleActive() greift nur bei bereits entdeckten Modulen, und
+                // ohne Eintrag gilt für hochgeladene Module ohnehin der Default
+                // "inaktiv". Das deckt auch manuell gelöschte Modulordner ab.
+                $registry->forgetModuleState((string) $module_info['id']);
+                $this->tpl->setOnScreenMessage(
+                    'success',
+                    sprintf($this->txt('module_installed_inactive'), $module_info['label'], $module_info['version'])
+                );
+            }
         } catch (RuntimeException $e) {
             error_log('[ExtendedTestSettings] uploadModule Fehler: ' . $e->getMessage());
             $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('module_install_failed'), $e->getMessage()));
@@ -1843,6 +1991,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function uninstallModule(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
+        // ilCtrl-Parameter stehen im Query-String der Formular-Action; das
+        // Interruptive Modal postet nur darauf. Das ist unkritisch, weil
+        // requirePost() POST erzwingt und ilCtrl den rtoken dieser URL prüft.
         $module_id = (string) ($_POST['module_id'] ?? $_GET['module_id'] ?? '');
 
         if ($module_id === '') {
@@ -1877,8 +2032,22 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $installer = $this->getInstaller();
             $installer->uninstallModule($module_id, $info);
 
+            // Aktivstatus mit entfernen — sonst bliebe der Eintrag in der
+            // settings-Tabelle stehen und ein später erneut hochgeladenes Modul
+            // wäre sofort wieder aktiv.
+            $registry->forgetModuleState($module_id);
+            if (isset($_SESSION['ets_update_cache'][$module_id])) {
+                unset($_SESSION['ets_update_cache'][$module_id]);
+            }
+
             $this->tpl->setOnScreenMessage('success', sprintf($this->txt('module_uninstalled'), $module_id));
         } catch (RuntimeException $e) {
+            // Bei fehlgeschlagener Datenbereinigung bleibt das Modul absichtlich
+            // installiert, damit die Deinstallation wiederholt werden kann.
+            error_log('[ExtendedTestSettings] uninstallModule fehlgeschlagen: ' . $e->getMessage());
+            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('module_uninstall_failed'), $e->getMessage()));
+        } catch (Throwable $e) {
+            error_log('[ExtendedTestSettings] uninstallModule unerwarteter Fehler: ' . $e->getMessage());
             $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('module_uninstall_failed'), $e->getMessage()));
         }
 
@@ -1890,6 +2059,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function saveModuleRepoUrl(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         $url    = trim($_POST['module_repo_url'] ?? '');
         $branch = trim($_POST['module_repo_branch'] ?? 'ilias9');
         $proxy  = trim($_POST['module_repo_proxy'] ?? '');
@@ -1922,45 +2095,39 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
         $module_id      = preg_replace('/[^a-z0-9_]/', '', strtolower($_GET['module_id'] ?? ''));
         $download_url   = $_GET['download_url'] ?? '';
-        $latest_version = htmlspecialchars($_GET['latest_version'] ?? '', ENT_QUOTES);
+        $version_raw    = preg_replace('/[^0-9.]/', '', (string) ($_GET['latest_version'] ?? ''));
+        $latest_version = htmlspecialchars($version_raw, ENT_QUOTES);
 
         $repo_url       = trim((string) $this->settings->get('module_repo_url', ''));
         $url_allowed    = $this->isAllowedDownloadUrl($download_url);
         $back_url       = $this->ctrl->getLinkTarget($this, 'showModules');
 
-        // Debug-Panel: immer anzeigen damit Probleme sichtbar werden
-        $get_dump = htmlspecialchars(print_r($_GET, true), ENT_QUOTES);
-        $debug_html = "
-        <div class='card mt-3 mb-3 border-warning'>
-            <div class='card-header bg-warning text-dark'><strong>Debug-Info: updateModule</strong></div>
-            <div class='card-body' style='font-family:monospace;font-size:0.85em;'>
-                <table class='table table-sm table-bordered mb-0'>
-                    <tr><th style='width:200px'>module_id (raw GET)</th><td>" . htmlspecialchars($_GET['module_id'] ?? '(leer)', ENT_QUOTES) . "</td></tr>
-                    <tr><th>module_id (bereinigt)</th><td>" . htmlspecialchars($module_id, ENT_QUOTES) . "</td></tr>
-                    <tr><th>download_url</th><td style='word-break:break-all'>" . htmlspecialchars($download_url, ENT_QUOTES) . "</td></tr>
-                    <tr><th>latest_version</th><td>$latest_version</td></tr>
-                    <tr><th>Repo-URL (gespeichert)</th><td>" . htmlspecialchars($repo_url, ENT_QUOTES) . "</td></tr>
-                    <tr><th>isAllowedDownloadUrl</th><td>" . ($url_allowed ? '<span class=\"text-success\">erlaubt</span>' : '<span class=\"text-danger\">blockiert</span>') . "</td></tr>
-                    <tr><th>download_url Host</th><td>" . htmlspecialchars((string) parse_url($download_url, PHP_URL_HOST), ENT_QUOTES) . "</td></tr>
-                    <tr><th>Repo Host (erwartet)</th><td>" . htmlspecialchars((string) parse_url($repo_url, PHP_URL_HOST), ENT_QUOTES) . "</td></tr>
-                    <tr><th>module_id leer?</th><td>" . ($module_id === '' ? 'ja' : 'nein') . "</td></tr>
-                    <tr><th>download_url leer?</th><td>" . ($download_url === '' ? 'ja' : 'nein') . "</td></tr>
-                </table>
-                <details class='mt-2'><summary>Alle GET-Parameter</summary><pre>$get_dump</pre></details>
-            </div>
-        </div>";
-
+        // Kein Debug-Panel im Produktivpfad (R6): Requestdaten und interne
+        // Konfiguration gehören nicht in die Oberfläche. Diagnose läuft über
+        // den Tab "Netzwerk-Diagnose" und das PHP-Errorlog.
         if ($module_id === '' || $download_url === '') {
-            $this->tpl->setContent($debug_html . "<div class='alert alert-danger'>Fehlende Parameter: module_id oder download_url leer. <a href='$back_url'>Zurück</a></div>");
+            error_log('[ExtendedTestSettings] updateModule ohne module_id/download_url aufgerufen');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('update_missing_params'));
+            $this->ctrl->redirect($this, 'showModules');
             return;
         }
 
         if (!$url_allowed) {
-            $this->tpl->setContent($debug_html . "<div class='alert alert-danger'>Download-URL nicht erlaubt (Host-Mismatch, s. oben). <a href='$back_url'>Zurück</a></div>");
+            error_log('[ExtendedTestSettings] updateModule: Download-URL abgelehnt (Host/Pfad ausserhalb des konfigurierten Repositorys)');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('invalid_download_url'));
+            $this->ctrl->redirect($this, 'showModules');
             return;
         }
 
-        $do_url     = $this->ctrl->getLinkTarget($this, 'doUpdateModule');
+        // Erwartung serverseitig festhalten: doUpdateModule vergleicht das
+        // heruntergeladene Artefakt strikt dagegen, bevor es installiert wird (R13).
+        ilSession::set(self::SESSION_PENDING_UPDATE, [
+            'module_id'    => $module_id,
+            'version'      => $version_raw,
+            'download_url' => $download_url,
+        ]);
+
+        $do_url     = $this->ctrl->getFormAction($this, 'doUpdateModule');
         $back_url   = $this->ctrl->getLinkTarget($this, 'showModules');
         $module_esc = htmlspecialchars($module_id, ENT_QUOTES);
         $dl_esc     = htmlspecialchars($download_url, ENT_QUOTES);
@@ -1997,7 +2164,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         });
         </script>";
 
-        $this->tpl->setContent($debug_html . $html);
+        $this->tpl->setContent($html);
     }
 
     /**
@@ -2005,6 +2172,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
      */
     protected function doUpdateModule(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         $module_id    = preg_replace('/[^a-z0-9_]/', '', strtolower($_POST['module_id'] ?? ''));
         $download_url = $_POST['download_url'] ?? '';
 
@@ -2018,6 +2189,22 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $this->ctrl->redirect($this, 'showModules');
             return;
         }
+
+        // Erwartung aus der Bestätigungsseite — einmalig verwendbar (R13).
+        $pending = ilSession::get(self::SESSION_PENDING_UPDATE);
+        ilSession::clear(self::SESSION_PENDING_UPDATE);
+
+        if (!is_array($pending)
+            || ($pending['module_id'] ?? '') !== $module_id
+            || ($pending['download_url'] ?? '') !== $download_url) {
+            error_log('[ExtendedTestSettings] doUpdateModule: Request passt nicht zur bestätigten Update-Erwartung');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('update_expectation_mismatch'));
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
+        $expected_version = (string) ($pending['version'] ?? '');
+        $was_active       = $this->getRegistry()->isModuleActive($module_id);
 
         $this->tabs->activateTab('modules');
         $back_url = $this->ctrl->getLinkTarget($this, 'showModules');
@@ -2035,16 +2222,46 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
             $tmp_file = $checker->downloadZip($download_url);
             $log[]    = 'ZIP heruntergeladen (' . round(filesize($tmp_file) / 1024) . ' KB)';
 
+            // Vor dem Schreiben prüfen, WAS da heruntergeladen wurde. Der Installer
+            // installiert unter der ID aus dem ZIP — ohne diesen Abgleich könnte
+            // ein anderes Modul installiert werden, während die UI Erfolg für das
+            // angeforderte meldet.
+            $installer = $this->getInstaller();
+            $manifest  = $installer->readManifestFromZip($tmp_file);
+
+            if (($manifest['id'] ?? '') !== $module_id) {
+                @unlink($tmp_file);
+                throw new RuntimeException(sprintf(
+                    $this->txt('update_id_mismatch'),
+                    $module_id,
+                    (string) ($manifest['id'] ?? '?')
+                ));
+            }
+
+            if ($expected_version !== '' && (string) ($manifest['version'] ?? '') !== $expected_version) {
+                @unlink($tmp_file);
+                throw new RuntimeException(sprintf(
+                    $this->txt('update_version_mismatch'),
+                    $expected_version,
+                    (string) ($manifest['version'] ?? '?')
+                ));
+            }
+
+            $log[] = 'Artefakt geprüft (ID und Version stimmen überein)';
+
             $log[] = 'Modul wird installiert…';
-            $installer   = $this->getInstaller();
             $module_info = $installer->installFromZip($tmp_file);
             @unlink($tmp_file);
             $log[] = "Modul '{$module_info['label']}' v{$module_info['version']} installiert";
 
-            $log[] = 'Modul wird aktiviert…';
-            $registry = $this->getRegistry();
-            $registry->setModuleActive($module_id, true);
-            $log[] = 'Modul aktiv';
+            // Beim Update den vorherigen Aktivstatus beibehalten — ein bewusst
+            // deaktiviertes Modul darf durch ein Update nicht wieder anspringen.
+            if ($was_active) {
+                $this->getRegistry()->setModuleActive($module_id, true);
+                $log[] = 'Modul bleibt aktiv';
+            } else {
+                $log[] = 'Modul bleibt deaktiviert (war vor dem Update inaktiv)';
+            }
 
             // Session-Cache für dieses Modul zurücksetzen, damit kein veraltetes Update-Badge erscheint
             if (isset($_SESSION['ets_update_cache'][$module_id])) {
@@ -2293,13 +2510,55 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     // Netzwerk-Qualität-Tab (ExamNetQos-Modul)
     // -------------------------------------------------------------------------
 
-    private function isExamNetQosInstalled(): bool
+    /**
+     * Lädt die Admin-GUI-Klasse eines Moduls für einen ConfigGUI-Tab.
+     *
+     * Ersetzt die früheren isExamXxxInstalled()-Prüfungen: file_exists() sagt nur,
+     * dass eine Datei existiert — nicht, dass das Modul aktiviert ist. Modulcode
+     * wird ausschließlich über die Registry aufgelöst (Regel R3), Pfade per
+     * realpath() in den Modulordner gezwungen (Regel R11).
+     *
+     * $gui_file/$gui_class dürfen explizit gesetzt werden, weil ExamKeymap seine
+     * Admin-GUI nicht im Manifest führt.
+     *
+     * @return string|null Klassenname oder null (fehlt, inaktiv oder nicht ladbar)
+     */
+    private function loadModuleGuiClass(string $module_id, ?string $gui_file = null, ?string $gui_class = null): ?string
     {
-        return file_exists(__DIR__ . '/../modules/examnetqos/class.ilExamNetQosViewGUI.php');
+        require_once __DIR__ . '/Module/ilModuleManifest.php';
+
+        $info = $this->getRegistry()->getActiveModuleInfo($module_id);
+        if ($info === null) {
+            return null;
+        }
+
+        $gui_file  = $gui_file  ?? ($info['gui_file']  ?? null);
+        $gui_class = $gui_class ?? ($info['gui_class'] ?? null);
+
+        if (empty($gui_file) || empty($gui_class)) {
+            return null;
+        }
+
+        foreach ($info['require_files'] ?? [] as $rel_path) {
+            $dep_path = ilModuleManifest::resolveFile($info['path'], (string) $rel_path);
+            if ($dep_path !== null) {
+                require_once $dep_path;
+            }
+        }
+
+        $gui_path = ilModuleManifest::resolveFile($info['path'], (string) $gui_file);
+        if ($gui_path === null) {
+            error_log("[ExtendedTestSettings] Admin-GUI von '$module_id' nicht auflösbar: $gui_file");
+            return null;
+        }
+
+        require_once $gui_path;
+
+        return class_exists($gui_class) ? $gui_class : null;
     }
 
     /**
-     * Rendert eine "Modul nicht installiert"-Meldung als ILIAS MessageBox.
+     * Rendert eine "Modul nicht installiert/aktiviert"-Meldung als ILIAS MessageBox.
      */
     private function renderModuleMissing(string $message): string
     {
@@ -2313,13 +2572,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     {
         $this->tabs->activateTab('netqos');
 
-        if (!$this->isExamNetQosInstalled()) {
+        $class = $this->loadModuleGuiClass('examnetqos');
+        if ($class === null) {
             $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examnetqos_missing')));
             return;
         }
 
-        require_once __DIR__ . '/../modules/examnetqos/class.ilExamNetQosViewGUI.php';
-        $view = new ilExamNetQosViewGUI();
+        $view = new $class();
         $view->setChartCmd('showNetQos');
         $view->setExportCmd('exportNetQosCsv');
         $view->showChart();
@@ -2327,34 +2586,29 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
     protected function exportNetQosCsv(): void
     {
-        if (!$this->isExamNetQosInstalled()) {
+        $class = $this->loadModuleGuiClass('examnetqos');
+        if ($class === null) {
             return;
         }
 
-        require_once __DIR__ . '/../modules/examnetqos/class.ilExamNetQosViewGUI.php';
-        $view = new ilExamNetQosViewGUI();
+        $view = new $class();
         $view->exportCsv();
     }
 
     // Protokoll-Tab (ExamLogger-Modul)
     // -------------------------------------------------------------------------
 
-    private function isExamLoggerInstalled(): bool
-    {
-        return file_exists(__DIR__ . '/../modules/examlogger/class.ilExamLoggerViewGUI.php');
-    }
-
     protected function showProtocol(): void
     {
         $this->tabs->activateTab('protocol');
 
-        if (!$this->isExamLoggerInstalled()) {
+        $class = $this->loadModuleGuiClass('examlogger');
+        if ($class === null) {
             $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examlogger_missing')));
             return;
         }
 
-        require_once __DIR__ . '/../modules/examlogger/class.ilExamLoggerViewGUI.php';
-        $view = new ilExamLoggerViewGUI();
+        $view = new $class();
         $view->setFormCmd('showProtocol');
         $view->setExportCmd('exportProtocolCsv');
         $view->executeCommand();
@@ -2362,12 +2616,12 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
     protected function exportProtocolCsv(): void
     {
-        if (!$this->isExamLoggerInstalled()) {
+        $class = $this->loadModuleGuiClass('examlogger');
+        if ($class === null) {
             return;
         }
 
-        require_once __DIR__ . '/../modules/examlogger/class.ilExamLoggerViewGUI.php';
-        $view = new ilExamLoggerViewGUI();
+        $view = new $class();
         $view->setFormCmd('showProtocol');
         $view->setExportCmd('exportProtocolCsv');
         $view->executeCommand();
@@ -2381,6 +2635,10 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
 
     protected function importDevices(): void
     {
+        if (!$this->requirePost()) {
+            return;
+        }
+
         $this->tabs->activateTab('devices');
 
         [$msg, $type] = $this->handleDevicesCsvImport();
@@ -2393,7 +2651,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
         global $DIC;
         $db = $DIC->database();
 
-        $importUrl = $this->ctrl->getLinkTarget($this, 'importDevices');
+        $importUrl = $this->ctrl->getFormAction($this, 'importDevices');
 
         $html  = '<div style="padding:15px;background:#f9f9f9;border:1px solid #ddd;border-radius:4px;margin-bottom:20px;">';
         $html .= '<h4 style="margin-top:0;">' . $this->txt('devices_import_title') . '</h4>';
@@ -2522,37 +2780,67 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     // Tastatur-Layout-Tab (ExamKeymap-Modul)
     // -------------------------------------------------------------------------
 
-    private function isExamKeymapInstalled(): bool
+    /** ExamKeymap führt seine Admin-GUI nicht im Manifest — daher explizit benannt. */
+    private function loadKeymapGuiClass(): ?string
     {
-        return file_exists(__DIR__ . '/../modules/examkeymap/class.ilExamKeymapAdminGUI.php');
+        return $this->loadModuleGuiClass(
+            'examkeymap',
+            'class.ilExamKeymapAdminGUI.php',
+            'ilExamKeymapAdminGUI'
+        );
     }
 
     protected function showKeymap(): void
     {
         $this->tabs->activateTab('keymap');
 
-        if (!$this->isExamKeymapInstalled()) {
+        $class = $this->loadKeymapGuiClass();
+        if ($class === null) {
             $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examkeymap_missing')));
             return;
         }
 
-        require_once __DIR__ . '/../modules/examkeymap/class.ilExamKeymapAdminGUI.php';
-        $view = new ilExamKeymapAdminGUI();
+        $view = new $class();
         $view->setSaveCmd('saveKeymap');
+        $this->passFormActionTo($view, 'saveKeymap');
         $view->showEditor();
+    }
+
+    /**
+     * Übergibt einer Modul-Admin-GUI die CSRF-geschützte Formular-Action des
+     * zugehörigen Kern-Commands — sofern das Modul den Setter bereits kennt.
+     *
+     * Hintergrund: Module wie ExamKeymap bauen ihre Formular-Action bisher selbst
+     * aus buildBaseUrl() . '&cmd=' . $saveCmd zusammen; darin steckt kein rtoken.
+     * Der Kern kann das nicht allein reparieren — requirePost() verhindert
+     * immerhin GET. Sobald das Modul setSaveUrl() implementiert, greift auch der
+     * Token, ohne dass hier nochmal etwas geändert werden muss.
+     *
+     * @param object $view
+     */
+    private function passFormActionTo($view, string $cmd): void
+    {
+        if (method_exists($view, 'setSaveUrl')) {
+            $view->setSaveUrl($this->ctrl->getFormAction($this, $cmd));
+        }
     }
 
     protected function saveKeymap(): void
     {
-        $this->tabs->activateTab('keymap');
-
-        if (!$this->isExamKeymapInstalled()) {
+        if (!$this->requirePost()) {
             return;
         }
 
-        require_once __DIR__ . '/../modules/examkeymap/class.ilExamKeymapAdminGUI.php';
-        $view = new ilExamKeymapAdminGUI();
+        $this->tabs->activateTab('keymap');
+
+        $class = $this->loadKeymapGuiClass();
+        if ($class === null) {
+            return;
+        }
+
+        $view = new $class();
         $view->setSaveCmd('saveKeymap');
+        $this->passFormActionTo($view, 'saveKeymap');
 
         [$msg, $type] = $view->handleSave();
         $this->tpl->setOnScreenMessage($type, $msg);
@@ -2563,22 +2851,17 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI
     // Archiv-Tab (ExamArchiver-Modul)
     // -------------------------------------------------------------------------
 
-    private function isExamArchiverInstalled(): bool
-    {
-        return file_exists(__DIR__ . '/../modules/examarchiver/class.ilExamArchiverGUI.php');
-    }
-
     protected function showArchiver(): void
     {
         $this->tabs->activateTab('archiver');
 
-        if (!$this->isExamArchiverInstalled()) {
+        $class = $this->loadModuleGuiClass('examarchiver');
+        if ($class === null) {
             $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examarchiver_missing')));
             return;
         }
 
-        require_once __DIR__ . '/../modules/examarchiver/class.ilExamArchiverGUI.php';
-        $view = new ilExamArchiverGUI();
+        $view = new $class();
         $this->tpl->setContent($view->renderAdminView());
     }
 }
