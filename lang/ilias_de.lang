@@ -56,7 +56,7 @@ visibility_admins_only_info#:#Nur ILIAS System-Administratoren können den Tab s
 visibility_course_admins#:#Kurs-Administratoren + System-Administratoren
 visibility_course_admins_info#:#Kurs-Administratoren, Test-Besitzer und System-Administratoren können den Tab sehen.
 visibility_specific_users#:#Nur ausgewählte Benutzer + System-Administratoren
-visibility_specific_users_info#:#Nur explizit berechtigte Benutzer und System-Administratoren können den Tab sehen.
+visibility_specific_users_info#:#Nur explizit gelistete Benutzer und System-Administratoren sehen den Tab. Zusätzlich ist wie sonst auch ein Bearbeitungsrecht am jeweiligen Test nötig — die Liste ist keine testübergreifende Berechtigung.
 examalert_auto_section#:#ExamAlert Auto-Aktivierung
 examalert_auto_label#:#Standard für neue Tests
 examalert_auto_info#:#Diese Einstellung betrifft nur neue Tests. Bereits existierende Tests behalten ihre aktuellen Einstellungen. Administratoren können ExamAlert jederzeit in den Test-Einstellungen manuell aktivieren oder deaktivieren.
