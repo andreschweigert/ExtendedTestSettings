@@ -384,12 +384,12 @@ class ilExtendedTestSettingsAdvancedGUI
                             $custom->setHtml($handler->getSettingsHTML($ref_id));
                             $form->addItem($custom);
                         }
-                    } catch (Exception $e) {
+                    } catch (Throwable $e) {
                         error_log("[ExtendedTestSettings] Fehler beim Laden von Modul '$moduleName': " . $e->getMessage());
                     }
                 }
             }
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Fehler beim Generieren der Module: " . $e->getMessage());
             }
@@ -658,7 +658,7 @@ class ilExtendedTestSettingsAdvancedGUI
                         $results[$moduleName] = false;
                         error_log("[ExtendedTestSettings] Handler '$moduleName' hat keine saveSettings() Methode");
                     }
-                } catch (Exception $e) {
+                } catch (Throwable $e) {
                     $results[$moduleName] = false;
                     error_log("[ExtendedTestSettings] Fehler beim Speichern von '$moduleName': " . $e->getMessage());
                 }
@@ -687,7 +687,7 @@ class ilExtendedTestSettingsAdvancedGUI
             if (empty($results)) {
                 $this->tpl->setOnScreenMessage('info', 'ℹ️ ' . $this->txt('no_modules_to_save'));
             }
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Fehler beim Speichern: " . $e->getMessage());
             }

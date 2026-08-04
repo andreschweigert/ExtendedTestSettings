@@ -36,7 +36,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
             }
 
             $this->dispatchRequestToModules();
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] modifyGUI Fehler: " . $e->getMessage());
             }
@@ -110,11 +110,11 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                             error_log("[ExtendedTestSettings] Modul '$id' injiziert für ref_id $current_ref_id");
                         }
                     }
-                } catch (Exception $e) {
+                } catch (Throwable $e) {
                     error_log("[ExtendedTestSettings] Fehler in Modul '$id': " . $e->getMessage());
                 }
             }
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             if (self::DEBUG_ENABLED) {
                 error_log("[ExtendedTestSettings] Asset-Injection Fehler: " . $e->getMessage());
             }
@@ -131,7 +131,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
         foreach ($this->getRegistry()->getActiveHandlers() as $id => $handler) {
             try {
                 $results[$id] = $handler->saveSettings($ref_id, $post_data);
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 error_log("[ExtendedTestSettings] Fehler beim Speichern von Modul '$id': " . $e->getMessage());
                 $results[$id] = false;
             }
@@ -152,7 +152,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
                 foreach ($handler->getFormItems($ref_id) as $item) {
                     $items[] = $item;
                 }
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 error_log("[ExtendedTestSettings] Fehler beim Laden von Formular-Items für '$id': " . $e->getMessage());
             }
         }
@@ -288,7 +288,7 @@ class ilExtendedTestSettingsUIHookGUI extends ilUIHookPluginGUI
             if (method_exists($handler, 'onRequest')) {
                 try {
                     $handler->onRequest($ref_id);
-                } catch (Exception $e) {
+                } catch (Throwable $e) {
                     error_log('[ExtendedTestSettings] onRequest-Fehler: ' . $e->getMessage());
                 }
             }
