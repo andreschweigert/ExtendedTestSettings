@@ -8,6 +8,8 @@
  * - ZIP-Inhalt wird vor dem Entpacken validiert (module.json, erlaubte Endungen, kein Path-Traversal)
  * - Dateien werden in modules/<id>/ entpackt (außerhalb des classes/-Autoloaders)
  */
+require_once __DIR__ . '/ilModuleManifest.php';
+
 class ilModuleInstaller
 {
     private const ALLOWED_EXTENSIONS = ['php', 'js', 'css', 'sql', 'json', 'html', 'tpl', 'md', 'txt', 'lang', 'png', 'svg', 'gif', 'jpg', 'jpeg', 'woff', 'woff2', 'ttf'];
@@ -159,25 +161,8 @@ class ilModuleInstaller
             throw new RuntimeException('module.json ist kein gültiges JSON.');
         }
 
-        foreach (['id', 'handler_file', 'handler_class', 'label'] as $required_field) {
-            if (empty($info[$required_field])) {
-                throw new RuntimeException("Pflichtfeld '$required_field' fehlt in module.json.");
-            }
-        }
-
-        // id darf nur alphanumerisch + Unterstrich sein
-        if (!preg_match('/^[a-z][a-z0-9_]{2,39}$/', $info['id'])) {
-            throw new RuntimeException("Ungültige Modul-ID '{$info['id']}'. Erlaubt: a-z, 0-9, _ (3-40 Zeichen).");
-        }
-
-        // Tabellennamen validieren (SQL-Injection-Schutz)
-        foreach ($info['tables'] ?? [] as $table) {
-            if (!preg_match('/^[a-z][a-z0-9_]{2,63}$/', $table)) {
-                throw new RuntimeException("Ungültiger Tabellenname '$table' in module.json. Erlaubt: a-z, 0-9, _ (3-64 Zeichen).");
-            }
-        }
-
-        return $info;
+        // Gemeinsame Validierung mit Registry und Proxy (ilModuleManifest)
+        return ilModuleManifest::validate($info);
     }
 
     // -------------------------------------------------------------------------
