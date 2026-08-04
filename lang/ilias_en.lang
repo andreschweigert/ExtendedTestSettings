@@ -270,3 +270,5 @@ maturity_pilot#:#Pilot
 maturity_erprobt#:#Exam-proven
 maturity_eingestellt#:#Discontinued
 module_not_active#:#Module '%s' is not activated.
+cleanup_confirm_blind#:#Orphaned entries will be irreversibly deleted from all module tables. Using "Show preview" first is recommended. Continue?
+invalid_request_method#:#This action must be triggered through the form (invalid request).
