@@ -26,6 +26,9 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
      * Zustandsändernde Commands. Werden über getFormAction() erzeugt und von
      * requirePost() zusätzlich auf POST festgenagelt.
      */
+    /** Session-Schlüssel für die serverseitig gemerkte Update-Erwartung (C-09). */
+    private const SESSION_PENDING_UPDATE = 'ets_pending_update';
+
     private const WRITE_COMMANDS = [
         'saveGeneralSettings',
         'saveExamChecker',
@@ -2058,7 +2061,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
 
         $module_id      = preg_replace('/[^a-z0-9_]/', '', strtolower($_GET['module_id'] ?? ''));
         $download_url   = $_GET['download_url'] ?? '';
-        $latest_version = htmlspecialchars($_GET['latest_version'] ?? '', ENT_QUOTES);
+        $version_raw    = preg_replace('/[^0-9.]/', '', (string) ($_GET['latest_version'] ?? ''));
+        $latest_version = htmlspecialchars($version_raw, ENT_QUOTES);
 
         $repo_url       = trim((string) $this->settings->get('module_repo_url', ''));
         $url_allowed    = $this->isAllowedDownloadUrl($download_url);
@@ -2080,6 +2084,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
             $this->ctrl->redirect($this, 'showModules');
             return;
         }
+
+        // Erwartung serverseitig festhalten: doUpdateModule vergleicht das
+        // heruntergeladene Artefakt strikt dagegen, bevor es installiert wird (R13).
+        ilSession::set(self::SESSION_PENDING_UPDATE, [
+            'module_id'    => $module_id,
+            'version'      => $version_raw,
+            'download_url' => $download_url,
+        ]);
 
         $do_url     = $this->ctrl->getFormAction($this, 'doUpdateModule');
         $back_url   = $this->ctrl->getLinkTarget($this, 'showModules');
@@ -2144,6 +2156,21 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
             return;
         }
 
+        // Erwartung aus der Bestätigungsseite — einmalig verwendbar (R13).
+        $pending = ilSession::get(self::SESSION_PENDING_UPDATE);
+        ilSession::clear(self::SESSION_PENDING_UPDATE);
+
+        if (!is_array($pending)
+            || ($pending['module_id'] ?? '') !== $module_id
+            || ($pending['download_url'] ?? '') !== $download_url) {
+            error_log('[ExtendedTestSettings] doUpdateModule: Request passt nicht zur bestätigten Update-Erwartung');
+            $this->tpl->setOnScreenMessage('failure', $this->txt('update_expectation_mismatch'));
+            $this->ctrl->redirect($this, 'showModules');
+            return;
+        }
+
+        $expected_version = (string) ($pending['version'] ?? '');
+
         $this->tabs->activateTab('modules');
         $back_url = $this->ctrl->getLinkTarget($this, 'showModules');
 
@@ -2160,8 +2187,34 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
             $tmp_file = $checker->downloadZip($download_url);
             $log[]    = 'ZIP heruntergeladen (' . round(filesize($tmp_file) / 1024) . ' KB)';
 
+            // Vor dem Schreiben prüfen, WAS da heruntergeladen wurde. Der Installer
+            // installiert unter der ID aus dem ZIP — ohne diesen Abgleich könnte
+            // ein anderes Modul installiert werden, während die UI Erfolg für das
+            // angeforderte meldet.
+            $installer = $this->getInstaller();
+            $manifest  = $installer->readManifestFromZip($tmp_file);
+
+            if (($manifest['id'] ?? '') !== $module_id) {
+                @unlink($tmp_file);
+                throw new RuntimeException(sprintf(
+                    $this->txt('update_id_mismatch'),
+                    $module_id,
+                    (string) ($manifest['id'] ?? '?')
+                ));
+            }
+
+            if ($expected_version !== '' && (string) ($manifest['version'] ?? '') !== $expected_version) {
+                @unlink($tmp_file);
+                throw new RuntimeException(sprintf(
+                    $this->txt('update_version_mismatch'),
+                    $expected_version,
+                    (string) ($manifest['version'] ?? '?')
+                ));
+            }
+
+            $log[] = 'Artefakt geprüft (ID und Version stimmen überein)';
+
             $log[] = 'Modul wird installiert…';
-            $installer   = $this->getInstaller();
             $module_info = $installer->installFromZip($tmp_file);
             @unlink($tmp_file);
             $log[] = "Modul '{$module_info['label']}' v{$module_info['version']} installiert";
