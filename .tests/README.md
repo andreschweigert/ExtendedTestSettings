@@ -5,7 +5,23 @@ ohne Datenbank und ohne Netzzugriff; die wenigen ILIAS-Bausteine, die der
 getestete Code berührt, sind in `bootstrap.php` als Stubs definiert.
 
 Die **Modul**-Prüfungen liegen im eigenen Repository unter `modules-zip/tests/`,
-die Browser-Tests unter `tests/e2e/`.
+die Browser-Tests unter `.tests/e2e/`.
+
+> **Warum `.tests/` mit Punkt?** Der Ordner liegt innerhalb von
+> `Customizing/global/plugins`, und dieses Verzeichnis steht in ILIAS'
+> `composer.json` in der `classmap` — noch **vor** `./Services/`. Composers
+> ClassMapGenerator würde `bootstrap.php` mitscannen und die dortigen Stubs
+> (`ilSetting`, `ilUserInterfaceHookPlugin`, `ilPluginConfigGUI`,
+> `ilCtrlSecurityInterface`) als Gewinner in die Klassenmap eintragen, weil bei
+> doppelten Klassennamen der zuerst gefundene Pfad gewinnt. ILIAS lädt dann die
+> Test-Stubs statt der echten Core-Klassen — `setup/cli.php build-artifacts`
+> bricht mit einem Fatal Error ab (`ILIAS\Modules\File\Settings\General
+> contains 5 abstract methods`), und im laufenden Betrieb wäre jedes
+> UIHook-Plugin kaputt.
+>
+> Composer nutzt Symfony Finder, und der überspringt per Default alles, was mit
+> `.` beginnt (`IGNORE_DOT_FILES`). Der Punkt hält die Suite also aus der
+> Klassenmap heraus — genau wie bei `.dev/`. **Nicht in `tests/` umbenennen.**
 
 ---
 
@@ -13,14 +29,14 @@ die Browser-Tests unter `tests/e2e/`.
 
 ```bash
 # aus dem Plugin-Verzeichnis
-tests/run-tests.sh                       # Kern-Suite, danach Modul-Suite (falls vorhanden)
-tests/run-tests.sh --filter ilModuleInstallerTest
+.tests/run-tests.sh                       # Kern-Suite, danach Modul-Suite (falls vorhanden)
+.tests/run-tests.sh --filter ilModuleInstallerTest
 
 # nur die Kern-Suite
-php8.2 tests/tools/phpunit.phar -c tests/phpunit.xml --testsuite unit
+php8.2 .tests/tools/phpunit.phar -c .tests/phpunit.xml --testsuite unit
 
 # ohne die langsamen ZIP-Tests (rund 10 der 13 Sekunden Laufzeit)
-php8.2 tests/tools/phpunit.phar -c tests/phpunit.xml --testsuite unit --exclude-group slow
+php8.2 .tests/tools/phpunit.phar -c .tests/phpunit.xml --testsuite unit --exclude-group slow
 ```
 
 `php8.2` ist das passende Binary — ILIAS 9 verlangt PHP < 8.3, das ebenfalls
@@ -30,13 +46,13 @@ setzen.
 ## PHPUnit besorgen
 
 Die PHAR liegt **nicht** im Repository (Binärdatei, eigener Lebenszyklus). Sie
-wird unter `tests/tools/phpunit.phar` erwartet; ein anderer Ablageort geht über
+wird unter `.tests/tools/phpunit.phar` erwartet; ein anderer Ablageort geht über
 `PHPUNIT_PHAR`. Fehlt sie, meldet `run-tests.sh` das im Klartext.
 
 ```bash
-curl -sSL -o tests/tools/phpunit.phar https://phar.phpunit.de/phpunit-11.phar
-chmod +x tests/tools/phpunit.phar
-sha256sum tests/tools/phpunit.phar
+curl -sSL -o .tests/tools/phpunit.phar https://phar.phpunit.de/phpunit-11.phar
+chmod +x .tests/tools/phpunit.phar
+sha256sum .tests/tools/phpunit.phar
 ```
 
 | | |
@@ -51,7 +67,7 @@ Die Composer-Installation der Plattform wird dafür **nicht** angefasst.
 ## Aufbau
 
 ```
-tests/
+.tests/
 ├── bootstrap.php          ILIAS-Stubs (ilSetting, $DIC, Elternklassen) + require der Kern-Klassen
 ├── phpunit.xml            Suite "unit"
 ├── run-tests.sh           Kern-Suite, danach Modul-Suite aus modules-zip/
@@ -90,7 +106,7 @@ nach jedem Test wieder verschwindet.
 ## Finding → Test
 
 Grundlage: `.dev/security/REVIEW_VERIFIKATION_2026-08-03.md`.
-Schicht A = PHPUnit hier, Schicht C = Playwright unter `tests/e2e/`.
+Schicht A = PHPUnit hier, Schicht C = Playwright unter `.tests/e2e/`.
 
 | ID | Kurzfassung | Schicht | Test |
 |---|---|---|---|

@@ -5,11 +5,11 @@
 #
 # Umgebungsvariablen:
 #   PHP_BIN        PHP-Binary (Default: php8.2 — ILIAS 9 verlangt PHP < 8.3)
-#   PHPUNIT_PHAR   Pfad zur PHPUnit-PHAR (Default: tests/tools/phpunit.phar)
+#   PHPUNIT_PHAR   Pfad zur PHPUnit-PHAR (Default: .tests/tools/phpunit.phar)
 #
-# Aufruf aus dem Plugin-Verzeichnis:  tests/run-tests.sh
+# Aufruf aus dem Plugin-Verzeichnis:  .tests/run-tests.sh
 # Zusätzliche Argumente werden an PHPUnit durchgereicht, z.B.
-#   tests/run-tests.sh --filter ilModuleInstallerTest
+#   .tests/run-tests.sh --filter ilModuleInstallerTest
 
 set -u
 
@@ -22,15 +22,15 @@ PHPUNIT_PHAR="${PHPUNIT_PHAR:-$TESTS_DIR/tools/phpunit.phar}"
 if ! command -v "$PHP_BIN" >/dev/null 2>&1; then
     echo "FEHLER: PHP-Binary '$PHP_BIN' nicht gefunden." >&2
     echo "        ILIAS 9 verlangt PHP < 8.3; php8.4 ist zu neu." >&2
-    echo "        Anderes Binary: PHP_BIN=/pfad/zu/php tests/run-tests.sh" >&2
+    echo "        Anderes Binary: PHP_BIN=/pfad/zu/php .tests/run-tests.sh" >&2
     exit 2
 fi
 
 if [ ! -f "$PHPUNIT_PHAR" ]; then
     echo "FEHLER: PHPUnit-PHAR nicht gefunden: $PHPUNIT_PHAR" >&2
     echo "        Die PHAR ist bewusst nicht im Repo. Beschaffung und Prüfsumme:" >&2
-    echo "        siehe tests/README.md, Abschnitt 'PHPUnit besorgen'." >&2
-    echo "        Anderer Ablageort: PHPUNIT_PHAR=/pfad/zu/phpunit.phar tests/run-tests.sh" >&2
+    echo "        siehe .tests/README.md, Abschnitt 'PHPUnit besorgen'." >&2
+    echo "        Anderer Ablageort: PHPUNIT_PHAR=/pfad/zu/phpunit.phar .tests/run-tests.sh" >&2
     exit 2
 fi
 
@@ -64,6 +64,6 @@ echo
 echo "=== Zusammenfassung =================================================="
 echo "Kern-Suite:  $core_suite"
 echo "Modul-Suite: $module_suite"
-echo "E2E (Schicht C) laufen getrennt: siehe tests/e2e/README.md"
+echo "E2E (Schicht C) laufen getrennt: siehe .tests/e2e/README.md"
 
 exit $status

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
     Kern-Testsuite ExtendedTestSettings (Schicht A).
-    Aufruf: siehe tests/README.md bzw. tests/run-tests.sh.
+    Aufruf: siehe .tests/README.md bzw. .tests/run-tests.sh.
     Die Modul-Prüfungen liegen im eigenen Repo unter modules-zip/tests/.
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
