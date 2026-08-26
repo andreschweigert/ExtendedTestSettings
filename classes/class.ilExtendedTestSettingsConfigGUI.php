@@ -1191,7 +1191,13 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
 
 
     /**
-     * Tab 3: ExamChecker
+     * Tab 3: ExamChecker — welche Einstellungen geprüft werden und mit welchem Soll-Wert
+     *
+     * Der Check-Katalog gehört dem Modul (ilExamCheckerDefinitions). Diese Seite
+     * rendert nur, was der Handler liefert, und kennt weder dessen Sprachschlüssel
+     * noch die geprüften Datenbankspalten. Module vor 2.0.0 stellen die dafür
+     * nötigen Methoden nicht bereit — dann erscheint ein Hinweis statt eines halb
+     * funktionierenden Formulars.
      */
     protected function showExamChecker(): void
     {
@@ -1201,33 +1207,72 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
 
     private function renderExamCheckerTab(): string
     {
-        $form = $this->buildExamCheckerForm();
-        return $form->getHTML();
+        $handler = $this->getExamCheckerHandler();
+
+        if ($handler === null) {
+            global $DIC;
+            return $DIC->ui()->renderer()->render(
+                $DIC->ui()->factory()->messageBox()->info($this->txt('examchecker_needs_module'))
+            );
+        }
+
+        return $this->buildExamCheckerForm($handler)->getHTML();
     }
 
-    private function buildExamCheckerForm(): ilPropertyFormGUI
+    /**
+     * Aktiver ExamChecker-Handler ab Version 2.0.0, sonst null.
+     * Die Registry ist der einzige zulässige Weg, Modulcode aufzulösen (R3).
+     *
+     * @return object|null
+     */
+    private function getExamCheckerHandler()
+    {
+        $handler = $this->getRegistry()->getHandler('examchecker');
+
+        if ($handler === null
+            || !method_exists($handler, 'getExamTypes')
+            || !method_exists($handler, 'getCheckCatalogue')
+            || !method_exists($handler, 'getRules')
+            || !method_exists($handler, 'saveRules')
+            || !method_exists($handler, 'txt')
+        ) {
+            return null;
+        }
+
+        return $handler;
+    }
+
+    private function buildExamCheckerForm(object $handler): ilPropertyFormGUI
     {
         $form = new ilPropertyFormGUI();
         $form->setFormAction($this->ctrl->getFormAction($this, 'saveExamChecker'));
         $form->setTitle($this->txt('examchecker_title'));
-        $form->setDescription($this->txt('examchecker_desc'));
+        $form->setDescription($handler->txt('cfg_intro'));
 
-        $praesenz_settings = $this->getExamCheckerSettings('praesenz');
-        $fern_settings     = $this->getExamCheckerSettings('fern');
+        $group_labels = $handler->getGroupLabels();
 
-        $section_p = new ilFormSectionHeaderGUI();
-        $section_p->setTitle($this->txt('examchecker_praesenz'));
-        $form->addItem($section_p);
-        $form->addItem(
-            $this->buildCheckGroupInput('praesenz', $praesenz_settings, $this->txt('examchecker_praesenz_group'))
-        );
+        foreach ($handler->getExamTypes() as $exam_type => $type_label) {
+            $catalogue = $handler->getCheckCatalogue($exam_type);
+            $rules     = $handler->getRules($exam_type);
 
-        $section_f = new ilFormSectionHeaderGUI();
-        $section_f->setTitle($this->txt('examchecker_fern'));
-        $form->addItem($section_f);
-        $form->addItem(
-            $this->buildCheckGroupInput('fern', $fern_settings, $this->txt('examchecker_fern_group'))
-        );
+            $current_group = null;
+
+            foreach ($catalogue as $key => $check) {
+                if ($check['group'] !== $current_group) {
+                    $current_group = $check['group'];
+
+                    $header = new ilFormSectionHeaderGUI();
+                    $header->setTitle(
+                        $type_label . ' — ' . ($group_labels[$current_group] ?? $current_group)
+                    );
+                    $form->addItem($header);
+                }
+
+                $form->addItem(
+                    $this->buildCheckItem($handler, $exam_type, $key, $check, $rules[$key] ?? null)
+                );
+            }
+        }
 
         $form->addCommandButton('saveExamChecker', $this->txt('examchecker_save'));
 
@@ -1235,173 +1280,96 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
     }
 
     /**
-     * Baut die Checkbox-Gruppe der verpflichtenden Checks eines Prüfungstyps
-     * als ILIAS-Formularkomponente (postet als checks_<typ>[]).
+     * Eine Zeile des Formulars: Checkbox "prüfen" plus — je nach Werttyp des
+     * Checks — das passende Soll-Wert-Feld als Unterelement.
      */
-    private function buildCheckGroupInput(string $exam_type, array $current_settings, string $title): ilCheckboxGroupInputGUI
-    {
-        $group = new ilCheckboxGroupInputGUI($title, 'checks_' . $exam_type);
+    private function buildCheckItem(
+        object $handler,
+        string $exam_type,
+        string $key,
+        array $check,
+        ?array $rule
+    ): ilFormPropertyGUI {
+        $prefix = $this->checkFieldPrefix($exam_type, $key);
 
-        foreach ($this->getCheckDefinitions() as $key => $definition) {
-            if (!in_array($exam_type, $definition['relevant_for'], true)) {
-                continue;
-            }
-            $group->addOption(
-                new ilCheckboxOption($definition['title'], $key, $definition['description'])
-            );
+        $checkbox = new ilCheckboxInputGUI($check['title'], $prefix . '_on');
+        $checkbox->setChecked(!empty($rule['enabled']));
+
+        if (($check['info'] ?? '') !== '') {
+            $checkbox->setInfo($check['info']);
         }
 
-        $group->setValue($current_settings);
+        $expected    = $rule['expected'] ?? ($check['recommended'] ?? null);
+        $recommended = $check['recommended'] ?? null;
+        $label       = $handler->txt('cfg_col_expected');
 
-        return $group;
-    }
+        switch ($check['type']) {
+            case 'bool':
+                $radio = new ilRadioGroupInputGUI($label, $prefix . '_val');
+                $radio->addOption(new ilRadioOption($handler->txt('val_yes'), '1'));
+                $radio->addOption(new ilRadioOption($handler->txt('val_no'), '0'));
+                $radio->setValue(!empty($expected) ? '1' : '0');
+                $radio->setInfo(sprintf(
+                    $handler->txt('cfg_recommendation'),
+                    $handler->txt(!empty($recommended) ? 'val_yes' : 'val_no')
+                ));
+                $checkbox->addSubItem($radio);
+                break;
 
-    private function getCheckDefinitions(): array
-    {
-        return [
-            'fragenpools_verwenden' => [
-                'title' => $this->txt('check_fragenpools_verwenden'),
-                'description' => $this->txt('check_fragenpools_verwenden_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'datenschutz' => [
-                'title' => $this->txt('check_datenschutz'),
-                'description' => $this->txt('check_datenschutz_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'online' => [
-                'title' => $this->txt('check_online'),
-                'description' => $this->txt('check_online_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'passwort' => [
-                'title' => $this->txt('check_passwort'),
-                'description' => $this->txt('check_passwort_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'nur_ausgewaehlte_teilnehmer' => [
-                'title' => $this->txt('check_nur_ausgewaehlte_teilnehmer'),
-                'description' => $this->txt('check_nur_ausgewaehlte_teilnehmer_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'testdurchlaeufe_begrenzen' => [
-                'title' => $this->txt('check_testdurchlaeufe_begrenzen'),
-                'description' => $this->txt('check_testdurchlaeufe_begrenzen_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'wartezeit_erzwingen' => [
-                'title' => $this->txt('check_wartezeit_erzwingen'),
-                'description' => $this->txt('check_wartezeit_erzwingen_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'pruefungsansicht' => [
-                'title' => $this->txt('check_pruefungsansicht'),
-                'description' => $this->txt('check_pruefungsansicht_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'automatisches_speichern' => [
-                'title' => $this->txt('check_automatisches_speichern'),
-                'description' => $this->txt('check_automatisches_speichern_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'direkte_rueckmeldung' => [
-                'title' => $this->txt('check_direkte_rueckmeldung'),
-                'description' => $this->txt('check_direkte_rueckmeldung_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'fragen_markieren' => [
-                'title' => $this->txt('check_fragen_markieren'),
-                'description' => $this->txt('check_fragen_markieren_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'eigenstaendigkeitserklaerung' => [
-                'title' => $this->txt('check_eigenstaendigkeitserklaerung'),
-                'description' => $this->txt('check_eigenstaendigkeitserklaerung_info'),
-                'relevant_for' => ['fern']
-            ],
-            'bearbeitungsdauer' => [
-                'title' => $this->txt('check_bearbeitungsdauer'),
-                'description' => $this->txt('check_bearbeitungsdauer_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'weiterleitung' => [
-                'title' => $this->txt('check_weiterleitung'),
-                'description' => $this->txt('check_weiterleitung_info'),
-                'relevant_for' => ['praesenz']
-            ],
-            'bewertungssystem' => [
-                'title' => $this->txt('check_bewertungssystem'),
-                'description' => $this->txt('check_bewertungssystem_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'negative_punkte' => [
-                'title' => $this->txt('check_negative_punkte'),
-                'description' => $this->txt('check_negative_punkte_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'besten_durchlauf_bewerten' => [
-                'title' => $this->txt('check_besten_durchlauf_bewerten'),
-                'description' => $this->txt('check_besten_durchlauf_bewerten_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'keine_vorbedingungen' => [
-                'title' => $this->txt('check_keine_vorbedingungen'),
-                'description' => $this->txt('check_keine_vorbedingungen_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'direkte_notenuebermittlung' => [
-                'title' => $this->txt('check_direkte_notenuebermittlung'),
-                'description' => $this->txt('check_direkte_notenuebermittlung_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ],
-            'zeitlich_begrenzte_verfuegbarkeit' => [
-                'title' => $this->txt('check_zeitlich_begrenzte_verfuegbarkeit'),
-                'description' => $this->txt('check_zeitlich_begrenzte_verfuegbarkeit_info'),
-                'relevant_for' => ['praesenz', 'fern']
-            ]
-        ];
-    }
+            case 'int':
+                $number = new ilNumberInputGUI($label, $prefix . '_val');
+                $number->setMinValue(0);
+                $number->setSize(6);
+                $number->setValue((string) (int) $expected);
+                if (isset($check['unit'])) {
+                    $number->setSuffix($check['unit']);
+                }
+                $number->setInfo(sprintf($handler->txt('cfg_recommendation'), (string) (int) $recommended));
+                $checkbox->addSubItem($number);
+                break;
 
-    private function getExamCheckerSettings(string $exam_type): array
-    {
-        $settings_string = $this->settings->get("examchecker_standards_$exam_type", '');
-        return empty($settings_string) ? $this->getDefaultSettings($exam_type) : explode(',', $settings_string);
-    }
+            case 'enum':
+                $select = new ilSelectInputGUI($label, $prefix . '_val');
+                $select->setOptions($check['options'] ?? []);
+                $select->setValue((string) (int) $expected);
+                $select->setInfo(sprintf(
+                    $handler->txt('cfg_recommendation'),
+                    (string) ($check['options'][(int) $recommended] ?? '')
+                ));
+                $checkbox->addSubItem($select);
+                break;
 
-    private function getDefaultSettings(string $exam_type): array
-    {
-        // Standard-Aktivierungen basierend auf deinem ExamChecker-Code
-        $defaults = [
-            'fragenpools_verwenden',
-            'datenschutz',
-            'online',
-            'passwort',
-            'nur_ausgewaehlte_teilnehmer',
-            'testdurchlaeufe_begrenzen',
-            'wartezeit_erzwingen',
-            'pruefungsansicht',
-            'automatisches_speichern',
-            'direkte_rueckmeldung',
-            'fragen_markieren',
-            'bewertungssystem',
-            'negative_punkte',
-            'besten_durchlauf_bewerten'
-        ];
+            case 'text':
+                $text = new ilTextInputGUI($label, $prefix . '_val');
+                $text->setValue((string) $expected);
+                $text->setMaxLength(255);
+                $text->setInfo(sprintf($handler->txt('cfg_recommendation'), (string) $recommended));
+                $checkbox->addSubItem($text);
+                break;
 
-        if ($exam_type === 'fern') {
-            $defaults[] = 'eigenstaendigkeitserklaerung';
-            $defaults[] = 'bearbeitungsdauer';
+            // 'info': wird nur angezeigt, kennt keinen Soll-Wert
         }
 
-        if ($exam_type === 'praesenz') {
-            $defaults[] = 'weiterleitung';
-        }
-
-        return $defaults;
+        return $checkbox;
     }
 
     /**
-     * ExamChecker Settings speichern
+     * Feldname-Präfix eines Checks. Nur Zeichen, die in Check-Keys vorkommen
+     * dürfen, gehen in den Namen ein.
+     */
+    private function checkFieldPrefix(string $exam_type, string $key): string
+    {
+        return 'ec_'
+            . preg_replace('/[^a-z0-9_]/', '', strtolower($exam_type))
+            . '__'
+            . preg_replace('/[^a-z0-9_]/', '', strtolower($key));
+    }
+
+    /**
+     * ExamChecker-Regeln speichern.
+     *
+     * Übernommen wird ausschließlich, was im Katalog des Moduls steht (F-010) —
+     * die POST-Daten steuern nur die Werte, nie die Menge der Schlüssel.
      */
     protected function saveExamChecker(): void
     {
@@ -1409,20 +1377,35 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
             return;
         }
 
+        $handler = $this->getExamCheckerHandler();
+
+        if ($handler === null) {
+            $this->tpl->setOnScreenMessage('failure', $this->txt('examchecker_needs_module'));
+            $this->showExamChecker();
+            return;
+        }
+
         try {
-            $post = $_POST;
-            $valid_keys = array_keys($this->getCheckDefinitions());
+            foreach (array_keys($handler->getExamTypes()) as $exam_type) {
+                $rules = [];
 
-            // Präsenz-Einstellungen (nur bekannte Check-Keys erlauben)
-            $praesenz_checks = array_intersect($post['checks_praesenz'] ?? [], $valid_keys);
-            $this->settings->set('examchecker_standards_praesenz', implode(',', $praesenz_checks));
+                foreach ($handler->getCheckCatalogue($exam_type) as $key => $check) {
+                    $prefix = $this->checkFieldPrefix($exam_type, $key);
+                    $posted = $_POST[$prefix . '_val'] ?? null;
 
-            // Fernprüfungs-Einstellungen (nur bekannte Check-Keys erlauben)
-            $fern_checks = array_intersect($post['checks_fern'] ?? [], $valid_keys);
-            $this->settings->set('examchecker_standards_fern', implode(',', $fern_checks));
+                    $rules[$key] = [
+                        'enabled'  => isset($_POST[$prefix . '_on']),
+                        'expected' => is_scalar($posted) ? $posted : ($check['recommended'] ?? null),
+                    ];
+                }
+
+                $handler->saveRules($exam_type, $rules);
+            }
 
             $this->tpl->setOnScreenMessage('success', $this->txt('examchecker_saved'));
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+            error_log('[ExtendedTestSettings] ExamChecker-Regeln speichern fehlgeschlagen: '
+                . $e->getMessage());
             $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('error_saving'), $e->getMessage()));
         }
 

@@ -102,53 +102,9 @@ maintenance_info#:#Removes settings of tests that have been deleted in ILIAS.
 preview_show#:#Show preview
 cleanup_now#:#Clean up now
 examchecker_title#:#Configure ExamChecker requirements
-examchecker_desc#:#Determine which settings should be mandatory when checking tests.
-examchecker_praesenz#:#On-site exams
-examchecker_praesenz_group#:#Mandatory checks for on-site exams
-examchecker_fern#:#Remote exams
-examchecker_fern_group#:#Mandatory checks for online exams
 examchecker_save#:#Save requirements
 examchecker_saved#:#ExamChecker requirements saved successfully.
-check_fragenpools_verwenden#:#Use question pools
-check_fragenpools_verwenden_info#:#Test must use question pools
-check_datenschutz#:#Data protection (test results with names)
-check_datenschutz_info#:#Anonymity must be disabled
-check_online#:#Test is set online
-check_online_info#:#Test must be available online
-check_passwort#:#Test password set
-check_passwort_info#:#A password must be configured
-check_nur_ausgewaehlte_teilnehmer#:#Selected participants only (disabled)
-check_nur_ausgewaehlte_teilnehmer_info#:#Open access for all participants
-check_testdurchlaeufe_begrenzen#:#Test runs limited to 1
-check_testdurchlaeufe_begrenzen_info#:#Number of attempts must be 1
-check_wartezeit_erzwingen#:#Waiting time between runs (disabled)
-check_wartezeit_erzwingen_info#:#No waiting time between attempts
-check_pruefungsansicht#:#Exam view (kiosk mode)
-check_pruefungsansicht_info#:#Kiosk mode must be enabled
-check_automatisches_speichern#:#Automatic saving (30s)
-check_automatisches_speichern_info#:#Auto-save every 30 seconds
-check_direkte_rueckmeldung#:#Direct feedback (disabled)
-check_direkte_rueckmeldung_info#:#Immediate answer evaluation switched off
-check_fragen_markieren#:#Marking questions enabled
-check_fragen_markieren_info#:#Participants can mark questions
-check_eigenstaendigkeitserklaerung#:#Declaration of independent work
-check_eigenstaendigkeitserklaerung_info#:#Required for remote exams only
-check_bearbeitungsdauer#:#Limit working time
-check_bearbeitungsdauer_info#:#Time limit must be enabled
-check_weiterleitung#:#Redirect to logout.php
-check_weiterleitung_info#:#Only for on-site exams with kiosk
-check_bewertungssystem#:#Score partially correct answers
-check_bewertungssystem_info#:#Partial points for incomplete answers
-check_negative_punkte#:#Negative points (disabled)
-check_negative_punkte_info#:#No point deductions for wrong answers
-check_besten_durchlauf_bewerten#:#Score best test run
-check_besten_durchlauf_bewerten_info#:#Best performance counts
-check_keine_vorbedingungen#:#No preconditions set
-check_keine_vorbedingungen_info#:#Test is freely accessible without preconditions
-check_direkte_notenuebermittlung#:#Direct grade transfer (disabled)
-check_direkte_notenuebermittlung_info#:#Grades are not transferred to participants immediately
-check_zeitlich_begrenzte_verfuegbarkeit#:#Time-limited availability (disabled)
-check_zeitlich_begrenzte_verfuegbarkeit_info#:#Test has no additional course availability limit
+examchecker_needs_module#:#This page requires the ExamChecker module in version 10.1.0 or later. Please upload and activate the current ZIP.
 error_preview#:#Error during preview: %s
 back_to_statistics#:#Back to statistics
 cleanup_none#:#No orphaned entries – everything is fine.
