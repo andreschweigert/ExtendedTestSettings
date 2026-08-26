@@ -1,10 +1,10 @@
 # ExtendedTestSettings Plugin für ILIAS
 
 ![ILIAS](https://img.shields.io/badge/ILIAS-9.x-blue)
-![Version](https://img.shields.io/badge/version-2.1.0-success)
+![Version](https://img.shields.io/badge/version-2.1.1-success)
 ![License](https://img.shields.io/badge/license-TBA-lightgrey)
 
-**Version:** 2.1.0  
+**Version:** 2.1.1  
 **Für ILIAS:** 9.0 – 9.999
 
 Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Online-Prüfungen. Es basiert auf einem **modularen System**: Funktionalität wird in eigenständigen Modulen gebündelt, die über die Plugin-Administration als ZIP hochgeladen, aktiviert und deaktiviert werden können – ohne den Plugin-Kern zu ändern.
@@ -18,7 +18,7 @@ Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Onl
 - **ExamSymbols** – Sonderzeichen-Paletten für Fachbereiche
 - **ExamGuard** – Prüfungsschutz durch Eingabeeinschränkungen
 - **ExamAlert** – Zeitbasierte Warnungen vor Prüfungsende
-- **ExamChecker** – Prüfung der Testeinstellungen gegen konfigurierbare Standards
+- **ExamChecker** – Prüfung der Testeinstellungen gegen konfigurierbare Soll-Werte
 - **ExamConnGuard** – Verbindungs-Schutz bei WLAN-Aussetzern im Test-Player
 - **Eigene Module** – über ZIP installierbar, beliebig erweiterbar
 
@@ -180,7 +180,7 @@ Alle Module werden separat im [Module-Repository](https://github.com/andreschwei
 - **ExamSymbols** – Sonderzeichen-Paletten (Mathematik, Sprachen, Naturwissenschaften)
 - **ExamGuard** – Prüfungsschutz (Blockiert Rechtsklick, Copy/Paste, DevTools)
 - **ExamAlert** – Zeitwarnung vor Prüfungsende (konfigurierbare Warnzeit + Nachricht)
-- **ExamChecker** – Einstellungsprüfung gegen Vorgaben (Präsenz-/Fernprüfung)
+- **ExamChecker** – Einstellungsprüfung gegen konfigurierbare Soll-Werte (Präsenz-/Fernprüfung)
 - **ExamConnGuard** – Verbindungs-Schutz bei WLAN-Ausfällen (On-Demand-Probe, Overlay, Auto-Replay)
 
 ---
@@ -196,6 +196,8 @@ Alle Module werden separat im [Module-Repository](https://github.com/andreschwei
   - Kurs-Administratoren (Standard)
   - Spezifische Benutzer (Whitelist)
 - **ExamAlert Auto-Aktivierung:** ExamAlert für neue Tests automatisch einschalten
+- **ExamChecker (eigener Reiter):** je Prüfungstyp festlegen, welche Test-Einstellungen
+  geprüft werden und welchen Soll-Wert sie haben sollen (ab ExamChecker 2.0.0)
 
 ### Pro Test
 
@@ -269,6 +271,20 @@ Detaillierte Entwicklerdokumentation (inkl. Modul mit eigener GUI-Seite, Proxy-R
 ---
 
 ## Changelog
+
+### Version 2.1.1 (2026-08-26)
+
+**ExamChecker-Konfiguration mit Soll-Werten:**
+- Der ExamChecker-Reiter legt jetzt nicht mehr nur fest, *welche* Einstellungen geprüft
+  werden, sondern auch *welchen Wert* sie haben sollen — als Ja/Nein, Zahl, Auswahl oder Text
+- Das Formular wird vollständig aus dem Check-Katalog des Moduls erzeugt
+  (`getCheckCatalogue()`/`getRules()`/`saveRules()`); der Plugin-Kern kennt weder die
+  geprüften Datenbankspalten noch die Sprachschlüssel des Moduls
+- Ältere ExamChecker-Versionen: der Reiter zeigt einen Hinweis statt eines halb
+  funktionierenden Formulars
+- Check-Definitionen und die zugehörigen `check_*`-Sprachschlüssel sind aus dem Plugin-Kern
+  ins Modul gewandert — die Liste stand bisher an drei Stellen und lief auseinander
+- Setzt **ExamChecker 2.0.0** voraus (eigene Tabelle `examchecker_rules`, ZIP-Upload nötig)
 
 ### Version 2.1.0 (2026-08-03)
 
