@@ -81,6 +81,20 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
         return $this->getPluginObject()->txt($key);
     }
 
+    private function escapeHtml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    /** Jeder Protokolleintrag ist Text; erst danach wird Listen-Markup ergänzt. */
+    private function renderUpdateLog(array $entries): string
+    {
+        return implode('', array_map(
+            fn(string $entry): string => '<li>' . $this->escapeHtml($entry) . '</li>',
+            $entries
+        ));
+    }
+
     /**
      * @inheritDoc
      * Alle schreibenden Commands sind als GET unsicher.
@@ -1518,7 +1532,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
             }
 
             $sub_panels[] = $factory->panel()->sub(
-                sprintf($this->txt('cleanup_table_entries'), $table_name, $count),
+                sprintf($this->txt('cleanup_table_entries'), $this->escapeHtml($table_name), $count),
                 $factory->listing()->descriptive($items)
             );
         }
@@ -1765,8 +1779,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
         $toggle_modal = $factory->modal()->interruptive(
             $active ? $this->txt('module_deactivate_title') : $this->txt('module_activate_title'),
             $active
-                ? sprintf($this->txt('module_deactivate_confirm'), $label)
-                : sprintf($this->txt('module_activate_confirm'), $label),
+                ? sprintf($this->txt('module_deactivate_confirm'), $this->escapeHtml((string) $label))
+                : sprintf($this->txt('module_activate_confirm'), $this->escapeHtml((string) $label)),
             $toggle_target
         )->withActionButtonLabel($active ? $this->txt('deactivate') : $this->txt('activate'));
         $modals[]  = $toggle_modal;
@@ -1784,7 +1798,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
             $uninstall_target = $this->ctrl->getFormAction($this, 'uninstallModule');
             $uninstall_modal  = $factory->modal()->interruptive(
                 $this->txt('module_uninstall_title'),
-                sprintf($this->txt('module_uninstall_confirm'), $label),
+                sprintf($this->txt('module_uninstall_confirm'), $this->escapeHtml((string) $label)),
                 $uninstall_target
             )->withActionButtonLabel($this->txt('uninstall'));
             $modals[]  = $uninstall_modal;
@@ -1794,7 +1808,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
         $this->ctrl->setParameter($this, 'module_id', null);
 
         $props = [
-            $this->txt('prop_version') => $version_text,
+            $this->txt('prop_version') => $this->escapeHtml($version_text),
         ];
         $maturity = (string) ($info['maturity'] ?? '');
         if ($maturity !== '') {
@@ -1802,7 +1816,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
             $label_txt = isset(self::MATURITY_DOTS[$maturity])
                 ? $this->txt('maturity_' . $maturity)
                 : $maturity;
-            $props[$this->txt('prop_maturity')] = trim($dot . ' ' . $label_txt);
+            $props[$this->txt('prop_maturity')] = $this->escapeHtml(trim($dot . ' ' . $label_txt));
         }
         $props[$this->txt('prop_status')] = $active ? $this->txt('status_active') : $this->txt('status_inactive');
 
@@ -1941,7 +1955,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
                 // Update über den Upload-Weg: Aktivstatus bleibt wie er war.
                 $this->tpl->setOnScreenMessage(
                     'success',
-                    sprintf($this->txt('module_installed'), $module_info['label'], $module_info['version'])
+                    sprintf($this->txt('module_installed'), $this->escapeHtml($module_info['label']), $this->escapeHtml((string) ($module_info['version'] ?? '')))
                 );
             } else {
                 // Neuinstallation: KEINE Auto-Aktivierung. Frisch hochgeladener
@@ -1955,15 +1969,15 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
                 $registry->forgetModuleState((string) $module_info['id']);
                 $this->tpl->setOnScreenMessage(
                     'success',
-                    sprintf($this->txt('module_installed_inactive'), $module_info['label'], $module_info['version'])
+                    sprintf($this->txt('module_installed_inactive'), $this->escapeHtml($module_info['label']), $this->escapeHtml((string) ($module_info['version'] ?? '')))
                 );
             }
         } catch (RuntimeException $e) {
             error_log('[ExtendedTestSettings] uploadModule Fehler: ' . $e->getMessage());
-            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('module_install_failed'), $e->getMessage()));
+            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('module_install_failed'), $this->escapeHtml($e->getMessage())));
         } catch (Throwable $e) {
             error_log('[ExtendedTestSettings] uploadModule unerwarteter Fehler: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('error_unexpected'), $e->getMessage()));
+            $this->tpl->setOnScreenMessage('failure', sprintf($this->txt('error_unexpected'), $this->escapeHtml($e->getMessage())));
         }
 
         $this->ctrl->redirect($this, 'showModules');
@@ -2254,17 +2268,14 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
 
         } catch (RuntimeException $e) {
             $error = $e->getMessage();
-            $log[] = 'Fehler: ' . htmlspecialchars($error);
+            $log[] = 'Fehler: ' . $error;
         } catch (Throwable $e) {
             error_log('[ExtendedTestSettings] doUpdateModule Fehler: ' . $e->getMessage());
             $error = $e->getMessage();
-            $log[] = 'Unerwarteter Fehler: ' . htmlspecialchars($error);
+            $log[] = 'Unerwarteter Fehler: ' . $error;
         }
 
-        $log_html   = implode('<br>', array_map('htmlspecialchars', $log));
-        // letzte Zeile schon escaped — rebuild ohne doppeltes escaping
-        $log_items  = array_map(fn($l) => "<li>$l</li>", $log);
-        $log_list   = implode('', $log_items);
+        $log_list   = $this->renderUpdateLog($log);
         $status     = $error === null ? 'success' : 'danger';
         $status_txt = $error === null ? 'Update erfolgreich abgeschlossen' : 'Update fehlgeschlagen';
 
