@@ -272,6 +272,17 @@ Detaillierte Entwicklerdokumentation (inkl. Modul mit eigener GUI-Seite, Proxy-R
   ILIAS-Session-Token. Die Prüfung greift auch ohne neu erzeugtes ilCtrl-Artefakt.
 - Modulmetadaten in der Administration und alle Einträge im Update-Protokoll
   werden als Text escaped, einschließlich Bestätigungs- und Upload-Meldungen.
+- Der Hilfsmittel-Endpunkt prüft den globalen Aktivstatus des über die Registry
+  ermittelten Tabellenbesitzers. Auch Prüfende erhalten bei deaktiviertem Modul
+  keine Datei; fehlende oder uneindeutige Zuordnungen werden abgewiesen.
+- Für Teilnehmende sind aktuelle Leserechte und ein gestarteter, offener
+  Durchlauf nötig. Online-Status, Prüfungsbeginn/-ende und Bearbeitungszeit werden
+  berücksichtigt, einschließlich individueller Zeitverlängerungen und Timer-Reset.
+  Dateien werden mit `Cache-Control: private, no-store, max-age=0` ausgeliefert.
+- Modul-ZIPs müssen genau ein Paketmanifest an der Wurzel oder unter einem
+  gemeinsamen Wrapper enthalten. Doppelte Dateipfade und Pfad-Aliase werden
+  abgewiesen; vor dem Umschalten und der DB-Migration wird das entpackte Manifest
+  vollständig mit dem geprüften Manifest verglichen.
 
 ### Version 10.1.1 (2026-08-26)
 

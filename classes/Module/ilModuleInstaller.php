@@ -180,6 +180,12 @@ class ilModuleInstaller
             throw new RuntimeException('Entpacktes Modul ist unvollständig: module.json fehlt.');
         }
 
+        $raw = file_get_contents($dir . '/module.json');
+        $extracted = $raw === false ? null : json_decode($raw, true);
+        if (!is_array($extracted) || ilModuleManifest::validate($extracted) !== $module_info) {
+            throw new RuntimeException('Entpacktes module.json stimmt nicht mit dem geprüften Manifest überein.');
+        }
+
         $required = [$module_info['handler_file']];
         if (!empty($module_info['gui_file'])) {
             $required[] = $module_info['gui_file'];
@@ -278,18 +284,37 @@ class ilModuleInstaller
 
         $total_uncompressed = 0;
         $total_compressed   = 0;
+        $prefix = $this->detectZipPrefix($zip);
+        $seen_files = [];
 
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $name = $zip->getNameIndex($i);
 
             // Path-Traversal verhindern
-            if (str_contains($name, '..') || str_starts_with($name, '/')) {
+            if (str_contains($name, '..') || str_starts_with($name, '/')
+                || str_contains($name, '\\') || str_contains($name, "\0")) {
                 throw new RuntimeException("Ungültiger Dateipfad im ZIP: '$name'");
+            }
+
+            $relative = $prefix !== '' ? substr($name, strlen($prefix)) : $name;
+            foreach (explode('/', rtrim($name, '/')) as $segment) {
+                if ($segment === '' || $segment === '.') {
+                    throw new RuntimeException("Ungültiger Dateipfad im ZIP: '$name'");
+                }
             }
 
             // Verzeichnis-Einträge überspringen (haben keine Dateiendung)
             if (str_ends_with($name, '/')) {
                 continue;
+            }
+
+            if (isset($seen_files[$relative])) {
+                throw new RuntimeException("Doppelter Dateipfad im ZIP: '$name'");
+            }
+            $seen_files[$relative] = true;
+
+            if (basename($relative) === 'module.json' && $relative !== 'module.json') {
+                throw new RuntimeException('ZIP enthält ein uneindeutiges module.json außerhalb der Paketwurzel.');
             }
 
             // Nur erlaubte Dateiendungen
@@ -324,8 +349,9 @@ class ilModuleInstaller
                 ));
             }
 
-            // module.json einlesen (darf in keinem Unterordner liegen)
-            if ($name === 'module.json' || preg_match('#^[^/]+/module\.json$#', $name)) {
+            // Genau das Manifest lesen, das nach Entfernen des gemeinsamen
+            // Wrappers an der Paketwurzel installiert wird.
+            if ($relative === 'module.json') {
                 $module_json_content = $zip->getFromIndex($i);
             }
         }
