@@ -184,11 +184,72 @@ class ilUserInterfaceHookPlugin
 /** Elternklasse der ConfigGUI. */
 class ilPluginConfigGUI
 {
+    private object $plugin_object;
+
+    public function setPluginObject(object $plugin): void
+    {
+        $this->plugin_object = $plugin;
+    }
+
+    public function getPluginObject(): object
+    {
+        return $this->plugin_object;
+    }
 }
 
 /** Von der ConfigGUI implementiert; die Methoden deklariert sie selbst. */
 interface ilCtrlSecurityInterface
 {
+}
+
+interface ilCtrlInterface
+{
+    public const PARAM_CSRF_TOKEN = 'rtoken';
+}
+
+/** GUI-Stubs für Tests, die vor Datenzugriffen abbrechen müssen. */
+interface ilGlobalTemplateInterface
+{
+}
+
+class ilCtrl
+{
+    public array $redirects = [];
+
+    public function redirect(object $gui, string $cmd): void
+    {
+        $this->redirects[] = $cmd;
+    }
+
+    public function setParameter(object $gui, string $key, $value): void
+    {
+    }
+
+    public function getFormAction(object $gui, string $cmd): string
+    {
+        return 'ilias.php?cmd=post&fallbackCmd=' . $cmd . '&rtoken=fixture';
+    }
+
+    public function getLinkTarget(object $gui, string $cmd): string
+    {
+        return 'ilias.php?cmd=' . $cmd;
+    }
+}
+
+/** Test-Ersatz für den vorhandenen ILIAS-Session-Token, ohne echte Session. */
+class ilCtrlTokenRepository
+{
+    public static string $test_token = '';
+
+    public function getToken(): object
+    {
+        return new class {
+            public function getToken(): string
+            {
+                return ilCtrlTokenRepository::$test_token;
+            }
+        };
+    }
 }
 
 // -----------------------------------------------------------------------------
