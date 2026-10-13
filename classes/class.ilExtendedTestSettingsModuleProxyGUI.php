@@ -172,6 +172,20 @@ class ilExtendedTestSettingsModuleProxyGUI
             exit;
         }
 
+        // Auch der Datei-Endpunkt muss die globale Modulsperre respektieren.
+        // Den Besitzer über die deklarierte Tabelle auflösen: keine Annahme
+        // über Modul-ID, Verzeichnisnamen oder einen module_id-Requestparameter.
+        $registry = ilExtendedTestSettingsPlugin::getInstance()->getRegistry();
+        if (!$this->isResourceModuleActive($registry)) {
+            http_response_code(403);
+            exit;
+        }
+
+        if (ilObject::_lookupType($ref_id, true) !== 'tst') {
+            http_response_code(404);
+            exit;
+        }
+
         // obj_id des Tests — so heißt die Spalte test_id in den Modultabellen.
         // NICHT zu verwechseln mit tst_tests.test_id (siehe hasActiveTestSession).
         $test_id = ilObject::_lookupObjectId($ref_id);
@@ -298,5 +312,18 @@ class ilExtendedTestSettingsModuleProxyGUI
             error_log("[ModuleProxyGUI] hasActiveTestSession Fehler: " . $e->getMessage());
             return false;
         }
+    }
+
+    /** Nur ein eindeutig zugeordnetes, global aktives Modul darf Dateien liefern. */
+    private function isResourceModuleActive(ilModuleRegistry $registry): bool
+    {
+        $owners = [];
+        foreach ($registry->getAllModuleInfos() as $info) {
+            if (in_array('examressheet_settings', $info['tables'] ?? [], true)) {
+                $owners[] = $info['id'];
+            }
+        }
+
+        return count($owners) === 1 && $registry->getActiveModuleInfo($owners[0]) !== null;
     }
 }
