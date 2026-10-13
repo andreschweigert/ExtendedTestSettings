@@ -1,4 +1,10 @@
 <?php
+/**
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Original authors: André Schweigert and Cornel Musielak.
+ * See LICENSE and NOTICE for license and attribution terms (AGPLv3, section 7(b)).
+ */
+
 
 /**
  * Plugin Configuration GUI for ExtendedTestSettings
@@ -404,6 +410,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
         $repo_url = 'https://github.com/andreschweigert/ExtendedTestSettings-Modules';
 
         $intro = $factory->legacy($this->txt('intro_about_text'));
+        $legal = $factory->legacy($this->txt('intro_legal_text'));
 
         $usage = $factory->listing()->descriptive([
             $this->txt('intro_usage_manage_title')  => $this->txt('intro_usage_manage_desc'),
@@ -415,7 +422,7 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
         );
 
         return $renderer->render([
-            $factory->panel()->standard($this->txt('intro_panel_about'), [$intro, $usage]),
+            $factory->panel()->standard($this->txt('intro_panel_about'), [$intro, $usage, $legal]),
             $factory->panel()->standard($this->txt('intro_panel_support'), [$support]),
         ]);
     }

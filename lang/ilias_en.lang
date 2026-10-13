@@ -42,6 +42,7 @@ dev_settings#:#Dev settings
 dev_settings_info#:#Preliminary settings – layout and behaviour may still be revised.
 intro_panel_about#:#About the plugin
 intro_panel_support#:#Documentation &amp; contact
+intro_legal_text#:#<p><strong>Original development:</strong> André Schweigert and Cornel Musielak.<br>Institution: Friedrich-Alexander-Universität Erlangen-Nürnberg (FAU).</p><p>License: <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">GNU AGPLv3 (AGPL-3.0-only)</a>, supplemented by the attribution preservation term under section 7(b) in the accompanying NOTICE file. The plugin is provided without warranty within the terms of the license. Redistribution and modification are permitted under the license terms.</p><p>Project and source code: <a href="https://github.com/andreschweigert/ExtendedTestSettings" target="_blank" rel="noopener">ExtendedTestSettings on GitHub</a>.</p>
 intro_about_text#:#<p>The <strong>ExtendedTestSettings</strong> plugin extends ILIAS tests with additional features for online and on-site exams – such as calculators, special character palettes, exam protection, time warnings or connection monitoring. The features are bundled into independent <strong>modules</strong> that can be installed, activated, deactivated and updated independently of the plugin core.</p>
 intro_usage_manage_title#:#Manage modules
 intro_usage_manage_desc#:#On the "Modules" tab, modules are uploaded as a ZIP package, activated or deactivated and updated to new versions. Installed modules are stored in the modules/ directory.
