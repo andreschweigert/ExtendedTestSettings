@@ -1,6 +1,12 @@
 <#1>
 <?php
 /**
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Original authors: André Schweigert and Cornel Musielak.
+ * See LICENSE and NOTICE for license and attribution terms (AGPLv3, section 7(b)).
+ */
+
+/**
  * ExtendedTestSettings Plugin Database Installation
  * Creates tables for exam modules
  */

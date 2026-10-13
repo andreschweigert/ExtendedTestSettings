@@ -1,4 +1,10 @@
 <?php
+/**
+ * SPDX-License-Identifier: AGPL-3.0-only
+ * Original authors: André Schweigert and Cornel Musielak.
+ * See LICENSE and NOTICE for license and attribution terms (AGPLv3, section 7(b)).
+ */
+
 
 /**
  * Leichter Übersetzer für ExtendedTestSettings-Module (i18n-Variante B).

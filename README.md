@@ -2,7 +2,7 @@
 
 ![ILIAS](https://img.shields.io/badge/ILIAS-9.x-blue)
 ![Version](https://img.shields.io/badge/version-2.2.0-success)
-![License](https://img.shields.io/badge/license-TBA-lightgrey)
+[![License](https://img.shields.io/badge/license-AGPL--3.0--only-blue)](LICENSE)
 
 **Version:** 2.2.0
 
@@ -286,9 +286,36 @@ Die Entwicklerdokumentation unter `.dev/ModuleEntwicklung.md` und die Tests unte
 
 ## Lizenz
 
-**Status:** TBA (To Be Announced)
+Der Plugin-Kern ist unter der **GNU Affero General Public License, Version 3
+ausschließlich (AGPL-3.0-only)** veröffentlicht. Der vollständige Lizenztext
+liegt in [LICENSE](LICENSE). Die ursprünglichen Autoren sind in
+[AUTHORS.md](AUTHORS.md) aufgeführt.
 
-> Das Plugin wird "wie gesehen" bereitgestellt. Die Entwickler übernehmen keine Haftung für Datenverlust, Prüfungsausfälle oder technische Probleme. Vor dem Einsatz in Produktiv-Prüfungen ausführlich in einer Testumgebung prüfen.
+Für die ursprünglichen Bestandteile dieses Projekts gilt zusätzlich die in
+[NOTICE](NOTICE) formulierte Bedingung nach AGPLv3, Abschnitt 7(b): Die
+Autorenangabe **„Ursprüngliche Entwicklung: André Schweigert und Cornel
+Musielak“** muss im betreffenden Material und in den angezeigten rechtlichen
+Hinweisen erhalten bleiben. In der Oberfläche kann sie auf einer zugänglichen
+Informations- oder Rechtshinweisseite stehen; sie muss nicht auf jeder Seite
+erscheinen. Weitere Beteiligte dürfen ihre eigenen Beiträge zusätzlich nennen.
+
+Nutzung, Änderungen, Weitergabe und kommerzielle Nutzung sind unter den
+Lizenzbedingungen erlaubt. Wer eine geänderte Version über ein Netzwerk
+betreibt, muss den damit interagierenden Nutzern den entsprechenden Quellcode
+dieser Version kostenlos anbieten (Abschnitt 13). Der Download muss zur
+tatsächlich eingesetzten Version passen; ein Link auf ein unverändertes
+Upstream-Repository genügt für eigene Änderungen nicht. Eine Rückgabe der
+Änderungen an dieses Projekt ist nicht vorgeschrieben.
+
+Die Lizenzierung des Plugin-Kerns ändert nicht automatisch die Lizenzen von
+ILIAS oder separat installierten Modulen. Bei einer Kombination mit ILIAS unter
+GPLv3 ist Abschnitt 13 der AGPLv3 zu beachten, insbesondere der Umfang des
+bereitzustellenden Quellcodes. Module und weitere Fremdkomponenten müssen unter
+mit der jeweiligen Kombination vereinbaren Bedingungen verwendet werden.
+
+Das Plugin wird ohne Gewährleistung im Rahmen der Abschnitte 15 und 16 der
+AGPLv3 bereitgestellt. Vor dem Einsatz in Produktiv-Prüfungen in einer
+Testumgebung prüfen.
 
 ---
 
@@ -296,6 +323,10 @@ Die Entwicklerdokumentation unter `.dev/ModuleEntwicklung.md` und die Tests unte
 
 ### Version 2.2.0 (2026-10-13)
 
+- Plugin-Kern unter AGPLv3 (AGPL-3.0-only) mit zusätzlicher Autorenangabe nach
+  Abschnitt 7(b) veröffentlicht. Lizenztext, Autorenliste und Attribution sind
+  in `LICENSE`, `AUTHORS.md` und `NOTICE` enthalten; die Plugin-Administration
+  zeigt die ursprünglichen Autoren und Lizenzhinweise auf Deutsch und Englisch.
 - Modul-Downloads prüfen Repository, HTTPS und Pfad vor jedem Abruf, einschließlich
   aller Redirects. Traversal, encodierte Pfadtrenner, fremde Hosts/Repositories,
   andere Ports sowie URLs mit Query oder Fragment werden abgelehnt. Unterstützt
