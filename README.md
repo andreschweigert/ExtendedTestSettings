@@ -272,6 +272,18 @@ Detaillierte Entwicklerdokumentation (inkl. Modul mit eigener GUI-Seite, Proxy-R
 
 ## Changelog
 
+### Unveröffentlicht
+
+- Modul-Downloads prüfen Repository, HTTPS und Pfad vor jedem Abruf, einschließlich
+  aller Redirects. Traversal, encodierte Pfadtrenner, fremde Hosts/Repositories,
+  andere Ports sowie URLs mit Query oder Fragment werden abgelehnt. Unterstützt
+  werden direkte ZIP-Links aus dem konfigurierten GitHub-Repository auf
+  `github.com` und `raw.githubusercontent.com`.
+- Das Speichern von Testeinstellungen verlangt serverseitig POST und den gültigen
+  ILIAS-Session-Token. Die Prüfung greift auch ohne neu erzeugtes ilCtrl-Artefakt.
+- Modulmetadaten in der Administration und alle Einträge im Update-Protokoll
+  werden als Text escaped, einschließlich Bestätigungs- und Upload-Meldungen.
+
 ### Version 2.1.1 (2026-08-26)
 
 **ExamChecker-Konfiguration mit Soll-Werten:**

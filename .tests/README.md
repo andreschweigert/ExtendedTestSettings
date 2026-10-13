@@ -97,6 +97,9 @@ nach jedem Test wieder verschwindet.
 | `ilModuleLanguageTest` | Fallback-Kette Sprache → Englisch → Default → Schlüssel |
 | `ilCoreTablesTest` | jede in `sql/dbupdate.php` angelegte Tabelle steht in `CORE_TABLES`; Step-Marker am Zeilenanfang |
 | `ilDownloadUrlAllowlistTest` | `isAllowedDownloadUrl()`: Schema, Host, Repository-Pfad-Präfix |
+| `ilModuleDownloadSecurityTest` | Downloader: Traversal vor dem Abruf abweisen, jedes Redirect-Ziel prüfen, Redirect-Schleifen begrenzen; HTTP-Antworten ohne Netzwerk simuliert |
+| `ilAdvancedGuiCsrfTest` | Speichern nur mit POST und dem gültigen Session-Token; ungültige Requests brechen vor dem Datenzugriff ab |
+| `ilAdminHtmlSecurityTest` | Manipulierte Modulmetadaten bleiben in Properties, Bestätigungsdialogen und Update-Protokoll inert |
 | `ilReleaseZipRegressionTest` | alle 18 echten Release-ZIPs werden weiterhin akzeptiert |
 | `ilKernRegelnTest` | statische Regelprüfungen R3–R10 über `classes/` |
 | `ilPluginIntegritaetTest` | PHP-Syntax, Klassen-/Dateinamen, Versionen (R15), Command-Liste, Modul-Interface, Sprachdateien |
@@ -151,6 +154,16 @@ festgehalten.
 ---
 
 ## Konventionen für neue Tests
+
+Bei einem Kern-Review ohne Modulzugriff die beiden Regressionen gegen echte
+Moduldateien ausdrücklich auslassen; `run-tests.sh` startet zusätzlich die
+Modul-Suite und ist dafür nicht geeignet:
+
+```bash
+php8.2 .tests/tools/phpunit.phar -c .tests/phpunit.xml --testsuite unit \
+  --do-not-cache-result \
+  --filter '/^(?!.*(?:ilReleaseZipRegressionTest|testEchteManifesteBleibenGueltig)).*$/'
+```
 
 - Testklassen erben von `ilEtsTestCase`, heißen `il<Name>Test` und liegen in `unit/`.
 - Kommentare deutsch, 4 Spaces; `declare(strict_types=1)` ist in Tests erlaubt
