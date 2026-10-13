@@ -102,53 +102,9 @@ maintenance_info#:#Entfernt Einstellungen von Tests, die in ILIAS gelöscht wurd
 preview_show#:#Vorschau anzeigen
 cleanup_now#:#Jetzt bereinigen
 examchecker_title#:#ExamChecker-Vorgaben konfigurieren
-examchecker_desc#:#Bestimmen Sie, welche Einstellungen bei der Prüfung von Tests als verpflichtend gelten sollen.
-examchecker_praesenz#:#Präsenzprüfungen
-examchecker_praesenz_group#:#Verpflichtende Checks für Prüfungen vor Ort
-examchecker_fern#:#Fernprüfungen
-examchecker_fern_group#:#Verpflichtende Checks für Online-Prüfungen
 examchecker_save#:#Vorgaben speichern
 examchecker_saved#:#ExamChecker-Vorgaben erfolgreich gespeichert.
-check_fragenpools_verwenden#:#Fragenpools verwenden
-check_fragenpools_verwenden_info#:#Test muss Fragenpools nutzen
-check_datenschutz#:#Datenschutz (Testergebnisse mit Namen)
-check_datenschutz_info#:#Anonymität muss deaktiviert sein
-check_online#:#Test ist online geschaltet
-check_online_info#:#Test muss online verfügbar sein
-check_passwort#:#Testpasswort gesetzt
-check_passwort_info#:#Ein Passwort muss konfiguriert sein
-check_nur_ausgewaehlte_teilnehmer#:#Nur ausgewählte Teilnehmer (deaktiviert)
-check_nur_ausgewaehlte_teilnehmer_info#:#Offener Zugang für alle Teilnehmer
-check_testdurchlaeufe_begrenzen#:#Testdurchläufe auf 1 begrenzt
-check_testdurchlaeufe_begrenzen_info#:#Anzahl der Versuche muss 1 sein
-check_wartezeit_erzwingen#:#Wartezeit zwischen Durchläufen (deaktiviert)
-check_wartezeit_erzwingen_info#:#Keine Wartezeit zwischen Versuchen
-check_pruefungsansicht#:#Prüfungsansicht (Kiosk-Modus)
-check_pruefungsansicht_info#:#Kiosk-Modus muss aktiviert sein
-check_automatisches_speichern#:#Automatisches Speichern (30s)
-check_automatisches_speichern_info#:#Auto-Save alle 30 Sekunden
-check_direkte_rueckmeldung#:#Direkte Rückmeldung (deaktiviert)
-check_direkte_rueckmeldung_info#:#Sofortige Antwortbewertung ausgeschaltet
-check_fragen_markieren#:#Fragen markieren aktiviert
-check_fragen_markieren_info#:#Teilnehmer können Fragen markieren
-check_eigenstaendigkeitserklaerung#:#Eigenständigkeitserklärung
-check_eigenstaendigkeitserklaerung_info#:#Nur für Fernprüfungen erforderlich
-check_bearbeitungsdauer#:#Bearbeitungsdauer begrenzen
-check_bearbeitungsdauer_info#:#Zeitlimit muss aktiviert sein
-check_weiterleitung#:#Weiterleitung zu logout.php
-check_weiterleitung_info#:#Nur bei Präsenzprüfungen mit Kiosk
-check_bewertungssystem#:#Teilweise richtige Antworten bewerten
-check_bewertungssystem_info#:#Teilpunkte für unvollständige Antworten
-check_negative_punkte#:#Negative Punkte (deaktiviert)
-check_negative_punkte_info#:#Keine Punktabzüge für falsche Antworten
-check_besten_durchlauf_bewerten#:#Besten Testdurchlauf bewerten
-check_besten_durchlauf_bewerten_info#:#Beste Leistung zählt
-check_keine_vorbedingungen#:#Keine Vorbedingungen gesetzt
-check_keine_vorbedingungen_info#:#Test ist ohne Vorbedingungen frei zugänglich
-check_direkte_notenuebermittlung#:#Direkte Notenübermittlung (deaktiviert)
-check_direkte_notenuebermittlung_info#:#Noten werden nicht sofort an Teilnehmer übermittelt
-check_zeitlich_begrenzte_verfuegbarkeit#:#Zeitlich begrenzte Verfügbarkeit (deaktiviert)
-check_zeitlich_begrenzte_verfuegbarkeit_info#:#Test hat keine zusätzliche Kurs-Verfügbarkeitsbegrenzung
+examchecker_needs_module#:#Diese Seite benötigt das Modul ExamChecker ab Version 10.1.0. Bitte das aktuelle ZIP hochladen und aktivieren.
 error_preview#:#Fehler bei der Vorschau: %s
 back_to_statistics#:#Zurück zu Statistiken
 cleanup_none#:#Keine verwaisten Einträge – alles in Ordnung.

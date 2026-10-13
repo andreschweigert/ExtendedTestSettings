@@ -1,10 +1,10 @@
 # ExtendedTestSettings Plugin für ILIAS
 
 ![ILIAS](https://img.shields.io/badge/ILIAS-10.x-blue)
-![Version](https://img.shields.io/badge/version-10.1.0-success)
+![Version](https://img.shields.io/badge/version-10.1.1-success)
 ![License](https://img.shields.io/badge/license-TBA-lightgrey)
 
-**Version:** 10.1.0  
+**Version:** 10.1.1  
 **Für ILIAS:** 10.0 – 10.999 (Branch `ilias10` — für ILIAS 9 den Branch `ilias9` verwenden)
 
 Versionsschema der ILIAS-10-Linie: Major = ILIAS-Version (10.x), Versionssprünge +0.0.1.
@@ -185,6 +185,8 @@ Alle Module werden separat im [Module-Repository](https://github.com/andreschwei
   - Kurs-Administratoren (Standard)
   - Spezifische Benutzer (Whitelist)
 - **ExamAlert Auto-Aktivierung:** ExamAlert für neue Tests automatisch einschalten
+- **ExamChecker (eigener Reiter):** je Prüfungstyp festlegen, welche Test-Einstellungen
+  geprüft werden und welchen Soll-Wert sie haben sollen (ab ExamChecker 10.1.0)
 
 ### Pro Test
 
@@ -258,6 +260,21 @@ Detaillierte Entwicklerdokumentation (inkl. Modul mit eigener GUI-Seite, Proxy-R
 ---
 
 ## Changelog
+
+### Version 10.1.1 (2026-08-26)
+
+**ExamChecker-Konfiguration mit Soll-Werten.** Port von 2.1.1 der ILIAS-9-Linie.
+
+- Der ExamChecker-Reiter legt jetzt nicht mehr nur fest, *welche* Einstellungen geprüft
+  werden, sondern auch *welchen Wert* sie haben sollen — als Ja/Nein, Zahl, Auswahl oder Text
+- Das Formular wird vollständig aus dem Check-Katalog des Moduls erzeugt
+  (`getCheckCatalogue()`/`getRules()`/`saveRules()`); der Plugin-Kern kennt weder die
+  geprüften Datenbankspalten noch die Sprachschlüssel des Moduls
+- Ältere ExamChecker-Versionen: der Reiter zeigt einen Hinweis statt eines halb
+  funktionierenden Formulars
+- Check-Definitionen und die zugehörigen `check_*`-Sprachschlüssel sind aus dem Plugin-Kern
+  ins Modul gewandert
+- Setzt **ExamChecker 10.1.0** voraus (eigene Tabelle `examchecker_rules`, ZIP-Upload nötig)
 
 ### Version 10.1.0 (2026-08-03)
 
