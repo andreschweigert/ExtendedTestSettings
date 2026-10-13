@@ -52,6 +52,9 @@ final class ilDownloadUrlAllowlistTest extends ilEtsTestCase
             'github.com direkt' => [
                 'https://github.com/andreschweigert/ExtendedTestSettings/raw/ilias9/modules/examcalc/ExamCalc_v1.2.0.zip',
             ],
+            'HTTPS-Standardport' => [
+                'https://raw.githubusercontent.com:443/andreschweigert/ExtendedTestSettings/ilias9/x.zip',
+            ],
         ];
     }
 
@@ -97,6 +100,42 @@ final class ilDownloadUrlAllowlistTest extends ilEtsTestCase
             'leer' => [
                 '',
             ],
+            'Traversal zu fremdem Repository' => [
+                'https://raw.githubusercontent.com/andreschweigert/ExtendedTestSettings/../../evil/Repo/main/x.zip',
+            ],
+            'encodierte Punkte' => [
+                'https://raw.githubusercontent.com/andreschweigert/ExtendedTestSettings/%2e%2e/%2E%2E/evil/Repo/main/x.zip',
+            ],
+            'doppelt encodierte Punkte' => [
+                'https://raw.githubusercontent.com/andreschweigert/ExtendedTestSettings/%252e%252e/main/x.zip',
+            ],
+            'encodierter Slash' => [
+                'https://raw.githubusercontent.com/andreschweigert/ExtendedTestSettings/..%2f../main/x.zip',
+            ],
+            'Backslash' => [
+                'https://raw.githubusercontent.com/andreschweigert/ExtendedTestSettings/main\\x.zip',
+            ],
+            'encodierter Backslash' => [
+                'https://raw.githubusercontent.com/andreschweigert/ExtendedTestSettings/main%5cx.zip',
+            ],
+            'anderer Port' => [
+                'https://raw.githubusercontent.com:4443/andreschweigert/ExtendedTestSettings/main/x.zip',
+            ],
+            'Userinfo auch bei erlaubtem Host' => [
+                'https://user:secret@raw.githubusercontent.com/andreschweigert/ExtendedTestSettings/main/x.zip',
+            ],
+            'Query' => [
+                'https://github.com/andreschweigert/ExtendedTestSettings/main/x.zip?next=https://evil.example/',
+            ],
+            'Fragment' => [
+                'https://raw.githubusercontent.com/andreschweigert/ExtendedTestSettings/main/x.zip#other',
+            ],
+            'Steuerzeichen' => [
+                'https://raw.githubusercontent.com/andreschweigert/ExtendedTestSettings/main/%0ax.zip',
+            ],
+            'leeres Pfadsegment' => [
+                'https://raw.githubusercontent.com/andreschweigert/ExtendedTestSettings/main//x.zip',
+            ],
         ];
     }
 
@@ -116,7 +155,14 @@ final class ilDownloadUrlAllowlistTest extends ilEtsTestCase
     {
         $repo = 'https://gitlab.example.org/gruppe/Repo';
 
-        $this->assertTrue($this->isAllowed('https://gitlab.example.org/gruppe/Repo/modules/x.zip', $repo));
+        $this->assertFalse($this->isAllowed('https://gitlab.example.org/gruppe/Repo/modules/x.zip', $repo));
         $this->assertFalse($this->isAllowed('https://raw.githubusercontent.com/gruppe/Repo/x.zip', $repo));
+    }
+
+    public function testUnsichereRepositoryKonfigurationWirdAbgelehnt(): void
+    {
+        foreach ([self::REPO . '/../../evil/Repo', self::REPO . '?redirect=x', 'https://user@github.com/owner/Repo'] as $repo) {
+            $this->assertFalse($this->isAllowed(self::REPO . '/main/x.zip', $repo));
+        }
     }
 }
