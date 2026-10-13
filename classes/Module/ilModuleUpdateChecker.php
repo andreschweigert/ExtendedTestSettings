@@ -10,6 +10,8 @@
  *   module_repo_url    → GitHub Repo-URL, z.B. https://github.com/user/Repo
  *   module_repo_branch → Branch-Name,     z.B. ilias9
  */
+require_once __DIR__ . '/ilModuleDownloadUrlPolicy.php';
+
 class ilModuleUpdateChecker
 {
     private string $repo_url;
@@ -196,8 +198,8 @@ class ilModuleUpdateChecker
      */
     public function downloadZip(string $url): string
     {
-        if (!function_exists('curl_init')) {
-            throw new RuntimeException('cURL ist nicht verfügbar.');
+        if (!ilModuleDownloadUrlPolicy::isAllowed($url, $this->repo_url)) {
+            throw new RuntimeException('Download-URL liegt außerhalb des konfigurierten Repositorys oder ist nicht sicher.');
         }
 
         $tmp = tempnam(sys_get_temp_dir(), 'ilias_module_update_');
@@ -211,6 +213,60 @@ class ilModuleUpdateChecker
             throw new RuntimeException('Temporäre Datei konnte nicht geöffnet werden.');
         }
 
+        $success = false;
+        try {
+            for ($redirects = 0; $redirects <= 5; $redirects++) {
+                $response = $this->downloadResponse($url, $fh);
+                if ($response['error_no'] === CURLE_ABORTED_BY_CALLBACK
+                    || $response['error_no'] === CURLE_FILESIZE_EXCEEDED) {
+                    throw new RuntimeException('Download abgebrochen: Datei überschreitet 20 MB.');
+                }
+                if (!$response['ok']) {
+                    throw new RuntimeException('ZIP konnte nicht heruntergeladen werden: ' . $response['error']);
+                }
+
+                if (in_array($response['http_code'], [301, 302, 303, 307, 308], true)) {
+                    $target = ilModuleDownloadUrlPolicy::resolveRedirect($url, $response['location'] ?? '', $this->repo_url);
+                    if ($target === null || $redirects === 5) {
+                        throw new RuntimeException('Unsicherer oder zu häufig wiederholter Download-Redirect.');
+                    }
+                    // Redirect-Body verwerfen, bevor das eigentliche ZIP beginnt.
+                    if (!ftruncate($fh, 0) || !rewind($fh)) {
+                        throw new RuntimeException('Temporäre Download-Datei konnte nicht zurückgesetzt werden.');
+                    }
+                    $url = $target;
+                    continue;
+                }
+
+                if ($response['http_code'] < 200 || $response['http_code'] >= 300) {
+                    throw new RuntimeException('ZIP konnte nicht heruntergeladen werden (HTTP ' . $response['http_code'] . ').');
+                }
+                if (!fflush($fh)) {
+                    throw new RuntimeException('Download-Datei konnte nicht geschrieben werden.');
+                }
+                $size = fstat($fh)['size'];
+                if ($size < 100 || $size > self::MAX_DOWNLOAD_BYTES) {
+                    throw new RuntimeException('ZIP-Download hat eine ungültige Größe.');
+                }
+                $success = true;
+                return $tmp;
+            }
+            throw new RuntimeException('Zu viele Download-Redirects.');
+        } finally {
+            fclose($fh);
+            if (!$success) {
+                @unlink($tmp);
+            }
+        }
+    }
+
+    /** Eine einzelne HTTPS-Antwort, ohne automatisch Redirects zu verfolgen. */
+    protected function downloadResponse(string $url, $fh): array
+    {
+        if (!function_exists('curl_init')) {
+            throw new RuntimeException('cURL ist nicht verfügbar.');
+        }
+        $location = null;
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             // Direkt in die Datei streamen statt die gesamte Antwort im RAM zu
@@ -221,8 +277,16 @@ class ilModuleUpdateChecker
             CURLOPT_USERAGENT      => 'ILIAS-ExtendedTestSettings-UpdateChecker/1.0',
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_MAXREDIRS      => 5,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_PROTOCOLS      => CURLPROTO_HTTPS,
+            CURLOPT_HEADERFUNCTION => static function ($res, string $header) use (&$location): int {
+                if (str_starts_with($header, 'HTTP/')) {
+                    $location = null;
+                } elseif (stripos($header, 'Location:') === 0) {
+                    $location = trim(substr($header, 9));
+                }
+                return strlen($header);
+            },
             CURLOPT_MAXFILESIZE    => self::MAX_DOWNLOAD_BYTES,
             CURLOPT_NOPROGRESS     => false,
             // Greift auch, wenn der Server keine Content-Length schickt —
@@ -241,26 +305,7 @@ class ilModuleUpdateChecker
         $curl_err  = curl_error($ch);
         $curl_no   = curl_errno($ch);
         curl_close($ch);
-        fclose($fh);
-
-        if ($curl_no === CURLE_ABORTED_BY_CALLBACK || $curl_no === CURLE_FILESIZE_EXCEEDED) {
-            @unlink($tmp);
-            throw new RuntimeException(sprintf(
-                'Download abgebrochen: Datei überschreitet %d MB.',
-                (int) (self::MAX_DOWNLOAD_BYTES / 1048576)
-            ));
-        }
-
-        if ($ok === false || $http_code >= 400) {
-            @unlink($tmp);
-            throw new RuntimeException("ZIP konnte nicht heruntergeladen werden: $url (HTTP $http_code, $curl_err)");
-        }
-
-        if (filesize($tmp) < 100) {
-            @unlink($tmp);
-            throw new RuntimeException("ZIP konnte nicht heruntergeladen werden: $url");
-        }
-
-        return $tmp;
+        return ['ok' => $ok !== false, 'http_code' => $http_code, 'error' => $curl_err,
+            'error_no' => $curl_no, 'location' => $location];
     }
 }

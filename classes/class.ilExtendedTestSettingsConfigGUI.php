@@ -2050,7 +2050,8 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
         $branch = trim($_POST['module_repo_branch'] ?? 'ilias9');
         $proxy  = trim($_POST['module_repo_proxy'] ?? '');
 
-        if ($url !== '' && !str_starts_with($url, 'https://github.com/')) {
+        require_once __DIR__ . '/Module/ilModuleDownloadUrlPolicy.php';
+        if ($url !== '' && !ilModuleDownloadUrlPolicy::isValidRepository($url)) {
             $this->tpl->setOnScreenMessage('failure', $this->txt('repo_invalid_github_url'));
             $this->ctrl->redirect($this, 'showModules');
             return;
@@ -2457,36 +2458,9 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
      */
     private function isAllowedDownloadUrl(string $url): bool
     {
-        if (!str_starts_with($url, 'https://')) {
-            return false;
-        }
-
+        require_once __DIR__ . '/Module/ilModuleDownloadUrlPolicy.php';
         $repo_url = trim((string) $this->settings->get('module_repo_url', ''));
-        if ($repo_url === '') {
-            return false;
-        }
-
-        $repo_host   = parse_url($repo_url, PHP_URL_HOST);
-        $actual_host = parse_url($url, PHP_URL_HOST);
-
-        if ($repo_host === null || $actual_host === null) {
-            return false;
-        }
-
-        // GitHub liefert Downloads von raw.githubusercontent.com
-        $allowed_hosts = [$repo_host];
-        if ($repo_host === 'github.com') {
-            $allowed_hosts[] = 'raw.githubusercontent.com';
-        }
-
-        if (!in_array($actual_host, $allowed_hosts, true)) {
-            return false;
-        }
-
-        $repo_path = rtrim(parse_url($repo_url, PHP_URL_PATH) ?? '', '/');
-        $url_path  = parse_url($url, PHP_URL_PATH) ?? '';
-
-        return $repo_path !== '' && str_starts_with($url_path, $repo_path . '/');
+        return ilModuleDownloadUrlPolicy::isAllowed($url, $repo_url);
     }
 
     // -------------------------------------------------------------------------
