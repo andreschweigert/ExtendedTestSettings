@@ -228,6 +228,7 @@ maturity_eingestellt#:#Eingestellt
 module_not_active#:#Modul '%s' ist nicht aktiviert.
 cleanup_confirm_blind#:#Verwaiste Einträge werden in allen Modultabellen unwiderruflich gelöscht. Vorher „Vorschau anzeigen" empfohlen. Fortfahren?
 invalid_request_method#:#Diese Aktion muss über das Formular ausgelöst werden (ungültige Anfrage).
+invalid_save_request#:#Die Anfrage ist ungültig oder abgelaufen. Bitte öffnen Sie das Formular erneut.
 update_missing_params#:#Update nicht möglich: Modul-ID oder Download-URL fehlt.
 update_expectation_mismatch#:#Die Update-Anfrage passt nicht zur zuvor bestätigten Auswahl. Bitte den Update-Vorgang neu starten.
 update_id_mismatch#:#Abgebrochen: Erwartet wurde Modul '%1$s', das heruntergeladene Paket enthält aber '%2$s'.

@@ -3,7 +3,7 @@
 /**
  * @ilCtrl_isCalledBy ilExtendedTestSettingsAdvancedGUI: ilUIPluginRouterGUI
  */
-class ilExtendedTestSettingsAdvancedGUI
+class ilExtendedTestSettingsAdvancedGUI implements ilCtrlSecurityInterface
 {
     private const DEBUG_ENABLED = false;
 
@@ -33,6 +33,31 @@ class ilExtendedTestSettingsAdvancedGUI
     {
         $cmd = $this->ctrl->getCmd("show");
         $this->performCommand($cmd);
+    }
+
+    public function getUnsafeGetCommands(): array
+    {
+        return ['saveSettings'];
+    }
+
+    public function getSafePostCommands(): array
+    {
+        return [];
+    }
+
+    /** Schutz auch bei direkten Commands und ohne neu erzeugtes ilCtrl-Artefakt. */
+    private function isAuthorizedSaveRequest(): bool
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            return false;
+        }
+        $sent_token = $_GET[ilCtrlInterface::PARAM_CSRF_TOKEN] ?? null;
+        if (!is_string($sent_token) || $sent_token === '') {
+            return false;
+        }
+
+        $token = (new ilCtrlTokenRepository())->getToken();
+        return hash_equals($token->getToken(), $sent_token);
     }
 
     public function performCommand(string $cmd): void
@@ -587,6 +612,12 @@ class ilExtendedTestSettingsAdvancedGUI
      */
     public function saveSettings(): void
     {
+        if (!$this->isAuthorizedSaveRequest()) {
+            $this->tpl->setOnScreenMessage('failure', $this->txt('invalid_save_request'));
+            $this->ctrl->redirect($this, 'show');
+            return;
+        }
+
         global $DIC, $rbacsystem;
 
         $ref_id = (int) ($_POST["ref_id"] ?? $_GET["ref_id"] ?? 0);
