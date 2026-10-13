@@ -195,8 +195,7 @@ class ilExtendedTestSettingsModuleProxyGUI
         }
 
         $has_write  = $rbacsystem->checkAccess('write', $ref_id);
-        $has_session = $this->hasActiveTestSession($DIC, $test_id);
-        $has_access = $has_session || $has_write;
+        $has_access = $has_write || $this->hasActiveTestSession($DIC, $ref_id, $test_id);
 
         if (!$has_access) {
             http_response_code(403);
@@ -274,7 +273,7 @@ class ilExtendedTestSettingsModuleProxyGUI
         header('Content-Type: ' . $mime);
         header('Content-Disposition: ' . $disposition . '; filename="' . addslashes(basename($row['filename'])) . '"');
         header('Content-Length: ' . filesize($file_path));
-        header('Cache-Control: private, max-age=3600');
+        header('Cache-Control: private, no-store, max-age=0');
         header('X-Content-Type-Options: nosniff');
         readfile($file_path);
         exit;
@@ -283,13 +282,12 @@ class ilExtendedTestSettingsModuleProxyGUI
     /**
      * Prüft, ob der Benutzer einen LAUFENDEN Testdurchlauf hat.
      *
-     * Ein tst_active-Eintrag bleibt nach der Abgabe bestehen und beweist nur, dass
-     * jemand den Test irgendwann begonnen hat — ohne submitted = 0 behielten
-     * ehemalige Teilnehmer den Zugriff dauerhaft (Regel R7).
-     *
-     * Achtung: tst_active.test_fi referenziert tst_tests.test_id, nicht die obj_id.
+     * Ein alter tst_active-Eintrag allein reicht nicht: aktuelles Leserecht,
+     * gestarteter/offener Durchlauf, Online-Status und Zeitlimits sind Pflicht.
+     * Die ILIAS-Zeitprüfung berücksichtigt individuelle Zeitverlängerungen und
+     * das Zurücksetzen der Bearbeitungszeit je Durchlauf.
      */
-    private function hasActiveTestSession($DIC, int $test_obj_id): bool
+    private function hasActiveTestSession($DIC, int $test_ref_id, int $test_obj_id): bool
     {
         $user_id = $DIC->user()->getId();
         $db      = $DIC->database();
@@ -299,16 +297,60 @@ class ilExtendedTestSettingsModuleProxyGUI
         }
 
         try {
+            if (!$DIC->access()->checkAccess('read', '', $test_ref_id)) {
+                return false;
+            }
+
             $result = $db->queryF(
-                "SELECT a.active_id
+                "SELECT a.active_id, a.tries, a.last_started_pass, a.last_finished_pass,
+                        MIN(tt.started) AS pass_started
                    FROM tst_active a
                    JOIN tst_tests t ON t.test_id = a.test_fi
-                  WHERE t.obj_fi = %s AND a.user_fi = %s AND a.submitted = %s",
+                   JOIN tst_times tt ON tt.active_fi = a.active_id AND tt.pass = a.tries
+                  WHERE t.obj_fi = %s AND a.user_fi = %s AND a.submitted = %s
+                  GROUP BY a.active_id, a.tries, a.last_started_pass, a.last_finished_pass",
                 ['integer', 'integer', 'integer'],
                 [$test_obj_id, $user_id, 0]
             );
-            return (bool) $db->fetchAssoc($result);
-        } catch (Exception $e) {
+            $row = $db->fetchAssoc($result);
+            if (!$row || !isset($row['active_id'], $row['tries'], $row['last_started_pass'])
+                || (int) $row['active_id'] <= 0 || (int) $row['tries'] < 0
+                || (int) $row['last_started_pass'] !== (int) $row['tries']
+                || ($row['last_finished_pass'] !== null
+                    && (int) $row['last_finished_pass'] >= (int) $row['tries'])
+                || empty($row['pass_started'])) {
+                return false;
+            }
+
+            $test = ilObjectFactory::getInstanceByRefId($test_ref_id, false);
+            if (!$test instanceof ilObjTest || $test->getId() !== $test_obj_id
+                || !$test->getObjectProperties()->getPropertyIsOnline()->getIsOnline()
+                || !$test->startingTimeReached() || $test->endingTimeReached()) {
+                return false;
+            }
+
+            $started = $row['pass_started'];
+            if ($test->getEnableProcessingTime() && !$test->getResetProcessingTime() && (int) $row['tries'] !== 0) {
+                $times = $db->queryF(
+                    'SELECT MIN(started) AS pass_started FROM tst_times WHERE active_fi = %s AND pass = %s',
+                    ['integer', 'integer'],
+                    [(int) $row['active_id'], 0]
+                );
+                $first_pass = $db->fetchAssoc($times);
+                $started = $first_pass['pass_started'] ?? null;
+            }
+
+            if (!is_string($started)) {
+                return false;
+            }
+            $date = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s', $started);
+            if ($date === false || $date->format('Y-m-d H:i:s') !== $started
+                || $date->getTimestamp() > time()) {
+                return false;
+            }
+
+            return !$test->isMaxProcessingTimeReached($date->getTimestamp(), (int) $row['active_id']);
+        } catch (Throwable $e) {
             error_log("[ModuleProxyGUI] hasActiveTestSession Fehler: " . $e->getMessage());
             return false;
         }
