@@ -100,6 +100,9 @@ nach jedem Test wieder verschwindet.
 | `ilModuleDownloadSecurityTest` | Downloader: Traversal vor dem Abruf abweisen, jedes Redirect-Ziel prüfen, Redirect-Schleifen begrenzen; HTTP-Antworten ohne Netzwerk simuliert |
 | `ilAdvancedGuiCsrfTest` | Speichern nur mit POST und dem gültigen Session-Token; ungültige Requests brechen vor dem Datenzugriff ab |
 | `ilAdminHtmlSecurityTest` | Manipulierte Modulmetadaten bleiben in Properties, Bestätigungsdialogen und Update-Protokoll inert |
+| `ilResourceModuleActivationTest` | Ressourcen nur bei eindeutigem, aktivem Tabellenbesitzer; fehlende, inaktive und mehrdeutige Module gesperrt |
+| `ilResourceSheetAccessTest` | Aktuelle Leserechte, offener/gestarteter Durchlauf, Online- und Zeitprüfung, Zeitverlängerungen, Timer-Reset, Fehler führen zur Sperre |
+| `ilModuleArchiveManifestSecurityTest` | Mehrere/abweichende Manifeste, doppelte ZIP-Einträge und Pfad-Aliase abweisen; alte Installation bleibt erhalten, kein Install-SQL ausgeführt |
 | `ilReleaseZipRegressionTest` | alle 18 echten Release-ZIPs werden weiterhin akzeptiert |
 | `ilKernRegelnTest` | statische Regelprüfungen R3–R10 über `classes/` |
 | `ilPluginIntegritaetTest` | PHP-Syntax, Klassen-/Dateinamen, Versionen (R15), Command-Liste, Modul-Interface, Sprachdateien |
@@ -154,6 +157,16 @@ festgehalten.
 ---
 
 ## Konventionen für neue Tests
+
+Der Hilfsmittel-Endpunkt lässt sich zusätzlich über einen isolierten lokalen
+PHP-HTTP-Server prüfen (Python-Standardbibliothek und `php8.2`, überschreibbar per
+`PHP_BIN`). Der Check erzeugt eigene temporäre Modul- und Datei-Fixtures, prüft
+Statuscodes, Dateiinhalte und Sicherheitsheader und beendet den Server danach.
+Er verwendet weder installierte Module noch die ILIAS-Datenbank:
+
+```bash
+python3 .tests/support/run-resource-http-check.py
+```
 
 Bei einem Kern-Review ohne Modulzugriff die beiden Regressionen gegen echte
 Moduldateien ausdrücklich auslassen; `run-tests.sh` startet zusätzlich die

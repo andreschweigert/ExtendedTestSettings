@@ -174,10 +174,19 @@ final class ilKernRegelnTest extends ilEtsTestCase
         foreach ($this->coreSources() as $path => $source) {
             $code = $this->withoutComments($source);
 
-            // Die Registry selbst ist die einzige Stelle, die module.json liest.
+            // Runtime-Discovery gehört der Registry. Der Installer darf zusätzlich
+            // das Staging-Manifest vor dem Umschalten auf vollständige Gleichheit
+            // prüfen; ausschließlich verifyExtraction() ist dafür ausgenommen.
             $is_registry = str_ends_with($path, 'ilModuleRegistry.php');
+            $manifest_code = $code;
+            if (str_ends_with($path, 'ilModuleInstaller.php')) {
+                $verification = $this->withoutComments(
+                    "<?php\n" . $this->methodBody(ilModuleInstaller::class, 'verifyExtraction')
+                );
+                $manifest_code = str_replace(substr($verification, strlen("<?php\n")), '', $code);
+            }
 
-            if (!$is_registry && preg_match('/file_get_contents\s*\([^;]*module\.json/', $code)) {
+            if (!$is_registry && preg_match('/file_get_contents\s*\([^;]*module\.json/', $manifest_code)) {
                 $treffer[] = basename($path) . ': module.json wird direkt gelesen';
             }
             if (preg_match('/file_exists\s*\([^;]*modules\//', $code)) {
