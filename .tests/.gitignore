@@ -1,7 +1,0 @@
-# PHPUnit-PHAR: Binärdatei mit eigenem Lebenszyklus, Bezugsweg und Prüfsumme
-# stehen in .tests/README.md
-tools/phpunit.phar
-
-# PHPUnit-Cache
-.phpunit.cache/
-.phpunit.result.cache
