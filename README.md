@@ -1,10 +1,10 @@
 # ExtendedTestSettings Plugin für ILIAS
 
 ![ILIAS](https://img.shields.io/badge/ILIAS-10.x-blue)
-![Version](https://img.shields.io/badge/version-10.1.1-success)
+![Version](https://img.shields.io/badge/version-10.2.0-success)
 ![License](https://img.shields.io/badge/license-TBA-lightgrey)
 
-**Version:** 10.1.1  
+**Version:** 10.2.0  
 **Für ILIAS:** 10.0 – 10.999 (Branch `ilias10` — für ILIAS 9 den Branch `ilias9` verwenden)
 
 Versionsschema der ILIAS-10-Linie: Major = ILIAS-Version (10.x), Versionssprünge +0.0.1.
@@ -72,16 +72,16 @@ setfacl -dm u:www-data:rwx <pathtoplugin>/ExtendedTestSettings/modules
 1. Als Administrator einloggen
 2. **Administration → Plugins → ExtendedTestSettings → Installieren → Aktivieren**
 
-### Schritt 4: Classmap regenerieren
+### Schritt 4: Classmap und ilCtrl-Artefakte regenerieren
 
-Damit der Proxy-Router für externe Modul-GUIs von ILIAS erkannt wird, muss einmalig die Composer-Classmap regeneriert werden:
+Damit ILIAS die Plugin-Klassen und deren Controller-Sicherheitsregeln erkennt, müssen die Composer-Classmap und ilCtrl-Artefakte regeneriert werden:
 
 ```bash
 cd /pfad/zu/ilias
 composer dump-autoload
 ```
 
-> Dieser Schritt ist nur einmalig nach der Erstinstallation nötig. Bei späteren Modul-Installationen über ZIP ist er **nicht** erforderlich.
+> `composer dump-autoload` erzeugt in ILIAS 10 über den Composer-Hook (`cli/setup.php build`) auch die ilCtrl-Artefakte. Den Befehl nach der Erstinstallation und nach Änderungen an Plugin-Klassen ausführen. Bei späteren Modul-Installationen über ZIP ist er **nicht** erforderlich.
 
 ### Schritt 5: Installation verifizieren
 
@@ -98,6 +98,17 @@ Administration → Plugins → ExtendedTestSettings → Module → ZIP hochladen
 ```
 
 Die ZIPs (`<Name>_v10.x.y.zip`) sind im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) auf dem **Branch `ilias10`** verfügbar. Reihenfolge beachten: erst das Plugin installieren/aktualisieren, dann die Module.
+
+---
+
+## Update auf 10.2.0
+
+1. Plugin-Dateien auf Version 10.2.0 aktualisieren.
+2. Im ILIAS-Hauptverzeichnis `composer dump-autoload` ausführen, damit Classmap und ilCtrl-Artefakte aktualisiert werden.
+3. Unter **Administration → Plugins → ExtendedTestSettings** das Plugin aktualisieren.
+4. Das Speichern der erweiterten Testeinstellungen und den Zugriff auf Hilfsmittelblätter mit einem laufenden Testdurchlauf prüfen.
+
+Installierte Module werden weiterhin separat verwaltet. Die Änderungen dieser Version betreffen den Plugin-Kern.
 
 ---
 
@@ -145,6 +156,8 @@ MeinModul_v10.0.0.zip
 
 Das ZIP darf einen Wrapper-Ordner enthalten (wie beim GitHub-Download) – der Installer erkennt und überspringt ihn automatisch.
 
+Das Paket muss genau eine `module.json` an der Paketwurzel enthalten; bei einem Wrapper liegt sie direkt darunter. Weitere Dateien namens `module.json`, doppelte Dateipfade und Pfad-Aliase werden abgelehnt. Vor der Installation wird das entpackte Manifest mit dem zuvor geprüften Manifest verglichen.
+
 ### module.json
 
 ```json
@@ -188,11 +201,19 @@ Alle Module werden separat im [Module-Repository](https://github.com/andreschwei
 - **ExamChecker (eigener Reiter):** je Prüfungstyp festlegen, welche Test-Einstellungen
   geprüft werden und welchen Soll-Wert sie haben sollen (ab ExamChecker 10.1.0)
 
+### Modul-Updates aus einem Repository
+
+Für die automatische Update-Prüfung eine Repository-URL im Format `https://github.com/OWNER/REPO` und den gewünschten Branch konfigurieren. ZIP-Downloads müssen über HTTPS von `github.com` oder `raw.githubusercontent.com` aus genau diesem Repository kommen. Diese Regeln gelten auch für Weiterleitungen; URLs mit Query-Parametern oder Fragmenten werden abgelehnt. Alternativ lassen sich Modul-ZIPs über die Oberfläche hochladen.
+
 ### Pro Test
 
 **Test → Einstellungen → Erweiterte Test-Einstellungen:**
 
 Jedes aktive Modul zeigt hier seine eigenen Einstellungsfelder. Änderungen gelten nur für den jeweiligen Test.
+
+### Zugriff auf Hilfsmittelblätter
+
+Das zugehörige Modul muss global aktiviert sein. Teilnehmende benötigen aktuelle Leserechte am Test und einen gestarteten, noch offenen Durchlauf. Der Test muss online sein; Prüfungsbeginn, Prüfungsende und Bearbeitungszeit werden geprüft, einschließlich individueller Zeitverlängerungen. Die Dateien werden ohne Browser-Cache ausgeliefert. Prüfende mit Schreibrecht können die Dateien auch außerhalb eines laufenden Durchlaufs abrufen, sofern das Modul aktiv ist.
 
 ---
 
@@ -235,7 +256,7 @@ class ilMeinModulHandler implements ilExamModuleInterface
 }
 ```
 
-Detaillierte Entwicklerdokumentation (inkl. Modul mit eigener GUI-Seite, Proxy-Routing, Checkliste) liegt im Repository unter `.dev/ModuleEntwicklung.md`.
+Die Entwicklerdokumentation unter `.dev/ModuleEntwicklung.md` und die Tests unter `.tests/` werden lokal gepflegt und sind nicht Bestandteil des Git-Repositories.
 
 ---
 
@@ -261,7 +282,9 @@ Detaillierte Entwicklerdokumentation (inkl. Modul mit eigener GUI-Seite, Proxy-R
 
 ## Changelog
 
-### Unveröffentlicht
+### Version 10.2.0 (2026-10-13)
+
+**Sicherheits-Nacharbeit.** Port von 2.2.0 der ILIAS-9-Linie.
 
 - Modul-Downloads prüfen Repository, HTTPS und Pfad vor jedem Abruf, einschließlich
   aller Redirects. Traversal, encodierte Pfadtrenner, fremde Hosts/Repositories,

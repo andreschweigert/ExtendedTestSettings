@@ -1,6 +1,9 @@
 # Entwicklerdokumentation — nicht im Repo
 .dev/
 
+# Lokale Tests — nicht im Repo
+/.tests/
+
 # Installierte externe Module — verwaltet durch ILIAS-Admin, nicht versioniert
 modules/*
 !modules/.gitkeep
