@@ -433,7 +433,7 @@ Port des 2.0.1-Stands auf ILIAS 10:
 
 **Admin-GUI:**
 - Umstellung auf ILIAS-KitchenSink-Komponenten (Panels, MessageBox, Accordions)
-- Modul-spezifische Tabs erscheinen nur bei aktivem Modul; neue Tabs für ExamNetQos, ExamKeymap und ExamArchiver
+- Modul-spezifische Tabs erscheinen nur bei aktivem Modul; neue Tabs für ExamNetQos und ExamKeymap
 - Statistik-Tab dynamisch an installierte Module gekoppelt
 
 **Fixes & Aufräumarbeiten:**

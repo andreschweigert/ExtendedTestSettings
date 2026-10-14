@@ -279,10 +279,6 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
                 $this->saveKeymap();
                 break;
 
-            case 'showArchiver':
-                $this->showArchiver();
-                break;
-
             default:
                 $this->showGeneral();
                 break;
@@ -352,14 +348,6 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
                 'keymap',
                 $this->txt('tab_keymap'),
                 $this->ctrl->getLinkTarget($this, 'showKeymap')
-            );
-        }
-
-        if ($registry->isModuleActive('examarchiver')) {
-            $this->tabs->addTab(
-                'archiver',
-                $this->txt('tab_archiver'),
-                $this->ctrl->getLinkTarget($this, 'showArchiver')
             );
         }
     }
@@ -2820,24 +2808,6 @@ class ilExtendedTestSettingsConfigGUI extends ilPluginConfigGUI implements ilCtr
         [$msg, $type] = $view->handleSave();
         $this->tpl->setOnScreenMessage($type, $msg);
         $view->showEditor();
-    }
-
-    // -------------------------------------------------------------------------
-    // Archiv-Tab (ExamArchiver-Modul)
-    // -------------------------------------------------------------------------
-
-    protected function showArchiver(): void
-    {
-        $this->tabs->activateTab('archiver');
-
-        $class = $this->loadModuleGuiClass('examarchiver');
-        if ($class === null) {
-            $this->tpl->setContent($this->renderModuleMissing($this->txt('module_examarchiver_missing')));
-            return;
-        }
-
-        $view = new $class();
-        $this->tpl->setContent($view->renderAdminView());
     }
 }
 
