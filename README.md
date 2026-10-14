@@ -1,11 +1,11 @@
 # ExtendedTestSettings Plugin für ILIAS
 
-![ILIAS](https://img.shields.io/badge/ILIAS-10.x-blue)
+![ILIAS](https://img.shields.io/badge/ILIAS-10.0--10.12-blue)
 ![Version](https://img.shields.io/badge/version-10.2.0-success)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--only-blue)](LICENSE)
 
 **Version:** 10.2.0  
-**Für ILIAS:** 10.0 – 10.999 (Branch `ilias10` — für ILIAS 9 den Branch `ilias9` verwenden)
+**Für ILIAS:** 10.0 – 10.12 (Branch `ilias10` — für ILIAS 9 den Branch `ilias9` verwenden)
 
 Versionsschema der ILIAS-10-Linie: Major = ILIAS-Version (10.x), Versionssprünge +0.0.1.
 
@@ -15,10 +15,15 @@ Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Onl
 
 ## Features
 
-- **Modulare Architektur** – Funktionalität liegt vollständig in eigenständigen Modulen, die als ZIP-Pakete installiert, aktualisiert, aktiviert und deaktiviert werden
-- **Eigene Module** – über ZIP installierbar, beliebig erweiterbar
+- **Modulare Architektur** – Module als eigenständige ZIP-Pakete installier-, aktivier- und aktualisierbar, ohne den Plugin-Kern zu ändern
+- **Modul-Updates aus einem Repository** – automatische Update-Prüfung gegen ein konfigurierbares GitHub-Repository
+- **Pro-Test-Konfiguration** – eigener Sub-Tab „Erweiterte Test-Einstellungen“ in jedem Test
+- **Steuerbare Sichtbarkeit** – System-Administratoren, Kurs-Administratoren oder eine Benutzer-Whitelist
+- **Zentrales Geräte-Inventar** – IP → Koffer/Gerät-Zuordnung per CSV-Import, nutzbar für Module
+- **Mehrsprachigkeit** – Deutsch/Englisch für Kern und Module
+- **Eigene Module** – über ein schlankes Interface beliebig erweiterbar
 
-Alle Module sind im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) verfügbar.
+Ein Auszug der verfügbaren Module findet sich unter [Module](#module).
 
 ---
 
@@ -184,6 +189,15 @@ Das Paket muss genau eine `module.json` an der Paketwurzel enthalten; bei einem 
 ## Module
 
 Alle Module werden separat im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) gepflegt und versioniert (Branch `ilias10`). Dort finden sich die vollständige Modulübersicht, ZIP-Downloads, Dokumentation und Changelogs der einzelnen Module.
+
+**Auszug der verfügbaren Module:**
+
+- **ExamCalc** – Taschenrechner (einfach + wissenschaftlich mit 2nd-Ebene, Verlauf, Speicher)
+- **ExamSymbols** – Sonderzeichen-Paletten (Mathematik, Sprachen, Naturwissenschaften)
+- **ExamGuard** – Prüfungsschutz (Blockiert Rechtsklick, Copy/Paste, DevTools)
+- **ExamAlert** – Zeitwarnung vor Prüfungsende (konfigurierbare Warnzeit + Nachricht)
+- **ExamChecker** – Einstellungsprüfung gegen konfigurierbare Soll-Werte (Präsenz-/Fernprüfung)
+- **ExamConnGuard** – Verbindungs-Schutz bei WLAN-Ausfällen (On-Demand-Probe, Overlay, Auto-Replay)
 
 ---
 
