@@ -1,12 +1,12 @@
 # ExtendedTestSettings Plugin für ILIAS
 
-![ILIAS](https://img.shields.io/badge/ILIAS-9.x-blue)
+![ILIAS](https://img.shields.io/badge/ILIAS-9.0--9.24-blue)
 ![Version](https://img.shields.io/badge/version-2.2.0-success)
 [![License](https://img.shields.io/badge/license-AGPL--3.0--only-blue)](LICENSE)
 
 **Version:** 2.2.0
 
-**Für ILIAS:** 9.0 – 9.999
+**Für ILIAS:** 9.0 – 9.24
 
 Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Online-Prüfungen. Es basiert auf einem **modularen System**: Funktionalität wird in eigenständigen Modulen gebündelt, die über die Plugin-Administration als ZIP hochgeladen, aktiviert und deaktiviert werden können – ohne den Plugin-Kern zu ändern.
 
@@ -14,16 +14,15 @@ Das **ExtendedTestSettings** Plugin erweitert ILIAS-Tests um Funktionen für Onl
 
 ## Features
 
-- **Modulare Architektur** – Module als eigenständige ZIP-Pakete installier- und aktualisierbar
-- **ExamCalc** – Taschenrechner (einfach oder wissenschaftlich) für Prüfungen
-- **ExamSymbols** – Sonderzeichen-Paletten für Fachbereiche
-- **ExamGuard** – Prüfungsschutz durch Eingabeeinschränkungen
-- **ExamAlert** – Zeitbasierte Warnungen vor Prüfungsende
-- **ExamChecker** – Prüfung der Testeinstellungen gegen konfigurierbare Soll-Werte
-- **ExamConnGuard** – Verbindungs-Schutz bei WLAN-Aussetzern im Test-Player
-- **Eigene Module** – über ZIP installierbar, beliebig erweiterbar
+- **Modulare Architektur** – Module als eigenständige ZIP-Pakete installier-, aktivier- und aktualisierbar, ohne den Plugin-Kern zu ändern
+- **Modul-Updates aus einem Repository** – automatische Update-Prüfung gegen ein konfigurierbares GitHub-Repository
+- **Pro-Test-Konfiguration** – eigener Sub-Tab „Erweiterte Test-Einstellungen“ in jedem Test
+- **Steuerbare Sichtbarkeit** – System-Administratoren, Kurs-Administratoren oder eine Benutzer-Whitelist
+- **Zentrales Geräte-Inventar** – IP → Koffer/Gerät-Zuordnung per CSV-Import, nutzbar für Module
+- **Mehrsprachigkeit** – Deutsch/Englisch für Kern und Module
+- **Eigene Module** – über ein schlankes Interface beliebig erweiterbar
 
-Alle Module sind im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) verfügbar.
+Ein Auszug der verfügbaren Module findet sich unter [Module](#module).
 
 ---
 
@@ -188,7 +187,9 @@ Das Paket muss genau eine `module.json` an der Paketwurzel enthalten; bei einem 
 
 ## Module
 
-Alle Module werden separat im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) gepflegt und versioniert. Dort finden sich jeweils die ZIP-Downloads, Dokumentation und Changelogs der einzelnen Module:
+Alle Module werden separat im [Module-Repository](https://github.com/andreschweigert/ExtendedTestSettings-Modules) gepflegt und versioniert. Dort finden sich jeweils die ZIP-Downloads, Dokumentation und Changelogs der einzelnen Module.
+
+**Auszug der verfügbaren Module:**
 
 - **ExamCalc** – Taschenrechner (einfach + wissenschaftlich mit 2nd-Ebene, Verlauf, Speicher)
 - **ExamSymbols** – Sonderzeichen-Paletten (Mathematik, Sprachen, Naturwissenschaften)
